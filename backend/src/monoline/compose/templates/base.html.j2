@@ -228,9 +228,15 @@
          Data kinds slide in from the left (x) to match their horizontal push transition;
          narrative kinds rise (y). Steady state is identical either way (both end at 0). #}
       {%- set data_kind = scene.kind in ['stat','list','table','cards','compare'] %}
-      tl.fromTo("#scene-{{ seg.i }} .scene-icon, #scene-{{ seg.i }} .scene-media, #scene-{{ seg.i }} .inner > *:not(.headline,.s-title,.term,.q)",
+      tl.fromTo("#scene-{{ seg.i }} .scene-icon, #scene-{{ seg.i }} .scene-media, #scene-{{ seg.i }} .inner > *:not(.headline,.s-title,.term,.q,.rows)",
         { opacity: 0, {% if data_kind %}x: -30{% else %}y: 24{% endif %} },
         { opacity: 1, {% if data_kind %}x: 0{% else %}y: 0{% endif %}, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.09 }, {{ seg.start }});
+      {# V16 row-by-row reveal for table/cards (their rows are nested in .rows, so the block
+         entrance above excludes .rows and each row staggers in from the left instead). #}
+      {%- if scene.kind in ['table','cards'] %}
+      tl.fromTo("#scene-{{ seg.i }} .row", { opacity: 0, x: -24 },
+        { opacity: 1, x: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.11 }, {{ (seg.start + 0.12)|round(3) }});
+      {%- endif %}
       {# V9-3 kinetic headline: the display text wipes in left→right (clip-path) + settles,
          a distinct signature motion for the focal line vs the fade/rise of secondary content. #}
       tl.fromTo("#scene-{{ seg.i }} .headline, #scene-{{ seg.i }} .s-title, #scene-{{ seg.i }} .term, #scene-{{ seg.i }} .q",

@@ -76,6 +76,7 @@
 - ✅ V13 字幕版式化：caption 随 data-layout 分化——editorial 左下 lower-third + accent 左描边 + 左对齐；bold 居中加粗 + 厚 accent 左条 + 更强底色；minimal 原样。三档同帧抽帧核验各异。
 - ✅ V14 数据类方向化入场：stat/list/table/cards/compare 内层内容从左滑入（x:-30→0 + stagger），与横向 push 转场构成视差（场景自右推入、内容自左错峰），叙事类仍上浮；稳态不变、transform-only 确定性。grep 生成的时间线 JS + 抽帧错峰核验。
 - ✅ V15 stat 数字滚动 count-up：`engine.count_up` 解析干净数值核+前后缀（千分位/多数字/纯文字→None 静态回退），stat.html.j2 渲染 `.cu` span（data-to/dec/start），时间线末尾一段 querySelectorAll('.cu') 代理 tween 做 0→目标滚动，与环描同步。抽帧核验 1.89s=50%、3.99s=92%（seek 下确定、后缀 % 保留）。count_up 契约单测 + 后端 32 测试全过；warmup 绿。（注：改 engine.py 需重启服务，模板才热重载。）
+- ✅ V16 表格/卡片逐行错峰：table/cards 的行嵌在 `.rows` 里、此前整块入场。现把 `.rows` 从块入场选择器排除，对 `.row` 单独加左滑 stagger（0.11）；list/compare 的行本是 `.inner` 直接子元素、V14 已逐行。抽帧核验 1.85s 三行由上到下渐显、3.6s 齐平；护栏单测锁「table/cards 各 1 条 row tween、叙事场景无」；后端 33 测试全过、warmup 绿。
 - 附 UI：NewView 音色选择器折叠化，主流程回到一屏（收起态 + aria-expanded + 展开 25 音色，浏览器点按核验）。
 - 成功判据：抽帧对比明显「非文字流」✅；`make warmup` 绿 ✅；后端测试不回归（29）✅；每切片有渲染证据 ✅。
 

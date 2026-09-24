@@ -360,3 +360,24 @@ def test_count_up_parsing_contract():
     assert cu("2026年9月") is None
     assert cu("九十二") is None
     assert cu("") is None
+
+
+def test_row_stagger_for_nested_table_cards():
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    t = Timings.from_durations(["表。", "卡。"], [3.0, 3.0])
+    plan = ScenePlan(theme=theme, scenes=[
+        {"i": 0, "kind": "table", "slots": {"rows": [{"k": "a", "v": "1"}, {"k": "b", "v": "2"}]}},
+        {"i": 1, "kind": "cards", "slots": {"name": "X", "rows": [{"k": "a", "v": "1"}, {"k": "b", "v": "2"}]}}])
+    html = render_composition(t, plan)
+    # the block entrance excludes the nested .rows container, and each scene gets a per-row tween
+    assert ".term,.q,.rows)" in html
+    assert html.count('.row", { opacity: 0, x: -24') == 2   # one per table/cards scene
+    # a narrative scene must NOT get the row tween (no .row elements)
+    t2 = Timings.from_durations(["陈述。"], [3.0])
+    plan2 = ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "statement", "slots": {"headline": "陈述"}}])
+    assert '.row", { opacity: 0, x: -24' not in render_composition(t2, plan2)
