@@ -281,6 +281,15 @@
       tl.fromTo("#progress-fill", { scaleX: 0 }, { scaleX: 1, duration: {{ total }}, ease: "none" }, 0);
       {#- V9-7 ambient life: the accent glow drifts slowly across the whole video #}
       tl.to("#glow", { xPercent: 26, yPercent: -20, duration: {{ total }}, ease: "sine.inOut" }, 0);
+      {#- V15 kinetic count-up: stat numbers roll 0→target via a proxy tween. Runs during
+          timeline build (sync, not async); deterministic because seek recomputes progress. #}
+      document.querySelectorAll(".cu").forEach(function (el) {
+        var to = parseFloat(el.dataset.to), dec = parseInt(el.dataset.dec || "0", 10);
+        var st = parseFloat(el.dataset.start || "0");
+        var o = { v: 0 };
+        tl.to(o, { v: to, duration: 1.0, ease: "power2.out",
+          onUpdate: function () { el.textContent = o.v.toFixed(dec); } }, st + 0.25);
+      });
       window.__timelines["main"] = tl;
       tl.seek(0);
     </script>

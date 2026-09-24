@@ -342,3 +342,21 @@ def test_layout_presets_render_distinct_and_validate():
     assert 'data-layout="editorial"] .frame' in minimal and 'data-layout="bold"] .eyebrow' in minimal
     # unknown layout fails closed to minimal (never an empty/invalid attribute)
     assert body_layout(render_composition(t, plan, layout="comic-sans")) == "minimal"
+
+
+def test_count_up_parsing_contract():
+    import json
+    from pathlib import Path
+    from monoline.compose.engine import _env
+    cu = _env().globals["count_up"]
+    # clean numeric cores split into prefix + number + suffix (suffix carries the unit)
+    assert cu("92%") == {"prefix": "", "num": "92", "dec": 0, "suffix": "%"}
+    assert cu("1.5万") == {"prefix": "", "num": "1.5", "dec": 1, "suffix": "万"}
+    assert cu("约 30％") == {"prefix": "约 ", "num": "30", "dec": 0, "suffix": "％"}
+    assert cu("↓3倍") == {"prefix": "↓", "num": "3", "dec": 0, "suffix": "倍"}
+    assert cu("0.001")["dec"] == 3
+    # anything with digits in the "suffix" (thousands sep, multi-number, dates) → static fallback
+    assert cu("1,000") is None
+    assert cu("2026年9月") is None
+    assert cu("九十二") is None
+    assert cu("") is None

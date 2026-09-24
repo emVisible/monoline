@@ -33,6 +33,21 @@ def _env() -> Environment:
         return max(min_px, px)
 
     env.globals["headline_px"] = headline_px
+
+    def count_up(text: str):
+        """Split a value into prefix + a clean numeric core + suffix for a
+        deterministic count-up. Returns None unless the whole string is exactly
+        [non-digit prefix][one number][non-digit suffix] — so thousands
+        separators ("1,000") or multi-number text fall back to static rendering."""
+        import re
+        m = re.match(r"^([^\d-]*)(-?\d+(?:\.\d+)?)([^\d]*)$", (text or "").strip())
+        if not m:
+            return None
+        prefix, num, suffix = m.group(1), m.group(2), m.group(3)
+        dec = len(num.split(".")[1]) if "." in num else 0
+        return {"prefix": prefix, "num": num, "dec": dec, "suffix": suffix}
+
+    env.globals["count_up"] = count_up
     from .icons import svg as _icon_svg
     from .viz import pct as _pct, ring as _ring, row_bars as _row_bars
     env.globals["icon_svg"] = _icon_svg
