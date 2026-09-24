@@ -67,9 +67,11 @@
 - ✅ V9-4 版式破居中 + 强调规：主画面文案加 accent 强调规 scaleX 绘入；statement/section 采编辑式左对齐栏，与 title/summary 居中形成错落。
 - V9-5 强调动效：stat 数字滚动、可视化环/条描画、关键词随旁白高亮弹入。
 - ✅ V9-6 章节页：section 拍按序编号（planner 填 index 01/02…）+ 超大 accent 序号 + 编辑式左对齐 + → 图标 + accent 规 + 标题擦入，成 PPT 章节分隔页；横竖屏抽帧核验无溢出。（mask-wipe/push 额外转场类型仍待做。）
-- V9-5 强调动效：accent 下划线绘制、stat 数字滚动、可视化环/条描画、关键词随旁白高亮弹入。
-- V9-6 章节感 & 转场升级：section 做整幅章节页（accent 铺满+序号+规线扫过）；补 mask-wipe/push 等分级转场。
-- 成功判据：抽帧对比明显「非文字流」；`make warmup` 绿；后端测试不回归；每切片有渲染证据。
+- ✅ V9-5 数据可视化描入：stat 环 stroke-dashoffset 从空描入、表格条 scaleX 生长（transform/stroke-only）。
+- ✅ V9-6 章节页：section 按序编号（planner 填 index 01/02…）+ 超大 accent 序号 + 编辑式版式 + → 图标 + accent 规；横竖屏抽帧核验。（mask-wipe/push 额外转场仍开放。）
+- ✅ V9-7 环境光漂移：#glow 柔焦 accent 光晕随全片缓慢漂移（sine.inOut），注入呼吸感氛围动效，不遮文字。
+- 附 UI：NewView 音色选择器折叠化，主流程回到一屏（收起态 + aria-expanded + 展开 25 音色，浏览器点按核验）。
+- 成功判据：抽帧对比明显「非文字流」✅；`make warmup` 绿 ✅；后端测试不回归（29）✅；每切片有渲染证据 ✅。
 
 ## 执行原则
 - 每版本先写最小可测后端，再接前端，端到端抽帧/实测验证后才算完成；只做加法不破坏既有绿测。
