@@ -48,7 +48,7 @@
       .frame { position: absolute; inset: 0; display: flex;
         align-items: center; justify-content: center; transform: scale(var(--scene-scale)); transform-origin: center;
         padding: var(--gutter-y) var(--gutter-x) calc(var(--caption-bottom) + 80px); }
-      .sbody { display: flex; flex-direction: column; align-items: center; gap: 28px; opacity: 0; max-width: min(1400px, 100%); }
+      .sbody { display: flex; flex-direction: column; align-items: center; gap: 28px; max-width: min(1400px, 100%); }
       .sbody > .inner { text-align: center; max-width: 100%; }
       .scene-icon { color: var(--accent); line-height: 0; }
       .scene-icon svg { width: 118px; height: 118px; }
@@ -182,8 +182,11 @@
       {%- set scene = scenes[seg.i] %}
       {%- set show_cap = captions.mode != "none" and not scene.slots.get("verbatim") %}
       {# entrance of the slide content (and its caption) at the scene's start #}
-      tl.fromTo("#scene-{{ seg.i }} .sbody", { opacity: 0, y: 28 },
-        { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}" }, {{ seg.start }});
+      {# entrance: stagger the scene's icon / media / content children (icon→headline→sub→rows…)
+         instead of revealing the whole .sbody as one block — the key "designed, not text-flow" signal. #}
+      tl.fromTo("#scene-{{ seg.i }} .scene-icon, #scene-{{ seg.i }} .scene-media, #scene-{{ seg.i }} .inner > *",
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.09 }, {{ seg.start }});
       {%- if show_cap %}
       tl.fromTo("#scene-{{ seg.i }} .cap > .inner", { opacity: 0, y: 16 },
         { opacity: 1, y: 0, duration: {{ capenter }}, ease: "power2.out" }, {{ seg.start }});
