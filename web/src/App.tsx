@@ -247,7 +247,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       <div className="meta">
         <span>{lines.length} beats</span>
         <span>{chars} chars</span>
-        <span>≈ {Math.round(lines.length * 6)}s</span>
+        <span>≈ {Math.round(lines.length * 3)}s</span>
         <span className="spacer" />
         <button className="generate" disabled={!lines.length || busy || !voice} onClick={generate}>
           {busy ? "…" : "Generate ⌘↵"}
