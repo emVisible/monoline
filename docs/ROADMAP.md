@@ -61,10 +61,12 @@
 > 对标提炼（不闭门造车）：Gamma/Beautiful.ai（版式层级+留白+克制动效）、Prezi/Keynote（空间叙事与 magic-move 连续感）、
 > kinetic-typography 说明片流派（分层入场、逐词/逐行揭示、强调节奏）、HeyGen/HyperFrames 动效生态（rules/blueprints/transitions）。
 > 现状基线：每场 `.sbody` 作为**整块**淡入+上浮 → 观感像「文字流」。下面按杠杆从高到低排切片，每片实现→渲染→抽帧/截图核验→提交。
-- V9-1 背景纵深（低风险，纯 CSS，先做）：`#bg` 由平铺渐变升级为「accent 径向柔光 + 次级 ink 光 + 渐变」分层，营造景深与品牌感，accent 仍克制。
-- V9-2 分层入场（高杠杆）：每场内 icon→标题→副文→行/项 依次错峰 reveal（仅 transform+opacity），替代整块出现；需给 13 个 kind 模板的关键子元素加稳定 hook（如 `.rise`）。
-- V9-3 动能标题：headline 遮罩/裁剪揭示或 scale 落定；eyebrow 字距收拢。
-- V9-4 版式破居中：引入左对齐/三分法编辑式变体、超大序号、hairline 规线，打破「全居中」单调。
+- ✅ V9-1 背景纵深：`#bg` 升级为「accent 径向柔光 + 次级 ink 光 + 基础渐变」分层，营造景深与品牌感，accent 仍克制。抽帧核验。
+- ✅ V9-2 分层入场：每场 icon→eyebrow→headline→sub→行/项 依次错峰 reveal（transform+opacity、stagger 0.09），替代整块出现。零模板改动（选择器 `.scene-icon/.scene-media/.inner > *`）。
+- ✅ V9-3 动能标题：展示型大字 `.headline/.s-title/.term/.q` 用 clip-path inset 从左到右擦入 + 落定，与次要元素分层。
+- ✅ V9-4 版式破居中 + 强调规：主画面文案加 accent 强调规 scaleX 绘入；statement/section 采编辑式左对齐栏，与 title/summary 居中形成错落。
+- V9-5 强调动效：stat 数字滚动、可视化环/条描画、关键词随旁白高亮弹入。
+- V9-6 章节感 & 转场：section 整幅章节页（accent 铺满+超大序号+规线扫过）；补 mask-wipe/push 分级转场。
 - V9-5 强调动效：accent 下划线绘制、stat 数字滚动、可视化环/条描画、关键词随旁白高亮弹入。
 - V9-6 章节感 & 转场升级：section 做整幅章节页（accent 铺满+序号+规线扫过）；补 mask-wipe/push 等分级转场。
 - 成功判据：抽帧对比明显「非文字流」；`make warmup` 绿；后端测试不回归；每切片有渲染证据。
