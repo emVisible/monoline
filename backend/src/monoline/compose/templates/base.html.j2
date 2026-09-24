@@ -51,6 +51,10 @@
       .sbody { display: flex; flex-direction: column; align-items: center; gap: 28px; max-width: min(1400px, 100%); }
       .accent-rule { display: block; width: 128px; height: 4px; border-radius: 2px; background: var(--accent);
         transform: scaleX(0); transform-origin: center; margin-top: 4px; }
+      /* editorial variant: left-aligned column (breaks the all-centered "text-flow" feel) */
+      .sbody--ed { align-items: flex-start; }
+      .sbody--ed .inner { text-align: left; }
+      .sbody--ed .accent-rule { align-self: flex-start; transform-origin: left center; }
       .sbody > .inner { text-align: center; max-width: 100%; }
       .scene-icon { color: var(--accent); line-height: 0; }
       .scene-icon svg { width: 118px; height: 118px; }
@@ -161,7 +165,7 @@
       {# scenes are plain (non-clip) divs; the ROOT is the only timed clip. GSAP drives #}
       {# visibility so adjacent scenes can cross-dissolve (overlap) at each boundary. #}
       <section id="scene-{{ seg.i }}" class="scene" style="z-index:{{ seg.i + 1 }}; opacity:{{ 1 if seg.i == 0 else 0 }};">
-        <div class="frame"><div class="sbody">
+        <div class="frame"><div class="sbody{{ ' sbody--ed' if scene.kind in ['statement', 'section'] }}">
           {%- if scene.slots.get("icon") %}<div class="scene-icon">{{ icon_svg(scene.slots.get("icon")) | safe }}</div>{% endif %}
           {%- if scene.kind != "image" and scene.slots.get("image") %}<div class="scene-media"><img src="{{ scene.slots.get('image') }}" alt="">{% if scene.slots.get("image_caption") %}<span class="mcap">{{ scene.slots.get("image_caption") }}</span>{% endif %}</div>{% endif %}
           {% include "kinds/" + scene.kind + ".html.j2" %}
