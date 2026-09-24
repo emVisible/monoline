@@ -84,7 +84,9 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   const [voice, setVoice] = useState("");
   const [voiceOpen, setVoiceOpen] = useState(false);
   const audition = useAudition();
-  const lines = script.split("\n").map((l) => l.trim()).filter(Boolean);
+  // Estimate beats the way the backend segmenter does: split on newlines AND sentence-final
+  // punctuation (CJK 。！？ and a latin period only when followed by a space, so "3.14" is safe).
+  const lines = script.split(/[\n。！？!?…]+/).flatMap((p) => p.split(/\.(?=\s)/)).map((l) => l.trim()).filter(Boolean);
   const chars = script.replace(/\s/g, "").length;
 
   useEffect(() => {
@@ -127,7 +129,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
 
   return (
     <div className="intake">
-      <p className="eyebrow">Paste script · one line = one beat</p>
+      <p className="eyebrow">Paste script · one sentence = one beat</p>
       <div className="ai-row">
         {aiReady ? (
           <>
