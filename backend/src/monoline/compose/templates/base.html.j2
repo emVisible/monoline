@@ -163,14 +163,15 @@
       body[data-layout="editorial"] .scene-media,
       body[data-layout="editorial"] .k-image { align-items: flex-start; }
       body[data-layout="editorial"] #glow { left: auto; right: -10%; }
-      /* bold: accent-filled eyebrow, larger hero type, heavier rule */
+      /* bold: accent-filled eyebrow, larger hero type (via --hl-scale so the
+         adaptive overflow guard still shrinks long headlines), heavier rule */
+      body[data-layout="bold"] { --hl-scale: 1.16; }
       body[data-layout="bold"] .eyebrow { color: var(--accent-ink); background: var(--accent);
         padding: 8px 22px; border-radius: 999px; letter-spacing: 0.22em; text-transform: uppercase; }
-      body[data-layout="bold"] .k-title .headline { font-size: 232px; font-weight: 900; }
-      body[data-layout="bold"] .k-statement .headline { font-size: 140px; font-weight: 800; }
-      body[data-layout="bold"] .k-summary .headline { font-size: 150px; font-weight: 900; }
+      body[data-layout="bold"] .headline { font-weight: 900; }
       body[data-layout="bold"] .k-quote .q { font-size: 120px; font-weight: 800; }
       body[data-layout="bold"] .k-definition .term { font-size: 96px; }
+      body[data-layout="bold"] .k-section .s-title { font-size: 122px; }
       body[data-layout="bold"] .accent-rule { width: 200px; height: 10px; border-radius: 5px; }
       body[data-layout="bold"] #glow { opacity: 1; }
     </style>

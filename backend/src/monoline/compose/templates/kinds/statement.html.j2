@@ -1,6 +1,6 @@
 <div class="inner k-statement">
   {%- set hl = scene.slots.headline or seg.text %}
   {%- if scene.slots.eyebrow %}<div class="eyebrow">{{ scene.slots.eyebrow }}</div>{% endif %}
-  <div class="headline" style="font-size:{{ headline_px(hl, base=116, min_px=52, ref_chars=14) }}px">{{ hl }}</div>
+  <div class="headline" style="font-size:calc({{ headline_px(hl, base=116, min_px=52, ref_chars=14) }}px * var(--hl-scale,1))">{{ hl }}</div>
   {%- if scene.slots.sub %}<div class="sub">{{ scene.slots.sub }}</div>{% endif %}
 </div>

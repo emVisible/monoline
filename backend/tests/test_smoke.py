@@ -95,7 +95,7 @@ def test_compose_title_adaptive_size_no_overflow():
         {"i": 0, "kind": "title", "slots": {"headline": long_headline}},
         {"i": 1, "kind": "statement", "slots": {"headline": "第二拍"}}])
     html = render_composition(t, plan)
-    m = re.search(r"k-title.*?font-size:(\d+)px", html, re.S)
+    m = re.search(r"k-title.*?font-size:calc\((\d+)px", html, re.S)
     assert m and int(m.group(1)) < 190
 
 

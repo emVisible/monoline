@@ -1,5 +1,5 @@
 <div class="inner k-summary">
   {%- set hl = scene.slots.headline or seg.text %}
   {%- if scene.slots.eyebrow %}<div class="eyebrow">{{ scene.slots.eyebrow }}</div>{% endif %}
-  <div class="headline" style="font-size:{{ headline_px(hl, base=124, min_px=56, ref_chars=12) }}px">{{ hl }}</div>
+  <div class="headline" style="font-size:calc({{ headline_px(hl, base=124, min_px=56, ref_chars=12) }}px * var(--hl-scale,1))">{{ hl }}</div>
 </div>
