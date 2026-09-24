@@ -25,6 +25,21 @@ _WS = re.compile(r"\s+")
 # as a stat. Requires trailing whitespace → leaves "3.14", "-10%" and "C#" intact.
 _LIST_MARK = re.compile(r"^\s*(?:#{1,6}|[-*+•·‣⁃]|\d+[.)、])\s+")
 
+# Markdown inline syntax people paste (from docs / LLM output) → keep the visible text,
+# drop the markup so it never leaks onto the slide or into TTS.
+_MD_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+_MD_STRONG = re.compile(r"\*\*(.+?)\*\*|__(.+?)__")
+_MD_EM = re.compile(r"(?<![*\w])\*([^*\n]+?)\*(?![*\w])")
+_MD_CODE = re.compile(r"`([^`]+)`")
+
+
+def _strip_md(s: str) -> str:
+    s = _MD_LINK.sub(r"\1", s)
+    s = _MD_STRONG.sub(lambda m: m.group(1) if m.group(1) is not None else m.group(2), s)
+    s = _MD_EM.sub(r"\1", s)
+    s = _MD_CODE.sub(r"\1", s)
+    return s
+
 
 class Segmenter(Protocol):
     def segment(self, text: str) -> list[str]: ...
@@ -74,7 +89,7 @@ class SentenceSegmenter:
             # stay its own beat even when short (otherwise stripping the marker would let
             # "设计系统" fall under min_chars and merge into a run-on).
             protected = bool(_LIST_MARK.match(stripped))
-            line = _LIST_MARK.sub("", stripped, count=1)
+            line = _strip_md(_LIST_MARK.sub("", stripped, count=1))
             if not line:
                 continue
             sentences = [s.strip() for s in _SENT_SPLIT.split(line) if s and s.strip()]

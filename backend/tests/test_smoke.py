@@ -78,6 +78,16 @@ def test_segmenter_keeps_short_list_items_separate():
     assert segment_text("这是短句。这是另一句完整的话在这里。") == ["这是短句。这是另一句完整的话在这里。"]
 
 
+def test_segmenter_strips_markdown_inline():
+    # V23: pasted markdown (**bold**, [text](url), `code`, *em*) must not leak markup.
+    from monoline.pipeline.segment import segment_text
+    assert segment_text("这是**重点**内容") == ["这是重点内容"]
+    assert segment_text("详见 [官方文档](https://x.com/d) 了解。") == ["详见 官方文档 了解。"]
+    assert segment_text("运行 `npm install` 即可") == ["运行 npm install 即可"]
+    # a lone asterisk between spaces (multiplication) is NOT emphasis → preserved
+    assert segment_text("2 * 3 = 6 这个公式") == ["2 * 3 = 6 这个公式"]
+
+
 def test_assert_determinism_allows_text_urls_blocks_remote_resources():
     # V22: a URL in pasted display text must NOT fail the job (it's autoescaped, inert);
     # only remote RESOURCE references are forbidden.
