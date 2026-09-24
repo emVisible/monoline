@@ -49,6 +49,8 @@
         align-items: center; justify-content: center; transform: scale(var(--scene-scale)); transform-origin: center;
         padding: var(--gutter-y) var(--gutter-x) calc(var(--caption-bottom) + 80px); }
       .sbody { display: flex; flex-direction: column; align-items: center; gap: 28px; max-width: min(1400px, 100%); }
+      .accent-rule { display: block; width: 128px; height: 4px; border-radius: 2px; background: var(--accent);
+        transform: scaleX(0); transform-origin: center; margin-top: 4px; }
       .sbody > .inner { text-align: center; max-width: 100%; }
       .scene-icon { color: var(--accent); line-height: 0; }
       .scene-icon svg { width: 118px; height: 118px; }
@@ -163,6 +165,7 @@
           {%- if scene.slots.get("icon") %}<div class="scene-icon">{{ icon_svg(scene.slots.get("icon")) | safe }}</div>{% endif %}
           {%- if scene.kind != "image" and scene.slots.get("image") %}<div class="scene-media"><img src="{{ scene.slots.get('image') }}" alt="">{% if scene.slots.get("image_caption") %}<span class="mcap">{{ scene.slots.get("image_caption") }}</span>{% endif %}</div>{% endif %}
           {% include "kinds/" + scene.kind + ".html.j2" %}
+          {%- if scene.kind in ["title", "statement", "summary", "section", "definition", "quote", "note"] %}<span class="accent-rule"></span>{% endif %}
         </div></div>
         {%- if show_cap %}
         <div class="cap"><div class="inner">{{ seg.text }}</div></div>
@@ -191,6 +194,8 @@
       tl.fromTo("#scene-{{ seg.i }} .headline, #scene-{{ seg.i }} .s-title, #scene-{{ seg.i }} .term, #scene-{{ seg.i }} .q",
         { clipPath: "inset(-12% 100% -12% 0)", opacity: 0.001 },
         { clipPath: "inset(-12% 0% -12% 0)", opacity: 1, duration: {{ (enter + 0.28)|round(3) }}, ease: "{{ eease }}" }, {{ (seg.start + 0.06)|round(3) }});
+      {# V9-4 accent rule draws in under the hero (signature PPT flourish), transform-only #}
+      tl.fromTo("#scene-{{ seg.i }} .accent-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.55, ease: "{{ eease }}" }, {{ (seg.start + 0.42)|round(3) }});
       {%- if show_cap %}
       tl.fromTo("#scene-{{ seg.i }} .cap > .inner", { opacity: 0, y: 16 },
         { opacity: 1, y: 0, duration: {{ capenter }}, ease: "power2.out" }, {{ seg.start }});
