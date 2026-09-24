@@ -235,8 +235,10 @@ def test_image_kind_and_inset_image_render():
     html = render_composition(t, plan)
     assert '<img src="assets/a.png"' in html          # inset 配图 on a text kind
     assert '<img class="full" src="assets/b.jpg"' in html  # dedicated image kind
-    # image kind must NOT also emit the generic scene-media block
-    assert html.count("scene-media") < 5
+    # image kind must NOT also emit the generic scene-media block — count actual emitted
+    # blocks (class="scene-media"), not the bare token, which also appears in CSS + the
+    # stagger JS selector. Only scene-0 (statement w/ image) emits one; the image kind emits zero.
+    assert html.count('class="scene-media"') == 1
 
 
 def test_list_template_renders_items():
