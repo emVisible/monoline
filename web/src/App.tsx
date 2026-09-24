@@ -81,6 +81,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   const [aiErr, setAiErr] = useState<string | null>(null);
   const { voices, default: defaultVoice } = useVoices();
   const [voice, setVoice] = useState("");
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const audition = useAudition();
   const lines = script.split("\n").map((l) => l.trim()).filter(Boolean);
   const chars = script.replace(/\s/g, "").length;
@@ -190,35 +191,46 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       </div>
       {voices.length > 0 && (
         <div className="voices" role="group" aria-label="旁白音色">
-          <div className="voices-lbl">
+          <div className="voices-bar">
             <span className="opt-lbl">音色</span>
-            <span className="voices-cur">{voices.find((v) => v.id === voice)?.label ?? voice}</span>
+            <button className="voice-toggle" onClick={() => setVoiceOpen((o) => !o)} aria-expanded={voiceOpen}>
+              <span className="voices-cur">{voices.find((v) => v.id === voice)?.label ?? voice}</span>
+              <span className="vchev">{voiceOpen ? "▴" : "▾"}</span>
+            </button>
+            <button className="vplay-btn" onClick={() => audition.toggle(voice)}
+              aria-label={audition.playingId === voice ? "停止试听当前音色" : "试听当前音色"} title="试听">
+              {audition.loadingId === voice ? <span className="vload" />
+                : audition.playingId === voice ? <span className="veq"><i /><i /><i /></span>
+                : <span className="vplay" />}
+            </button>
           </div>
-          <div className="voice-groups">
-            {groupVoices(voices).map((g) => (
-              <div key={g.name} className="voice-cat">
-                <span className="voice-cat-name">{g.name}</span>
-                <div className="voice-chips">
-                  {g.items.map((v) => {
-                    const on = v.id === voice;
-                    const playing = audition.playingId === v.id;
-                    const loading = audition.loadingId === v.id;
-                    return (
-                      <div key={v.id} className={`vchip ${on ? "on" : ""} ${playing ? "playing" : ""}`}>
-                        <button className="vchip-pick" onClick={() => setVoice(v.id)} title={`${v.label} · ${v.lang}`}>{v.label}</button>
-                        <button className="vchip-play" onClick={() => audition.toggle(v.id)}
-                          aria-label={playing ? `停止试听 ${v.label}` : `试听 ${v.label}`}>
-                          {loading ? <span className="vload" />
-                            : playing ? <span className="veq"><i /><i /><i /></span>
-                            : <span className="vplay" />}
-                        </button>
-                      </div>
-                    );
-                  })}
+          {voiceOpen && (
+            <div className="voice-groups">
+              {groupVoices(voices).map((g) => (
+                <div key={g.name} className="voice-cat">
+                  <span className="voice-cat-name">{g.name}</span>
+                  <div className="voice-chips">
+                    {g.items.map((v) => {
+                      const on = v.id === voice;
+                      const playing = audition.playingId === v.id;
+                      const loading = audition.loadingId === v.id;
+                      return (
+                        <div key={v.id} className={`vchip ${on ? "on" : ""} ${playing ? "playing" : ""}`}>
+                          <button className="vchip-pick" onClick={() => setVoice(v.id)} title={`${v.label} · ${v.lang}`}>{v.label}</button>
+                          <button className="vchip-play" onClick={() => audition.toggle(v.id)}
+                            aria-label={playing ? `停止试听 ${v.label}` : `试听 ${v.label}`}>
+                            {loading ? <span className="vload" />
+                              : playing ? <span className="veq"><i /><i /><i /></span>
+                              : <span className="vplay" />}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <div className="meta">

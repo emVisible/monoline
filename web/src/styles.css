@@ -107,8 +107,17 @@ body {
 
 /* V8 — voice picker + audition */
 .voices { margin-top:20px; display:flex; flex-direction:column; gap:12px; }
-.voices-lbl { display:flex; align-items:baseline; gap:10px; }
-.voices-cur { font-size:14px; color:var(--accent); font-weight:500; letter-spacing:0; }
+.voices-bar { display:flex; align-items:center; gap:10px; }
+.voice-toggle { display:inline-flex; align-items:center; gap:8px; background:transparent; border:1px solid var(--hairline);
+  border-radius:999px; padding:6px 12px; color:var(--ink); font:inherit; font-size:14px; cursor:pointer;
+  transition:border-color var(--t-element) var(--ease-out-quart); }
+.voice-toggle:hover { border-color:var(--ink-faint); }
+.voices-cur { color:var(--accent); font-weight:500; }
+.vchev { color:var(--ink-faint); font-size:11px; }
+.vplay-btn { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:999px;
+  border:1px solid var(--hairline); background:transparent; color:var(--ink-muted); cursor:pointer;
+  transition:color var(--t-micro), border-color var(--t-micro); }
+.vplay-btn:hover { color:var(--accent); border-color:var(--accent); }
 .voice-groups { display:flex; flex-wrap:wrap; gap:16px 28px; }
 .voice-cat { display:flex; flex-direction:column; gap:7px; }
 .voice-cat-name { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); }
