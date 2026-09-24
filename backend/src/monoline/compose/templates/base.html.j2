@@ -226,6 +226,11 @@
       tl.to("#scene-{{ seg.i - 1 }}", { filter: "blur(18px)", opacity: 0, duration: 0.7, ease: "sine.inOut" }, {{ T }});
       tl.fromTo("#scene-{{ seg.i }}", { filter: "blur(18px)", opacity: 0 },
         { filter: "blur(0px)", opacity: 1, duration: 0.7, ease: "sine.inOut" }, {{ T }});
+      {%- elif scene.kind in ['stat', 'list', 'table', 'cards', 'compare'] %}
+      {#- data/structured → directional push (parallax slide + fade), distinct from the narrative blur #}
+      tl.to("#scene-{{ seg.i - 1 }}", { xPercent: -16, opacity: 0, duration: {{ tdur }}, ease: "power2.inOut" }, {{ T }});
+      tl.fromTo("#scene-{{ seg.i }}", { xPercent: 16, opacity: 0 },
+        { xPercent: 0, opacity: 1, duration: {{ tdur }}, ease: "power2.out" }, {{ T }});
       {%- else %}
       {#- primary → blur crossfade (this continues) #}
       tl.to("#scene-{{ seg.i - 1 }}", { filter: "blur({{ blur }}px)", opacity: 0, duration: {{ tdur }}, ease: "power2.inOut" }, {{ T }});
