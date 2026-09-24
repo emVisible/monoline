@@ -1,0 +1,14 @@
+node_modules
+dist
+.direnv
+*.pyc
+__pycache__
+.venv
+.env
+.DS_Store
+# runtime user data lives under ~/Library/Application Support/Monoline, never in-repo
+backend/src/monoline/static/*
+!backend/src/monoline/static/.gitkeep
+renders/
+workspaces/
+*.log

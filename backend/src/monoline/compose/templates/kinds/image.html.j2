@@ -1,0 +1,7 @@
+<div class="inner k-image">
+  {%- if scene.slots.get("image") %}
+  <img class="full" src="{{ scene.slots.get('image') }}" alt="">
+  {%- endif %}
+  {%- set hl = scene.slots.headline or scene.slots.image_caption %}
+  {%- if hl %}<div class="headline" style="font-size:{{ headline_px(hl, base=88, min_px=44, ref_chars=18) }}px">{{ hl }}</div>{% endif %}
+</div>

@@ -1,0 +1,36 @@
+{
+  "_comment": "UI-only design language for the Monoline app (the video uses mono-ink/mono-paper). Elevation via hairlines + faint overlays, never drop shadows. Accent ≤3 uses per screen. No bounce/overshoot — precise slow easing.",
+  "color": {
+    "paper": "#0B0B0C",
+    "surface": "#121214",
+    "elev": "#17171A",
+    "hairline": "#232327",
+    "ink": "#F4F4F5",
+    "ink_muted": "#8B8B93",
+    "ink_faint": "#4A4A52",
+    "accent": "#C4F82A",
+    "accent_ink": "#0B0B0C"
+  },
+  "type": {
+    "family_ui": "\"MonolineUI\", -apple-system, \"PingFang SC\", \"Noto Sans SC\", sans-serif",
+    "scale_px": [12, 14, 17, 20, 24, 30, 42, 60],
+    "leading_body": 1.6,
+    "measure_ch": 68,
+    "eyebrow": { "transform": "uppercase", "tracking": "0.12em" },
+    "display_tracking": "-0.02em",
+    "tabular_numbers": true
+  },
+  "space_px": [4, 8, 12, 16, 24, 32, 48, 64, 96, 128],
+  "radii_px": [2, 6, 10, 999],
+  "motion": {
+    "durations_ms": { "micro": 120, "element": 200, "surface": 360, "scene": 520 },
+    "ease": {
+      "out_quart": "cubic-bezier(.22,1,.36,1)",
+      "out_quint": "cubic-bezier(.83,0,.17,1)",
+      "in_out_soft": "cubic-bezier(.4,0,.2,1)"
+    },
+    "translate_px": [6, 10, 16],
+    "stagger_ms": { "base": 48, "cap_items": 12 },
+    "reduced_motion": "opacity-only@120ms"
+  }
+}

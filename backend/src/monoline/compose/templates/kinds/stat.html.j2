@@ -1,0 +1,14 @@
+<div class="inner k-stat">
+  {%- set val = scene.slots.value or scene.slots.headline %}
+  {%- set p = pct(val) %}
+  {%- if p is not none %}
+  <div class="ring-wrap">
+    {{ ring(p) | safe }}
+    <div class="ring-center"><span class="value in-ring">{{ val }}</span></div>
+  </div>
+  {%- else %}
+  <div class="value">{{ val }}</div>
+  {%- endif %}
+  {%- if scene.slots.unit %}<div class="unit">{{ scene.slots.unit }}</div>{% endif %}
+  {%- if scene.slots.label %}<div class="label">{{ scene.slots.label }}</div>{% endif %}
+</div>

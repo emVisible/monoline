@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width={{ canvas.width }}, height={{ canvas.height }}" />
+    <title>{{ brand.label }} — {{ title }}</title>
+    <script src="vendor/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "ExplainerCJK";
+        src: url("fonts/cjk.woff2") format("woff2");
+        font-weight: 100 900;
+        font-display: block;
+      }
+      :root {
+        --paper: {{ theme.color.paper }};
+        --surface: {{ theme.color.surface }};
+        --hairline: {{ theme.color.hairline }};
+        --ink: {{ theme.color.ink }};
+        --ink-muted: {{ theme.color.ink_muted }};
+        --ink-faint: {{ theme.color.ink_faint }};
+        --accent: {{ theme.color.accent }};
+        --accent-ink: {{ theme.color.accent_ink }};
+        --gutter-x: {{ theme.space.gutter_x }}px;
+        --gutter-y: {{ theme.space.gutter_y }}px;
+        --caption-bottom: {{ theme.space.caption_bottom }}px;
+        --caption-max-w: {{ theme.space.caption_max_w }}px;
+        --scene-scale: 1;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: {{ canvas.width }}px; height: {{ canvas.height }}px; overflow: hidden; background: var(--paper); }
+      #root {
+        position: relative; width: 100%; height: 100%; overflow: hidden;
+        font-family: "ExplainerCJK", sans-serif; color: var(--ink);
+      }
+      #bg { position: absolute; inset: 0; z-index: 0; background:
+        linear-gradient(180deg, var(--paper), var(--surface)); }
+      #brand { position: absolute; top: 56px; left: var(--gutter-x); z-index: 40;
+        font-size: 26px; letter-spacing: 0.02em; color: var(--ink-muted); font-weight: 600; }
+      #brand .a { color: var(--accent); }
+      #progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 45;
+        background: color-mix(in oklab, var(--hairline) 70%, transparent); }
+      #progress-fill { display: block; height: 100%; width: 100%; background: var(--accent);
+        transform: scaleX(0); transform-origin: left center; }
+      .scene { position: absolute; inset: 0; }
+      .frame { position: absolute; inset: 0; display: flex;
+        align-items: center; justify-content: center; transform: scale(var(--scene-scale)); transform-origin: center;
+        padding: var(--gutter-y) var(--gutter-x) calc(var(--caption-bottom) + 80px); }
+      .sbody { display: flex; flex-direction: column; align-items: center; gap: 28px; opacity: 0; max-width: min(1400px, 100%); }
+      .sbody > .inner { text-align: center; max-width: 100%; }
+      .scene-icon { color: var(--accent); line-height: 0; }
+      .scene-icon svg { width: 118px; height: 118px; }
+      .scene-media { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      .scene-media img { max-width: min(1080px, 90vw); max-height: 44vh; object-fit: contain;
+        border-radius: 14px; border: 1px solid var(--hairline); }
+      .scene-media .mcap { font-size: 26px; color: var(--ink-muted); }
+      .k-image { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+      .k-image img.full { max-width: min(1400px, 94vw); max-height: 72vh; object-fit: contain;
+        border-radius: 16px; border: 1px solid var(--hairline); }
+      .cap { position: absolute; left: 0; right: 0; bottom: var(--caption-bottom); z-index: 30;
+        display: flex; justify-content: center; }
+      .cap > .inner { opacity: 0; max-width: var(--caption-max-w); text-align: center;
+        font-size: 40px; line-height: 1.5; color: var(--ink);
+        background: color-mix(in oklab, var(--paper) 70%, transparent);
+        border: 1px solid var(--hairline); padding: 18px 40px; border-radius: 10px; }
+
+      /* kind: title */
+      .k-title .eyebrow { font-size: 30px; letter-spacing: 0.45em; color: var(--ink-muted); text-transform: uppercase; }
+      .k-title .headline { font-size: 200px; font-weight: 800; letter-spacing: -0.035em; line-height: 0.95; margin: 12px 0; }
+      .k-title .sub { font-size: 44px; color: var(--ink-muted); }
+      /* kind: statement */
+      .k-statement .eyebrow { font-size: 28px; letter-spacing: 0.3em; color: var(--ink-faint); text-transform: uppercase; }
+      .k-statement .headline { font-size: 120px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+      .k-statement .headline .accent { color: var(--accent); }
+      .k-statement .sub { font-size: 40px; color: var(--ink-muted); margin-top: 20px; }
+      /* kind: summary */
+      .k-summary .eyebrow { font-size: 30px; letter-spacing: 0.4em; color: var(--ink-muted); text-transform: uppercase; }
+      .k-summary .headline { font-size: 130px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin-top: 16px; }
+
+      /* kind: stat */
+      .k-stat .value { font-size: 260px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--accent); }
+      .k-stat .ring-wrap { position: relative; width: 400px; height: 400px; }
+      .k-stat .ring { width: 100%; height: 100%; }
+      .k-stat .ring-track { stroke: var(--hairline); }
+      .k-stat .ring-fill { stroke: var(--accent); }
+      .k-stat .ring-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+      .k-stat .value.in-ring { font-size: 108px; }
+      .k-stat .unit { font-size: 60px; color: var(--ink-muted); }
+      .k-stat .label { font-size: 44px; color: var(--ink); margin-top: 24px; }
+      /* kind: table */
+      .k-table { width: 1120px; max-width: 100%; text-align: left; }
+      .k-table .t-title { font-size: 56px; font-weight: 700; margin-bottom: 28px; }
+      .k-table .row { padding: 20px 0; border-bottom: 1px solid var(--hairline); }
+      .k-table .rowline { display: flex; justify-content: space-between; align-items: baseline; }
+      .k-table .tbar { display: block; height: 8px; margin-top: 12px; border-radius: 4px; background: var(--accent); }
+      .k-table .row .k { font-size: 34px; color: var(--ink-muted); }
+      .k-table .row .v { font-size: 44px; font-weight: 700; color: var(--ink); }
+      /* kind: cards */
+      .k-cards { width: 1040px; max-width: 100%; padding: 56px 64px; border: 1px solid var(--hairline); border-radius: 20px;
+        background: var(--surface); text-align: left; }
+      .k-cards .c-head { display: flex; align-items: baseline; gap: 24px; margin-bottom: 32px; }
+      .k-cards .c-name { font-size: 88px; font-weight: 800; color: var(--accent); }
+      .k-cards .c-tag { font-size: 32px; color: var(--ink-muted); }
+      .k-cards .rows { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 48px; }
+      .k-cards .row { display: flex; justify-content: space-between; border-bottom: 1px solid var(--hairline); padding-bottom: 12px; }
+      .k-cards .row .k { font-size: 30px; color: var(--ink-muted); } .k-cards .row .v { font-size: 36px; font-weight: 700; }
+      /* kind: compare */
+      .k-compare { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 64px; max-width: 100%; }
+      .k-compare .col { text-align: center; padding: 44px 56px; border: 1px solid var(--hairline); border-radius: 18px; background: var(--surface); max-width: 100%; }
+      .k-compare .col.a { border-color: var(--accent); }
+      .k-compare .h { font-size: 80px; font-weight: 800; } .k-compare .col.a .h { color: var(--accent); }
+      .k-compare .d { font-size: 36px; color: var(--ink-muted); margin-top: 10px; }
+      .k-compare .pivot { font-size: 56px; font-weight: 800; color: var(--ink-faint); }
+      /* kind: quote */
+      .k-quote .q { font-size: 104px; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
+      .k-quote .attr { font-size: 36px; color: var(--ink-muted); margin-top: 28px; }
+      /* kind: definition */
+      .k-definition { text-align: left; width: 1200px; max-width: 100%; }
+      .k-definition .term { font-size: 84px; font-weight: 800; color: var(--accent); margin-bottom: 20px; }
+      .k-definition .gloss { font-size: 48px; line-height: 1.5; color: var(--ink); }
+      /* kind: list */
+      .k-list { text-align: left; width: 1120px; max-width: 100%; }
+      .k-list .l-title { font-size: 52px; font-weight: 700; margin-bottom: 24px; }
+      .k-list .items { list-style: none; }
+      .k-list .item { font-size: 46px; padding: 18px 0; border-bottom: 1px solid var(--hairline); color: var(--ink); }
+      .k-list .item::before { content: "— "; color: var(--accent); }
+      /* kind: section */
+      .k-section { text-align: left; }
+      .k-section .s-index { font-size: 40px; letter-spacing: 0.3em; color: var(--accent); text-transform: uppercase; }
+      .k-section .s-title { font-size: 120px; font-weight: 800; letter-spacing: -0.02em; margin-top: 8px; }
+      /* kind: note */
+      .k-note { display: flex; align-items: center; gap: 40px; text-align: left; }
+      .k-note .marker { width: 108px; height: 108px; border-radius: 999px; border: 2px solid var(--accent);
+        color: var(--accent); font-size: 76px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+      .k-note .body { font-size: 48px; line-height: 1.5; color: var(--ink); }
+
+      /* aspect-aware: fill the tall/narrow frame instead of letterboxing a 16:9 slide */
+      body[data-aspect="portrait"] { --scene-scale: 1.24; }
+      body[data-aspect="square"] { --scene-scale: 1.12; }
+      body[data-aspect="portrait"] #brand { top: 60px; left: calc(var(--gutter-x) * 0.8); font-size: 30px; }
+      body[data-aspect="portrait"] .cap > .inner { font-size: 44px; max-width: 88%; padding: 16px 30px; }
+      body[data-aspect="square"] .cap > .inner { font-size: 40px; max-width: 90%; }
+    </style>
+  </head>
+  <body data-aspect="{{ aspect }}">
+    <div id="root" data-composition-id="main" data-start="0" data-duration="{{ total }}"
+         data-width="{{ canvas.width }}" data-height="{{ canvas.height }}">
+      <div id="bg"></div>
+      <div id="brand"><span class="a">{{ brand.label }}</span></div>
+      <div id="progress"><span id="progress-fill"></span></div>
+      <audio id="vo" src="{{ vo_src }}" data-start="0" data-duration="{{ total }}"></audio>
+
+      {%- for seg in segments %}
+      {%- set scene = scenes[seg.i] %}
+      {# caption shows the full narration UNLESS the slide already renders that exact sentence #}
+      {%- set show_cap = captions.mode != "none" and not scene.slots.get("verbatim") %}
+      {# scenes are plain (non-clip) divs; the ROOT is the only timed clip. GSAP drives #}
+      {# visibility so adjacent scenes can cross-dissolve (overlap) at each boundary. #}
+      <section id="scene-{{ seg.i }}" class="scene" style="z-index:{{ seg.i + 1 }}; opacity:{{ 1 if seg.i == 0 else 0 }};">
+        <div class="frame"><div class="sbody">
+          {%- if scene.slots.get("icon") %}<div class="scene-icon">{{ icon_svg(scene.slots.get("icon")) | safe }}</div>{% endif %}
+          {%- if scene.kind != "image" and scene.slots.get("image") %}<div class="scene-media"><img src="{{ scene.slots.get('image') }}" alt="">{% if scene.slots.get("image_caption") %}<span class="mcap">{{ scene.slots.get("image_caption") }}</span>{% endif %}</div>{% endif %}
+          {% include "kinds/" + scene.kind + ".html.j2" %}
+        </div></div>
+        {%- if show_cap %}
+        <div class="cap"><div class="inner">{{ seg.text }}</div></div>
+        {%- endif %}
+      </section>
+      {%- endfor %}
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      {%- set enter = theme.motion.durations.enter %}
+      {%- set eease = theme.motion.ease_enter %}
+      {%- set capenter = theme.motion.durations.enter_caption %}
+      {%- set blur = 12 %}
+      {%- set tdur = 0.5 %}
+      {%- for seg in segments %}
+      {%- set scene = scenes[seg.i] %}
+      {%- set show_cap = captions.mode != "none" and not scene.slots.get("verbatim") %}
+      {# entrance of the slide content (and its caption) at the scene's start #}
+      tl.fromTo("#scene-{{ seg.i }} .sbody", { opacity: 0, y: 28 },
+        { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}" }, {{ seg.start }});
+      {%- if show_cap %}
+      tl.fromTo("#scene-{{ seg.i }} .cap > .inner", { opacity: 0, y: 16 },
+        { opacity: 1, y: 0, duration: {{ capenter }}, ease: "power2.out" }, {{ seg.start }});
+      {%- endif %}
+      {#- transitions graded by narrative role (incoming kind): one primary + 2 accents #}
+      {%- if not loop.first %}
+      {%- set T = seg.start %}
+      {%- if scene.kind == 'section' %}
+      {#- topic change → slide + dissolve (motion signal, softened so large centered text doesn't collide) #}
+      tl.to("#scene-{{ seg.i - 1 }}", { yPercent: -60, opacity: 0, duration: 0.5, ease: "power3.inOut" }, {{ T }});
+      tl.fromTo("#scene-{{ seg.i }}", { yPercent: 60, opacity: 0 },
+        { yPercent: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, {{ T }});
+      {%- elif scene.kind == 'summary' %}
+      {#- wind-down / outro → slow, gentle blur crossfade #}
+      tl.to("#scene-{{ seg.i - 1 }}", { filter: "blur(18px)", opacity: 0, duration: 0.7, ease: "sine.inOut" }, {{ T }});
+      tl.fromTo("#scene-{{ seg.i }}", { filter: "blur(18px)", opacity: 0 },
+        { filter: "blur(0px)", opacity: 1, duration: 0.7, ease: "sine.inOut" }, {{ T }});
+      {%- else %}
+      {#- primary → blur crossfade (this continues) #}
+      tl.to("#scene-{{ seg.i - 1 }}", { filter: "blur({{ blur }}px)", opacity: 0, duration: {{ tdur }}, ease: "power2.inOut" }, {{ T }});
+      tl.fromTo("#scene-{{ seg.i }}", { filter: "blur({{ blur }}px)", opacity: 0 },
+        { filter: "blur(0px)", opacity: 1, duration: {{ tdur }}, ease: "power2.inOut" }, {{ T }});
+      {%- endif %}
+      {%- endif %}
+      {%- endfor %}
+      {#- final scene fades to black at the very end (the only allowed exit) #}
+      {%- set last = segments | length - 1 %}
+      {%- if last >= 0 %}
+      tl.to("#scene-{{ last }}", { opacity: 0, duration: 0.6, ease: "power2.in" }, {{ (total - 0.6)|round(3) }});
+      {%- endif %}
+      {#- global timeline progress: one linear fill across the whole video #}
+      tl.fromTo("#progress-fill", { scaleX: 0 }, { scaleX: 1, duration: {{ total }}, ease: "none" }, 0);
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

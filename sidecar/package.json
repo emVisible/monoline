@@ -1,0 +1,15 @@
+{
+  "name": "@monoline/sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Stateless HyperFrames render sidecar. Spawned/owned by the Monoline Python backend.",
+  "engines": { "node": ">=22 <23" },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@hyperframes/producer": "0.8.63",
+    "hyperframes": "0.8.63"
+  }
+}

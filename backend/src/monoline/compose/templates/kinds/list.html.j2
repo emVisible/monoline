@@ -1,0 +1,6 @@
+<div class="inner k-list">
+  {%- if scene.slots.title %}<div class="l-title">{{ scene.slots.title }}</div>{% endif %}
+  <ul class="items">
+    {%- for it in scene.slots['items'] %}<li class="item">{{ it }}</li>{% endfor %}
+  </ul>
+</div>
