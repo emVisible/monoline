@@ -65,16 +65,22 @@ class SentenceSegmenter:
         return out
 
     def segment(self, text: str) -> list[str]:
-        beats: list[str] = []
+        raw: list[tuple[str, bool]] = []
         for line in text.splitlines():
-            line = _LIST_MARK.sub("", line.strip(), count=1)
+            stripped = line.strip()
+            if not stripped:
+                continue
+            # a line that started with a list/header marker is a deliberate item — it must
+            # stay its own beat even when short (otherwise stripping the marker would let
+            # "设计系统" fall under min_chars and merge into a run-on).
+            protected = bool(_LIST_MARK.match(stripped))
+            line = _LIST_MARK.sub("", stripped, count=1)
             if not line:
                 continue
-            # explicit line break = strong boundary; split the line into sentences
             sentences = [s.strip() for s in _SENT_SPLIT.split(line) if s and s.strip()]
             for sent in sentences:
-                beats.extend(self._split_long(sent))
-        beats = self._merge_tiny(beats)
+                raw.extend((b, protected) for b in self._split_long(sent))
+        beats = self._merge_tiny(raw)
         if len(beats) > self.max_beats:
             raise ValueError(f"{len(beats)} beats exceeds cap {self.max_beats}; split the script into shorter pieces")
         return beats
@@ -86,21 +92,24 @@ class SentenceSegmenter:
             return a + " " + b
         return a + b
 
-    def _merge_tiny(self, beats: list[str]) -> list[str]:
-        """Fold a beat shorter than min_chars into its neighbour (prefer previous)."""
-        out: list[str] = []
-        for b in beats:
-            if out and self._len(b) < self.min_chars and self._len(out[-1]) + self._len(b) <= self.max_chars + self.min_chars:
-                out[-1] = self._join(out[-1], b)
-            elif out and self._len(out[-1]) < self.min_chars:
-                out[-1] = self._join(out[-1], b)  # previous was tiny; absorb current into it
+    def _merge_tiny(self, raw: list[tuple[str, bool]]) -> list[str]:
+        """Fold a sub-min_chars fragment into its neighbour — but never touch a protected
+        (explicit list/header) beat, and never merge across a protected boundary."""
+        out: list[list] = []  # [text, protected]
+        for text, prot in raw:
+            mergeable = out and not prot and not out[-1][1] and (
+                self._len(out[-1][0]) < self.min_chars
+                or (self._len(text) < self.min_chars
+                    and self._len(out[-1][0]) + self._len(text) <= self.max_chars + self.min_chars))
+            if mergeable:
+                out[-1][0] = self._join(out[-1][0], text)
             else:
-                out.append(b)
-        # trailing fragment
-        if len(out) >= 2 and self._len(out[-1]) < self.min_chars:
-            out[-2] = self._join(out[-2], out[-1])
+                out.append([text, prot])
+        # trailing fragment (only if both it and the previous are unprotected)
+        if len(out) >= 2 and not out[-1][1] and not out[-2][1] and self._len(out[-1][0]) < self.min_chars:
+            out[-2][0] = self._join(out[-2][0], out[-1][0])
             out.pop()
-        return out
+        return [t for t, _ in out]
 
 
 def segment_text(text: str, **kw: object) -> list[str]:

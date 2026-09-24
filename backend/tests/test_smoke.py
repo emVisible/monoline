@@ -66,6 +66,18 @@ def test_segmenter_strips_list_markers():
     assert segment_text("#hashtag 话题很火") == ["#hashtag 话题很火"]
 
 
+def test_segmenter_keeps_short_list_items_separate():
+    # V21: stripping a marker can drop an item under min_chars; explicit list/header lines
+    # must still stay their own beat (not merge into a run-on), while ordinary short
+    # fragments still fold into their neighbour.
+    from monoline.pipeline.segment import segment_text
+    assert segment_text("步骤如下。\n1. 设计系统\n2. 构建模型\n3. 上线服务") == \
+        ["步骤如下。", "设计系统", "构建模型", "上线服务"]
+    assert segment_text("# 标题\n- 第一点\n- 第二点") == ["标题", "第一点", "第二点"]
+    # unprotected tiny fragment still merges
+    assert segment_text("这是短句。这是另一句完整的话在这里。") == ["这是短句。这是另一句完整的话在这里。"]
+
+
 def test_segmenter_splits_english_sentences():
     # V19: latin "." was not a sentence boundary → an English paragraph became one
     # wall-of-text beat. Now it splits, while decimals ("3.14", "$5.5") stay intact.
