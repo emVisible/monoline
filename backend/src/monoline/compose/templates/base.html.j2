@@ -200,6 +200,10 @@
         { clipPath: "inset(-12% 0% -12% 0)", opacity: 1, duration: {{ (enter + 0.28)|round(3) }}, ease: "{{ eease }}" }, {{ (seg.start + 0.06)|round(3) }});
       {# V9-4 accent rule draws in under the hero (signature PPT flourish), transform-only #}
       tl.fromTo("#scene-{{ seg.i }} .accent-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.55, ease: "{{ eease }}" }, {{ (seg.start + 0.42)|round(3) }});
+      {# V9-5 data-viz draw-in: ring strokes in from empty, table bars grow left→right.
+         stroke/scaleX only → deterministic; .from() reads each element's authored end value. #}
+      tl.from("#scene-{{ seg.i }} .ring-fill", { strokeDashoffset: 263.894, duration: 0.9, ease: "power2.out" }, {{ (seg.start + 0.2)|round(3) }});
+      tl.from("#scene-{{ seg.i }} .tbar", { scaleX: 0, transformOrigin: "left center", duration: 0.7, ease: "power2.out", stagger: 0.08 }, {{ (seg.start + 0.28)|round(3) }});
       {%- if show_cap %}
       tl.fromTo("#scene-{{ seg.i }} .cap > .inner", { opacity: 0, y: 16 },
         { opacity: 1, y: 0, duration: {{ capenter }}, ease: "power2.out" }, {{ seg.start }});
