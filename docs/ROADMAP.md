@@ -66,7 +66,7 @@
 - ✅ V9-3 动能标题：展示型大字 `.headline/.s-title/.term/.q` 用 clip-path inset 从左到右擦入 + 落定，与次要元素分层。
 - ✅ V9-4 版式破居中 + 强调规：主画面文案加 accent 强调规 scaleX 绘入；statement/section 采编辑式左对齐栏，与 title/summary 居中形成错落。
 - V9-5 强调动效：stat 数字滚动、可视化环/条描画、关键词随旁白高亮弹入。
-- V9-6 章节感 & 转场：section 整幅章节页（accent 铺满+超大序号+规线扫过）；补 mask-wipe/push 分级转场。
+- ✅ V9-6 章节页：section 拍按序编号（planner 填 index 01/02…）+ 超大 accent 序号 + 编辑式左对齐 + → 图标 + accent 规 + 标题擦入，成 PPT 章节分隔页；横竖屏抽帧核验无溢出。（mask-wipe/push 额外转场类型仍待做。）
 - V9-5 强调动效：accent 下划线绘制、stat 数字滚动、可视化环/条描画、关键词随旁白高亮弹入。
 - V9-6 章节感 & 转场升级：section 做整幅章节页（accent 铺满+序号+规线扫过）；补 mask-wipe/push 等分级转场。
 - 成功判据：抽帧对比明显「非文字流」；`make warmup` 绿；后端测试不回归；每切片有渲染证据。
