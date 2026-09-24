@@ -49,9 +49,10 @@ def test_missing_job_returns_404_on_all_new_routes():
 def test_voices_meta_lists_registry():
     with TestClient(app) as c:
         d = c.get("/api/voices").json()
-        assert d["default"] == "zf_xiaobei"
+        assert d["default"] == "zf_xiaoxiao"
         ids = [v["id"] for v in d["voices"]]
-        assert "af_heart" in ids and "zf_xiaobei" in ids and len(ids) == 12
+        assert "af_heart" in ids and "zf_xiaobei" in ids and len(ids) == 25
+        assert sum(1 for v in d["voices"] if v["lang"] == "zh") == 8   # Chinese is well-covered
         assert all({"id", "label", "lang", "group"} <= set(v) for v in d["voices"])
 
 

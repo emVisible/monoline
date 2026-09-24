@@ -2,14 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Voice = { id: string; label: string; lang: string; group: string; gender: string };
 
-/** Load the curated voice registry once. */
-export function useVoices() {
-  const [voices, setVoices] = useState<Voice[]>([]);
+/** Load the curated voice registry once, plus the server-designated default. */
+export function useVoices(): { voices: Voice[]; default: string } {
+  const [state, setState] = useState<{ voices: Voice[]; default: string }>({ voices: [], default: "" });
   useEffect(() => {
     fetch("/api/voices").then((r) => r.json())
-      .then((d) => setVoices(d.voices || [])).catch(() => {});
+      .then((d) => setState({ voices: d.voices || [], default: d.default || "" })).catch(() => {});
   }, []);
-  return voices;
+  return state;
 }
 
 /** Bucket voices by their language group, preserving server order. */

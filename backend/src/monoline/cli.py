@@ -20,6 +20,7 @@ import uvicorn
 from .doctor import run_doctor
 from .settings import get_settings
 from .supervisor import SidecarSupervisor
+from .voices import DEFAULT_VOICE
 
 app = typer.Typer(add_completion=False, help="Monoline — paste a script, get a film.")
 
@@ -72,7 +73,7 @@ def doctor() -> None:
 @app.command("run-script")
 def run_script(
     script: Path = typer.Argument(..., exists=True, help="path to a text script (one line = one beat)"),
-    voice: str = typer.Option("zf_xiaobei"),
+    voice: str = typer.Option(DEFAULT_VOICE),
     lang: str = typer.Option("zh"),
     speed: float = typer.Option(1.0),
     quality: str = typer.Option("standard"),
@@ -135,7 +136,7 @@ def warmup(
         try:
             jid = await repo.create_job(
                 script_text=fixture,
-                config={"quality": quality, "voice": "zf_xiaobei", "lang": "zh", "speed": 1.0},
+                config={"quality": quality, "voice": DEFAULT_VOICE, "lang": "zh", "speed": 1.0},
                 canvas={"width": 1920, "height": 1080, "fps": 24}, title="", slug="")
             t0 = time.time()
 

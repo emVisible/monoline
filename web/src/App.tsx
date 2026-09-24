@@ -79,8 +79,8 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   const [aiReady, setAiReady] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiErr, setAiErr] = useState<string | null>(null);
-  const [voice, setVoice] = useState("zf_xiaobei");
-  const voices = useVoices();
+  const { voices, default: defaultVoice } = useVoices();
+  const [voice, setVoice] = useState("");
   const audition = useAudition();
   const lines = script.split("\n").map((l) => l.trim()).filter(Boolean);
   const chars = script.replace(/\s/g, "").length;
@@ -88,6 +88,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   useEffect(() => {
     fetch("/api/script/status").then((r) => r.json()).then((d) => setAiReady(!!d.ready)).catch(() => setAiReady(false));
   }, []);
+  useEffect(() => { if (defaultVoice && !voice) setVoice(defaultVoice); }, [defaultVoice, voice]);
 
   const genScript = async () => {
     if (!topic.trim()) return;
@@ -225,7 +226,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         <span>{chars} chars</span>
         <span>≈ {Math.round(lines.length * 6)}s</span>
         <span className="spacer" />
-        <button className="generate" disabled={!lines.length || busy} onClick={generate}>
+        <button className="generate" disabled={!lines.length || busy || !voice} onClick={generate}>
           {busy ? "…" : "Generate ⌘↵"}
         </button>
       </div>

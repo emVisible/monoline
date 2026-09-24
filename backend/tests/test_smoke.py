@@ -279,8 +279,9 @@ def test_voice_registry_shape():
     from monoline.voices import DEFAULT_VOICE, VOICES, available
     assert available() == [dict(v) for v in VOICES]         # same order, defensive copy
     ids = [v["id"] for v in VOICES]
-    assert len(ids) == len(set(ids)) == 12
+    assert len(ids) == len(set(ids)) == 25
     assert DEFAULT_VOICE in ids
+    assert sum(1 for v in VOICES if v["lang"] == "zh") == 8   # 8 Chinese voices
     for v in VOICES:
         assert set(v) >= {"id", "label", "lang", "group", "gender"}
         assert v["gender"] in {"m", "f"}

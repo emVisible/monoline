@@ -20,6 +20,7 @@ from ..fonts.subset import collect_glyphs, subset_font
 from ..hf.cli import HF
 from ..ir.sceneplan import Brand, Canvas, ScenePlan, Theme
 from ..ir.timings import Timings
+from ..voices import DEFAULT_VOICE
 from ..settings import Settings
 from .workspace import Workspace
 
@@ -73,7 +74,7 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
     hf = HF(settings)
     config = json.loads(job["config_json"])
     canvas = json.loads(job["canvas_json"])
-    voice = config.get("voice", "zf_xiaobei")
+    voice = config.get("voice", DEFAULT_VOICE)
     lang = config.get("lang", "zh")
     speed = float(config.get("speed", 1.0))
     emit = progress or (lambda s, d: asyncio.sleep(0))

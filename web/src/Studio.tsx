@@ -84,10 +84,10 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
   const [icons, setIcons] = useState<string[]>([]);
   const [presets, setPresets] = useState<{ id: string; name: string; config: any }[]>([]);
   const [cfg, setCfg] = useState(() => {
-    try { const c = JSON.parse(job.config_json || "{}"); return { theme: c.theme || "mono-ink", accent: c.accent || "", brand: c.brand || "Monoline", voice: c.voice || "zf_xiaobei" }; }
-    catch { return { theme: "mono-ink", accent: "", brand: "Monoline", voice: "zf_xiaobei" }; }
+    try { const c = JSON.parse(job.config_json || "{}"); return { theme: c.theme || "mono-ink", accent: c.accent || "", brand: c.brand || "Monoline", voice: c.voice || "zf_xiaoxiao" }; }
+    catch { return { theme: "mono-ink", accent: "", brand: "Monoline", voice: "zf_xiaoxiao" }; }
   });
-  const voices = useVoices();
+  const { voices } = useVoices();
   const audition = useAudition();
   const [voiceBusy, setVoiceBusy] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);

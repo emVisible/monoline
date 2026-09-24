@@ -17,6 +17,7 @@ from ..hf.cli import HF
 from ..ir.sceneplan import ScenePlan
 from ..ir.timings import Timings
 from ..settings import Settings
+from ..voices import DEFAULT_VOICE
 from .planner import distill_keyword
 from .runner import _flat, _ffprobe_duration
 from .workspace import Workspace
@@ -237,7 +238,7 @@ async def resynth_segment(repo: Repo, settings: Settings, job_id: str, i: int, n
     linef = ws.tts / f"line_{i:03d}.txt"
     wav = ws.tts / f"seg_{i:03d}.wav"
     linef.write_text(new_text, encoding="utf-8")
-    payload = await hf.tts(str(linef), str(wav), voice=config.get("voice", "zf_xiaobei"),
+    payload = await hf.tts(str(linef), str(wav), voice=config.get("voice", DEFAULT_VOICE),
                            lang=config.get("lang", "zh"), speed=float(config.get("speed", 1.0)))
     dur = float(payload.get("durationSeconds") or await _ffprobe_duration(wav))
     await repo.db.execute(

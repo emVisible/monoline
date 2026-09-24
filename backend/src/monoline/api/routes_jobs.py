@@ -9,12 +9,14 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..voices import DEFAULT_VOICE
+
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
 
 class CreateJob(BaseModel):
     script: str = Field(min_length=1)
-    voice: str = "zf_xiaobei"
+    voice: str = DEFAULT_VOICE
     # phonemizer lang is always derived from the voice (see create_job), not sent in
     speed: float = Field(default=1.0, ge=0.7, le=1.2)
     quality: str = "standard"
