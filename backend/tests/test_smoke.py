@@ -316,3 +316,29 @@ def test_pick_icon_semantic():
     from monoline.compose.icons import _ICON_KEYWORDS
     for icon, _ in _ICON_KEYWORDS:
         assert icon in _ICONS, icon
+
+
+def test_layout_presets_render_distinct_and_validate():
+    import json
+    import re
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    t = Timings.from_durations(["第一拍。", "第二拍"], [3.0, 3.0])
+    plan = ScenePlan(theme=theme, scenes=[
+        {"i": 0, "kind": "statement", "slots": {"headline": "第一拍"}},
+        {"i": 1, "kind": "stat", "slots": {"value": "30", "label": "第二拍"}}])
+    # the stylesheet ships all three preset blocks; the <body data-layout> attr is what
+    # selects one, so read the value off the body tag rather than substring-matching CSS.
+    def body_layout(html):
+        return re.search(r"<body[^>]*\bdata-layout=\"(\w+)\"", html).group(1)
+    assert body_layout(render_composition(t, plan)) == "minimal"           # default
+    assert body_layout(render_composition(t, plan, layout="editorial")) == "editorial"
+    assert body_layout(render_composition(t, plan, layout="bold")) == "bold"
+    # both preset rule blocks are present in every render (they only activate via the attr)
+    minimal = render_composition(t, plan, layout="minimal")
+    assert 'data-layout="editorial"] .frame' in minimal and 'data-layout="bold"] .eyebrow' in minimal
+    # unknown layout fails closed to minimal (never an empty/invalid attribute)
+    assert body_layout(render_composition(t, plan, layout="comic-sans")) == "minimal"

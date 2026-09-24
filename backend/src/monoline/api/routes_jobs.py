@@ -21,6 +21,7 @@ class CreateJob(BaseModel):
     speed: float = Field(default=1.0, ge=0.7, le=1.2)
     quality: str = "standard"
     ratio: str = "landscape"
+    layout: str = "minimal"
     fps: int = Field(default=30, ge=1, le=60)
     format: str = "mp4"
     theme: str = "mono-ink"
@@ -31,6 +32,7 @@ class CreateJob(BaseModel):
 _RATIOS = {"landscape": (1920, 1080), "portrait": (1080, 1920), "square": (1080, 1080)}
 _QUALITIES = {"draft", "looks", "delivery", "standard", "high"}
 _FORMATS = {"mp4", "webm", "mov"}
+_LAYOUTS = {"minimal", "editorial", "bold"}
 
 
 def _manager(request: Request):
@@ -50,9 +52,10 @@ async def create_job(body: CreateJob, request: Request) -> dict:
     w, h = _RATIOS.get(body.ratio, _RATIOS["landscape"])
     quality = body.quality if body.quality in _QUALITIES else "standard"
     fmt = body.format if body.format in _FORMATS else "mp4"
+    layout = body.layout if body.layout in _LAYOUTS else "minimal"
     # lang is derived from the voice so the phonemizer can never drift from it
     config = {"voice": body.voice, "lang": voice_lang(body.voice), "speed": body.speed,
-              "quality": quality, "brand": body.brand, "format": fmt,
+              "quality": quality, "brand": body.brand, "format": fmt, "layout": layout,
               "theme": body.theme, "accent": body.accent.strip()}
     jid = await m.create_job(script=body.script, config=config, canvas={"width": w, "height": h, "fps": body.fps})
     return {"job_id": jid}
@@ -431,11 +434,12 @@ class ConfigPatch(BaseModel):
     theme: str | None = None
     accent: str | None = None
     brand: str | None = None
+    layout: str | None = None
 
 
 @router.patch("/{jid}/config")
 async def patch_config(jid: str, body: ConfigPatch, request: Request) -> dict:
-    """Change theme/accent/brand on a composed job → re-skin the plan in place +
+    """Change theme/accent/brand/layout on a composed job → re-skin the plan in place +
     recompose (fast preview refresh; render later picks it up via the plan hash)."""
     from ..pipeline.recompose import retheme
     from ..themes import available
@@ -454,7 +458,12 @@ async def patch_config(jid: str, body: ConfigPatch, request: Request) -> dict:
         config["accent"] = body.accent if body.accent.strip() else None
     if body.brand is not None:
         config["brand"] = body.brand.strip() or "Monoline"
+    if body.layout is not None:
+        if body.layout not in _LAYOUTS:
+            raise HTTPException(422, f"unknown layout {body.layout!r}")
+        config["layout"] = body.layout
     await m.repo.update_job(jid, config_json=config)
     result = await retheme(m.repo, m.settings, jid)
-    return {"config": {"theme": config.get("theme"), "accent": config.get("accent"), "brand": config.get("brand")},
+    return {"config": {"theme": config.get("theme"), "accent": config.get("accent"),
+                       "brand": config.get("brand"), "layout": config.get("layout")},
             **result}

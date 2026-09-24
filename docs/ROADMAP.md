@@ -71,6 +71,8 @@
 - ✅ V9-6 章节页：section 按序编号（planner 填 index 01/02…）+ 超大 accent 序号 + 编辑式版式 + → 图标 + accent 规；横竖屏抽帧核验。
 - ✅ V9-7 环境光漂移：#glow 柔焦 accent 光晕随全片缓慢漂移（sine.inOut），注入呼吸感氛围动效，不遮文字。
 - ✅ V9-8 转场分级新增方向推入：进入 stat/list/table/cards/compare 用横向 push（xPercent ±16 + fade），叙事类仍 blur，section 竖向 slide、summary 慢 blur 不变。（mask-wipe 仍可选。）
+- ✅ V10 语义图标：planner 对无默认图标的 kind（statement/note 等）按旁白文本关键词自动挑图标（`icons.pick_icon`，中英子串映射，命中即止、无则留空），画面摆脱纯文字。单测覆盖映射与白名单。
+- ✅ V11 版式风格 presets（整片三档）：`render_composition(layout=)` + `<body data-layout>` + CSS 变体，端到端贯通（CreateJob/ConfigPatch 存 config、runner/recompose 读取、NewView 版式 chips、Studio 版式控制）。三档：minimal（居中，原样）· editorial（左对齐杂志栏、光晕右移）· bold（accent 实心药丸 eyebrow + 更大标题）。未知 layout 失败关闭到 minimal。抽帧核验三档肉眼可辨、`make warmup` 绿、后端 31 测试全过。
 - 附 UI：NewView 音色选择器折叠化，主流程回到一屏（收起态 + aria-expanded + 展开 25 音色，浏览器点按核验）。
 - 成功判据：抽帧对比明显「非文字流」✅；`make warmup` 绿 ✅；后端测试不回归（29）✅；每切片有渲染证据 ✅。
 

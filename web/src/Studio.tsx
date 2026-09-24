@@ -84,8 +84,8 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
   const [icons, setIcons] = useState<string[]>([]);
   const [presets, setPresets] = useState<{ id: string; name: string; config: any }[]>([]);
   const [cfg, setCfg] = useState(() => {
-    try { const c = JSON.parse(job.config_json || "{}"); return { theme: c.theme || "mono-ink", accent: c.accent || "", brand: c.brand || "Monoline", voice: c.voice || "zf_xiaoxiao" }; }
-    catch { return { theme: "mono-ink", accent: "", brand: "Monoline", voice: "zf_xiaoxiao" }; }
+    try { const c = JSON.parse(job.config_json || "{}"); return { theme: c.theme || "mono-ink", accent: c.accent || "", brand: c.brand || "Monoline", voice: c.voice || "zf_xiaoxiao", layout: c.layout || "minimal" }; }
+    catch { return { theme: "mono-ink", accent: "", brand: "Monoline", voice: "zf_xiaoxiao", layout: "minimal" }; }
   });
   const { voices } = useVoices();
   const audition = useAudition();
@@ -379,6 +379,14 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                   <span className="sw-ink" style={{ background: t.ink }} /><span className="sw-dot" style={{ background: t.accent }} />
                 </button>
               ))}
+            </div>
+            <div className="ap-row">
+              <label className="fld-lbl">版式</label>
+              <div className="chips">
+                {[["minimal", "极简"], ["editorial", "杂志"], ["bold", "醒目"]].map(([v, l]) => (
+                  <button key={v} className={cfg.layout === v ? "chip on" : "chip"} onClick={() => applyConfig({ layout: v })}>{l}</button>
+                ))}
+              </div>
             </div>
             <div className="ap-row">
               <label className="fld-lbl">品牌</label>

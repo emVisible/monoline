@@ -46,7 +46,8 @@ async def recompose(repo: Repo, settings: Settings, job_id: str) -> dict:
     from .audio_mix import ensure_voice_track
     config = json.loads(job["config_json"])
     vo_src = await ensure_voice_track(ws, config, timings.total)
-    html = render_composition(timings, plan, title=job["title"] or "", vo_src=vo_src)
+    html = render_composition(timings, plan, title=job["title"] or "", vo_src=vo_src,
+                              layout=config.get("layout", "minimal"))
     ws.index_html.write_text(html, encoding="utf-8")
     shutil.copy(settings.vendor_dir / "gsap.min.js", ws.comp_vendor / "gsap.min.js")
 

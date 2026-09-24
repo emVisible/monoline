@@ -230,7 +230,8 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
         plan_src = plan_row["plan_json"] if plan_row else (ws.ir / "scene_plan.json").read_text()
         plan = ScenePlan.model_validate_json(plan_src)
         vo_src = await ensure_voice_track(ws, config, timings.total)
-        html = render_composition(timings, plan, title=job["title"] or "", vo_src=vo_src)
+        html = render_composition(timings, plan, title=job["title"] or "", vo_src=vo_src,
+                                  layout=config.get("layout", "minimal"))
         ws.index_html.write_text(html, encoding="utf-8")
         # vendor gsap + scaffold project files (relative paths only)
         shutil.copy(settings.vendor_dir / "gsap.min.js", ws.comp_vendor / "gsap.min.js")

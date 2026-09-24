@@ -42,7 +42,8 @@ def _env() -> Environment:
     return env
 
 
-def render_composition(timings: Timings, plan: ScenePlan, *, title: str = "", vo_src: str = "audio/narration.wav") -> str:
+def render_composition(timings: Timings, plan: ScenePlan, *, title: str = "", vo_src: str = "audio/narration.wav",
+                       layout: str = "minimal") -> str:
     env = _env()
     tmpl = env.get_template("base.html.j2")
     w, h = plan.canvas.width, plan.canvas.height
@@ -50,6 +51,7 @@ def render_composition(timings: Timings, plan: ScenePlan, *, title: str = "", vo
     html = tmpl.render(
         canvas=plan.canvas,
         aspect=aspect,
+        layout=layout if layout in ("minimal", "editorial", "bold") else "minimal",
         total=timings.total,
         segments=timings.segments,
         scenes=plan.scenes,

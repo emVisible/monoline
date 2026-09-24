@@ -69,6 +69,7 @@ function useHydration(id: string | null) {
 function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   const [script, setScript] = useState("");
   const [ratio, setRatio] = useState("landscape");
+  const [layout, setLayout] = useState("minimal");
   const [quality, setQuality] = useState("looks");
   const [fps, setFps] = useState(30);
   const [format, setFormat] = useState("mp4");
@@ -115,7 +116,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       const r = await fetch("/api/jobs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ script, ratio, quality, fps, format, voice }),
+        body: JSON.stringify({ script, ratio, layout, quality, fps, format, voice }),
       });
       const d = await r.json();
       if (d.job_id) onCreate(d.job_id);
@@ -161,6 +162,14 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
           <div className="chips">
             {["landscape", "portrait", "square"].map((r) => (
               <button key={r} className={ratio === r ? "chip on" : "chip"} onClick={() => setRatio(r)}>{r}</button>
+            ))}
+          </div>
+        </div>
+        <div className="opt-group">
+          <span className="opt-lbl">版式</span>
+          <div className="chips">
+            {[["minimal", "极简"], ["editorial", "杂志"], ["bold", "醒目"]].map(([v, l]) => (
+              <button key={v} className={layout === v ? "chip on" : "chip"} onClick={() => setLayout(v)}>{l}</button>
             ))}
           </div>
         </div>
