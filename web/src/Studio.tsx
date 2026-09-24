@@ -84,8 +84,8 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
   const [icons, setIcons] = useState<string[]>([]);
   const [presets, setPresets] = useState<{ id: string; name: string; config: any }[]>([]);
   const [cfg, setCfg] = useState(() => {
-    try { const c = JSON.parse(job.config_json || "{}"); return { theme: c.theme || "mono-ink", accent: c.accent || "", brand: c.brand || "Monoline", voice: c.voice || "zf_xiaoxiao", layout: c.layout || "minimal" }; }
-    catch { return { theme: "mono-ink", accent: "", brand: "Monoline", voice: "zf_xiaoxiao", layout: "minimal" }; }
+    try { const c = JSON.parse(job.config_json || "{}"); return { theme: c.theme || "mono-ink", accent: c.accent || "", brand: c.brand || "Monoline", voice: c.voice || "zf_xiaoxiao", layout: c.layout || "minimal", logo: c.logo || "" }; }
+    catch { return { theme: "mono-ink", accent: "", brand: "Monoline", voice: "zf_xiaoxiao", layout: "minimal", logo: "" }; }
   });
   const { voices } = useVoices();
   const audition = useAudition();
@@ -391,6 +391,21 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
             <div className="ap-row">
               <label className="fld-lbl">品牌</label>
               <input className="fld" defaultValue={cfg.brand} onBlur={(e) => e.target.value !== cfg.brand && applyConfig({ brand: e.target.value })} />
+            </div>
+            <div className="ap-row">
+              <label className="fld-lbl">Logo</label>
+              <label className="ghost sm file-btn">上传
+                <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async (e) => {
+                  const f = e.target.files?.[0]; if (!f) return;
+                  const fd = new FormData(); fd.append("file", f);
+                  const r = await fetch(`/api/jobs/${job.id}/logo`, { method: "POST", body: fd });
+                  if (r.ok) { const d = await r.json(); setCfg((c) => ({ ...c, logo: d.logo })); setVersion(typeof d.version === "number" ? d.version : version + 1); }
+                }} />
+              </label>
+              {cfg.logo ? <button className="ghost sm" onClick={async () => {
+                const r = await fetch(`/api/jobs/${job.id}/logo`, { method: "DELETE" });
+                if (r.ok) { const d = await r.json(); setCfg((c) => ({ ...c, logo: "" })); setVersion(typeof d.version === "number" ? d.version : version + 1); }
+              }}>移除</button> : <span className="muted sm">品牌锁定处显示</span>}
             </div>
             <div className="ap-row">
               <label className="fld-lbl">强调色</label>

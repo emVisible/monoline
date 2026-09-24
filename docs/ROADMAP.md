@@ -85,6 +85,7 @@
 - ✅ V22 粘贴含 URL 不再整单崩溃：`assert_determinism` 的 `https?://` 判据过宽，把旁白/标题正文里的链接（自动转义、无害）也判为违规 → compose 直接抛错、出不了片。收窄为仅拦远程资源（`src/href/poster=…http`、`url(http`、`@import`），文本里的 URL 放行。7 例断言核验（文本 URL 过、远程 img/script/@import/url() 仍拦、本地相对过）；后端 37 测试全过、warmup 绿。
 - ✅ V23 markdown 行内语法清理：粘贴自文档/LLM 的 `**粗**`/`[文字](链接)`/`` `代码` ``/`*斜*` 会把标记漏进画面与 TTS。段分器按行去标记只留可见文字（`2 * 3` 这种夹空格的星号不误判为斜体、裸 URL 保留交给 V22 渲染）。实测 + 单测；后端 38 测试全过、warmup 绿。
 - ✅ V24 前端拍数估算与后端切分对齐：NewView 的「N beats」此前只数换行，单行多句（"深海会发光。这不是…。"）显示 1 但实际渲染 3 拍，误导。改为按句末标点（CJK 。！？ + 拉丁 `.` 后跟空白，`3.14` 安全）估算，与段分器一致；副标题改「one sentence = one beat」。浏览器实测：3 句输入现显示 3 beats；tsc/build 干净。
+- ✅ V25 品牌 Logo（功能克展）：`Brand.logo` 新字段（默认空、向后兼容），`POST/DELETE /jobs/{id}/logo` 冻结图片到 composition/assets 并 retheme→recompose，`#brand` 锁定处渲染 `<img class="brand-logo">`（40px、与文字并排），Studio 外观面板加上传/移除。实测：上传 favicon 作 logo → 标题页左上角正确显示、与站点图标统一；后端 39 测试全过、warmup 绿、tsc/build 干净。
 - 附 UI：NewView 音色选择器折叠化，主流程回到一屏（收起态 + aria-expanded + 展开 25 音色，浏览器点按核验）。
 - 成功判据：抽帧对比明显「非文字流」✅；`make warmup` 绿 ✅；后端测试不回归（29）✅；每切片有渲染证据 ✅。
 

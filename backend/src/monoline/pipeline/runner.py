@@ -194,7 +194,7 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
         beats = [s["text"] for s in segs]
         scenes = RulePlanner().plan(beats, brand=config.get("brand", "Monoline"))
         plan = ScenePlan(job_id=job_id, canvas=Canvas(**canvas), theme=theme,
-                         brand=Brand(label=config.get("brand", "Monoline")), scenes=scenes)
+                         brand=Brand(label=config.get("brand", "Monoline"), logo=config.get("logo", "")), scenes=scenes)
         warnings = plan.validate_against(len(beats))
         (ws.ir / "scene_plan.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
         ver = await repo.save_plan(job_id, plan.model_dump_json(), "rules", warnings)

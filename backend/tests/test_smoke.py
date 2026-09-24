@@ -116,6 +116,23 @@ def test_segmenter_splits_english_sentences():
     assert seg._join("深海", "发光") == "深海发光"
 
 
+def test_brand_logo_renders_in_lockup():
+    # V25: a brand logo (composition-relative image) shows in #brand; empty → text only.
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme, Brand
+    from monoline.compose.engine import render_composition
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    t = Timings.from_durations(["第一拍。"], [3.0])
+    scenes = [{"i": 0, "kind": "title", "slots": {"headline": "第一拍"}}]
+    with_logo = render_composition(t, ScenePlan(theme=theme, brand=Brand(label="Acme", logo="assets/logo-ab12.png"), scenes=scenes))
+    assert 'class="brand-logo" src="assets/logo-ab12.png"' in with_logo
+    assert ">Acme<" in with_logo  # label still present beside the logo
+    no_logo = render_composition(t, ScenePlan(theme=theme, brand=Brand(label="Acme"), scenes=scenes))
+    assert '<img class="brand-logo"' not in no_logo   # CSS rule is always present; the <img> is not
+
+
 def test_planner_classifies_content():
     from monoline.pipeline.planner import RulePlanner
     scenes = RulePlanner().plan(["标题句。", "它在基准上拿到 68.8%。", "需要注意，以官方为准。"])

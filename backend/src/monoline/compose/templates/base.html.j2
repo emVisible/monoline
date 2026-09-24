@@ -41,8 +41,10 @@
         background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 62%);
         filter: blur(64px); opacity: 0.85; }
       #brand { position: absolute; top: 56px; left: var(--gutter-x); z-index: 40;
+        display: flex; align-items: center; gap: 14px;
         font-size: 26px; letter-spacing: 0.02em; color: var(--ink-muted); font-weight: 600; }
       #brand .a { color: var(--accent); }
+      #brand .brand-logo { height: 40px; width: auto; max-width: 200px; object-fit: contain; display: block; }
       #progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 45;
         background: color-mix(in oklab, var(--hairline) 70%, transparent); }
       #progress-fill { display: block; height: 100%; width: 100%; background: var(--accent);
@@ -189,7 +191,7 @@
          data-width="{{ canvas.width }}" data-height="{{ canvas.height }}">
       <div id="bg"></div>
       <div id="glow" aria-hidden="true"></div>
-      <div id="brand"><span class="a">{{ brand.label }}</span></div>
+      <div id="brand">{% if brand.logo %}<img class="brand-logo" src="{{ brand.logo }}" alt="">{% endif %}<span class="a">{{ brand.label }}</span></div>
       <div id="progress"><span id="progress-fill"></span></div>
       <audio id="vo" src="{{ vo_src }}" data-start="0" data-duration="{{ total }}"></audio>
 

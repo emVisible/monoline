@@ -50,6 +50,7 @@ class Theme(BaseModel):
 
 class Brand(BaseModel):
     label: str = "Monoline"
+    logo: str = ""            # composition-relative image path (assets/…); empty = text-only brand
     show_eyebrow_date: bool = True
 
 

@@ -138,7 +138,7 @@ async def retheme(repo: Repo, settings: Settings, job_id: str) -> dict:
     config = json.loads(job["config_json"])
     plan = json.loads(plan_row["plan_json"])
     plan["theme"] = resolve_theme(settings, config).model_dump()
-    plan["brand"] = {"label": config.get("brand", "Monoline")}
+    plan["brand"] = {"label": config.get("brand", "Monoline"), "logo": config.get("logo", "")}
     new_json = json.dumps(plan, ensure_ascii=False)
     ver = await repo.save_plan(job_id, new_json, "manual", [])
     result = await recompose(repo, settings, job_id)

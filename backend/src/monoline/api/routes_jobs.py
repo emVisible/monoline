@@ -430,6 +430,58 @@ async def upload_asset(jid: str, request: Request, file: UploadFile = File(...))
     return {"rel": rel, "bytes": len(data)}
 
 
+@router.post("/{jid}/logo")
+async def upload_logo(jid: str, request: Request, file: UploadFile = File(...)) -> dict:
+    """Freeze a brand logo into the composition and show it in the #brand lockup
+    (re-skin + recompose → preview refresh; render picks it up via the plan hash)."""
+    import hashlib
+
+    from ..pipeline.recompose import retheme
+    from ..pipeline.workspace import Workspace
+
+    m = _manager(request)
+    job = await m.repo.get_job(jid)
+    if not job:
+        raise HTTPException(404, "job not found")
+    suffix = Path(file.filename or "logo").suffix.lower()
+    if suffix not in _ALLOWED_IMG:
+        raise HTTPException(422, f"unsupported image type {suffix!r}")
+    data = await file.read()
+    if not data:
+        raise HTTPException(422, "empty file")
+    if len(data) > _MAX_IMG:
+        raise HTTPException(413, f"logo too large ({len(data)} bytes, max {_MAX_IMG})")
+    ws = Workspace(m.settings.workspaces_dir / jid).ensure()
+    for old in (ws.composition / "assets").glob("logo-*"):
+        old.unlink(missing_ok=True)
+    rel = f"assets/logo-{hashlib.sha1(data).hexdigest()[:12]}{suffix}"
+    (ws.composition / rel).write_bytes(data)
+    config = json.loads(job["config_json"])
+    config["logo"] = rel
+    await m.repo.update_job(jid, config_json=config)
+    result = await retheme(m.repo, m.settings, jid)
+    return {"logo": rel, **result}
+
+
+@router.delete("/{jid}/logo")
+async def remove_logo(jid: str, request: Request) -> dict:
+    from ..pipeline.recompose import retheme
+    from ..pipeline.workspace import Workspace
+
+    m = _manager(request)
+    job = await m.repo.get_job(jid)
+    if not job:
+        raise HTTPException(404, "job not found")
+    config = json.loads(job["config_json"])
+    config.pop("logo", None)
+    await m.repo.update_job(jid, config_json=config)
+    ws = Workspace(m.settings.workspaces_dir / jid)
+    for p in (ws.composition / "assets").glob("logo-*"):
+        p.unlink(missing_ok=True)
+    result = await retheme(m.repo, m.settings, jid)
+    return {"removed": True, **result}
+
+
 class ConfigPatch(BaseModel):
     theme: str | None = None
     accent: str | None = None
