@@ -39,6 +39,39 @@ def names() -> list[str]:
     return sorted(_ICONS.keys())
 
 
+# keyword → icon, first match wins (ordered by specificity). zh + en substrings.
+_ICON_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("cpu", ("芯片", "算力", "算法", "模型", "神经网络", "处理器", "推理", "chip", "model", "compute")),
+    ("chart", ("数据", "增长", "下降", "比例", "百分比", "占比", "率", "指标", "营收", "grew", "growth", "data", "revenue")),
+    ("bolt", ("速度", "效率", "加速", "快速", "秒", "即时", "性能", "speed", "fast", "performance", "instant")),
+    ("target", ("目标", "达成", "命中", "聚焦", "精准", "定位", "goal", "target", "focus", "precision")),
+    ("clock", ("时间", "历史", "周期", "年限", "日期", "等待", "time", "history", "cycle", "year")),
+    ("flag", ("里程碑", "第一", "领先", "首个", "突破", "标志", "milestone", "first", "leading", "record")),
+    ("scale", ("对比", "权衡", "取舍", "优劣", "平衡", "相比", "versus", "compare", "trade-off", "balance")),
+    ("eye", ("观察", "视角", "洞察", "发现", "看见", "看", "watch", "insight", "observe", "see", "vision")),
+    ("layers", ("系统", "架构", "层", "模块", "组件", "结构", "stack", "layer", "system", "module")),
+    ("grid", ("布局", "网格", "多维", "矩阵", "方面", "grid", "layout", "matrix")),
+    ("wave", ("波动", "声波", "震荡", "起伏", "趋势", "wave", "signal", "trend", "oscillat")),
+    ("bulb", ("想法", "创意", "灵感", "概念", "理解", "认知", "原理", "机制", "idea", "concept", "principle", "why")),
+    ("sparkles", ("亮点", "精彩", "创新", "非凡", "独特", "magic", "innovat", "brilliant")),
+    ("check", ("完成", "成功", "正确", "验证", "达标", "done", "success", "verified", "works")),
+    ("info", ("注意", "提示", "说明", "信息", "背景", "note", "info", "context")),
+    ("quote", ("认为", "表示", "强调", "指出", "声称", "said", "argues", "notes that")),
+    ("arrow", ("方向", "趋势", "未来", "前进", "下一步", "走向", "future", "next", "forward", "direction")),
+    ("list", ("步骤", "清单", "列表", "流程", "阶段", "steps", "list", "process", "phase")),
+]
+
+
+def pick_icon(text: str) -> str:
+    """Best-effort semantic icon for a beat's text; '' when nothing matches."""
+    s = (text or "").lower()
+    for icon, kws in _ICON_KEYWORDS:
+        for kw in kws:
+            if kw.lower() in s:
+                return icon
+    return ""
+
+
 def svg(name: str, *, size: int | None = None) -> str:
     inner = _ICONS.get(name)
     if not inner:

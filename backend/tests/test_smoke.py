@@ -303,3 +303,16 @@ def test_voice_lookup_helpers():
     for v in [  {"id": "zf_xiaobei"} ]:
         assert sample_text(v["id"]).strip()
     assert sample_text("af_heart") == sample_text("am_adam")   # both en-us share a line
+
+
+def test_pick_icon_semantic():
+    from monoline.compose.icons import _ICONS, pick_icon
+    assert pick_icon("营收增长了 30%") == "chart"
+    assert pick_icon("速度提升到毫秒级") == "bolt"
+    assert pick_icon("这是一个模型架构") == "cpu"
+    assert pick_icon("需要注意口径") == "info"
+    assert pick_icon("完全无关的普通句子啊") == ""
+    # every mapped icon must exist in the library (no typos → silent blank)
+    from monoline.compose.icons import _ICON_KEYWORDS
+    for icon, _ in _ICON_KEYWORDS:
+        assert icon in _ICONS, icon

@@ -92,9 +92,13 @@ class RulePlanner:
                                "slots": {"eyebrow": "In short", "headline": ts["headline"], "verbatim": ts["verbatim"]}})
             else:
                 scenes.append(self._classify(i, b))
-        from ..compose.icons import KIND_ICON
+        from ..compose.icons import KIND_ICON, pick_icon
         for sc in scenes:
-            sc["slots"].setdefault("icon", KIND_ICON.get(sc["kind"], ""))
+            icon = KIND_ICON.get(sc["kind"], "")
+            if not icon:  # sparse kinds (statement/note): pick a contextual icon from the beat text
+                idx = sc["i"]
+                icon = pick_icon(beats[idx] if 0 <= idx < len(beats) else "")
+            sc["slots"].setdefault("icon", icon)
         # V9-6: number section beats so chapter breaks read as "01 / 02 …"
         sec = 0
         for sc in scenes:
