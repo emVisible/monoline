@@ -182,11 +182,15 @@
       {%- set scene = scenes[seg.i] %}
       {%- set show_cap = captions.mode != "none" and not scene.slots.get("verbatim") %}
       {# entrance of the slide content (and its caption) at the scene's start #}
-      {# entrance: stagger the scene's icon / media / content children (icon→headline→sub→rows…)
-         instead of revealing the whole .sbody as one block — the key "designed, not text-flow" signal. #}
-      tl.fromTo("#scene-{{ seg.i }} .scene-icon, #scene-{{ seg.i }} .scene-media, #scene-{{ seg.i }} .inner > *",
+      {# entrance: stagger the scene's icon / media / secondary content (icon→eyebrow→sub→rows…) #}
+      tl.fromTo("#scene-{{ seg.i }} .scene-icon, #scene-{{ seg.i }} .scene-media, #scene-{{ seg.i }} .inner > *:not(.headline,.s-title,.term,.q)",
         { opacity: 0, y: 24 },
         { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.09 }, {{ seg.start }});
+      {# V9-3 kinetic headline: the display text wipes in left→right (clip-path) + settles,
+         a distinct signature motion for the focal line vs the fade/rise of secondary content. #}
+      tl.fromTo("#scene-{{ seg.i }} .headline, #scene-{{ seg.i }} .s-title, #scene-{{ seg.i }} .term, #scene-{{ seg.i }} .q",
+        { clipPath: "inset(-12% 100% -12% 0)", opacity: 0.001 },
+        { clipPath: "inset(-12% 0% -12% 0)", opacity: 1, duration: {{ (enter + 0.28)|round(3) }}, ease: "{{ eease }}" }, {{ (seg.start + 0.06)|round(3) }});
       {%- if show_cap %}
       tl.fromTo("#scene-{{ seg.i }} .cap > .inner", { opacity: 0, y: 16 },
         { opacity: 1, y: 0, duration: {{ capenter }}, ease: "power2.out" }, {{ seg.start }});
