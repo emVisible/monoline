@@ -78,6 +78,21 @@ def test_segmenter_keeps_short_list_items_separate():
     assert segment_text("这是短句。这是另一句完整的话在这里。") == ["这是短句。这是另一句完整的话在这里。"]
 
 
+def test_assert_determinism_allows_text_urls_blocks_remote_resources():
+    # V22: a URL in pasted display text must NOT fail the job (it's autoescaped, inert);
+    # only remote RESOURCE references are forbidden.
+    from monoline.compose.assert_determinism import assert_determinism, CompositionAssertionError
+    assert_determinism('<div class="inner">see https://example.com/docs</div>')  # no raise
+    for bad in ('<img src="https://evil/x.png" id=i>',
+                '<script src="http://cdn/g.js"></script>',
+                '<style>@import url("http://x/y.css");</style>',
+                '<style>body{background:url(https://x/a.png)}</style>'):
+        try:
+            assert_determinism(bad); raise AssertionError(f"should have failed: {bad}")
+        except CompositionAssertionError:
+            pass
+
+
 def test_segmenter_splits_english_sentences():
     # V19: latin "." was not a sentence boundary → an English paragraph became one
     # wall-of-text beat. Now it splits, while decimals ("3.14", "$5.5") stay intact.

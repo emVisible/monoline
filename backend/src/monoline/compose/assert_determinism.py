@@ -10,7 +10,11 @@ import re
 
 # (pattern, human message)
 FORBIDDEN: list[tuple[str, str]] = [
-    (r"https?://", "remote URL — compositions must be fully local/offline"),
+    # Remote RESOURCE references only. A URL in display text is harmless (autoescape
+    # prevents it becoming a live tag) and must not fail a job — users paste links.
+    (r"""(?:src|href|poster)\s*=\s*["']?\s*https?://""", "remote resource URL — compositions must be fully local/offline"),
+    (r"url\(\s*[\"']?https?://", "remote url() in CSS — must be local/offline"),
+    (r"@import\b", "@import — must inline local CSS"),
     (r"\bMath\.random\b", "unseeded randomness breaks determinism"),
     (r"\bDate\.now\b", "wall-clock breaks determinism"),
     (r"\bperformance\.now\b", "clock breaks determinism"),
