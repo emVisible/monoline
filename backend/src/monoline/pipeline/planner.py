@@ -95,6 +95,12 @@ class RulePlanner:
         from ..compose.icons import KIND_ICON
         for sc in scenes:
             sc["slots"].setdefault("icon", KIND_ICON.get(sc["kind"], ""))
+        # V9-6: number section beats so chapter breaks read as "01 / 02 …"
+        sec = 0
+        for sc in scenes:
+            if sc["kind"] == "section":
+                sec += 1
+                sc["slots"]["index"] = f"{sec:02d}"
         return scenes
 
     def _clean(self, s: str) -> str:
