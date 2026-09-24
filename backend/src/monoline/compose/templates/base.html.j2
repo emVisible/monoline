@@ -163,6 +163,10 @@
       body[data-layout="editorial"] .scene-media,
       body[data-layout="editorial"] .k-image { align-items: flex-start; }
       body[data-layout="editorial"] #glow { left: auto; right: -10%; }
+      /* editorial caption: lower-third, left-aligned with the content column */
+      body[data-layout="editorial"] .cap { justify-content: flex-start; padding-left: var(--gutter-x); }
+      body[data-layout="editorial"] .cap > .inner { text-align: left; border-radius: 4px 14px 14px 4px;
+        border-left: 4px solid var(--accent); }
       /* bold: accent-filled eyebrow, larger hero type (via --hl-scale so the
          adaptive overflow guard still shrinks long headlines), heavier rule */
       body[data-layout="bold"] { --hl-scale: 1.16; }
@@ -174,6 +178,10 @@
       body[data-layout="bold"] .k-section .s-title { font-size: 122px; }
       body[data-layout="bold"] .accent-rule { width: 200px; height: 10px; border-radius: 5px; }
       body[data-layout="bold"] #glow { opacity: 1; }
+      /* bold caption: heavier, accent-bar lower-third chip with stronger contrast */
+      body[data-layout="bold"] .cap > .inner { font-weight: 700; border: none;
+        border-left: 8px solid var(--accent); border-radius: 4px;
+        background: color-mix(in oklab, var(--paper) 88%, transparent); }
     </style>
   </head>
   <body data-aspect="{{ aspect }}" data-layout="{{ layout }}">
