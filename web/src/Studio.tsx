@@ -29,6 +29,30 @@ function Player({ src, w, h, registerRef }: { src: string; w: number; h: number;
     if (el) el.setAttribute("src", src);
   }, [src]);
   useEffect(() => { registerRef?.(ref.current); return () => registerRef?.(null); }, [registerRef]);
+  // Audio fix: our composition is static HTML with no HyperFrames runtime, so the
+  // player's default "runtime" audio owner never starts the <audio> element → the
+  // preview plays silently on desktop (the rendered MP4 is fine). On ready, mirror the
+  // composition's audio into a parent-frame proxy (audio-src) and promote the player to
+  // "parent" ownership so its play/seek/mute/volume drive an audible, in-sync track.
+  useEffect(() => {
+    const el = ref.current as any;
+    if (!el) return;
+    let done = false;
+    const promote = () => {
+      if (done) return;
+      try {
+        const f = el.iframeElement || el.shadowRoot?.querySelector("iframe");
+        const a = f && f.contentDocument && f.contentDocument.getElementById("vo");
+        const url = a && (a.currentSrc || a.src);
+        if (url) el.setAttribute("audio-src", url);
+        if (typeof el._promoteToParentProxy === "function") { el._promoteToParentProxy(); done = true; }
+      } catch { /* player internals unavailable → preview stays silent, never crash */ }
+    };
+    const onReady = () => promote();
+    el.addEventListener("ready", onReady);
+    if (el.ready) promote();
+    return () => el.removeEventListener("ready", onReady);
+  }, [src]);
   // Fit the preview to the job's real aspect ratio: portrait/square are height-bounded
   // (so they don't overflow the stage), landscape/square fill the column width.
   const tall = h > w;
