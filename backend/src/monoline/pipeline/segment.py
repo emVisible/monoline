@@ -13,9 +13,10 @@ import re
 from typing import Protocol
 
 # Sentence-final punctuation (CJK + latin). Keep the mark attached to the beat.
+# Latin "." splits only when followed by whitespace → decimals ("3.14", "$5.5") stay intact.
 # NOTE: ；/; are NOT sentence-final — they separate clauses (e.g. "命中：68%；覆盖：42%"),
 # so splitting there would shred structured k:v lines into single-number fragments.
-_SENT_SPLIT = re.compile(r"(?<=[。！？!?…])")
+_SENT_SPLIT = re.compile(r"(?<=[。！？!?…])|(?<=\.)(?=\s)")
 # Secondary split for over-long sentences (clause boundaries, incl. semicolons).
 _CLAUSE_SPLIT = re.compile(r"(?<=[，,、：:；;])")
 _WS = re.compile(r"\s+")
@@ -78,19 +79,26 @@ class SentenceSegmenter:
             raise ValueError(f"{len(beats)} beats exceeds cap {self.max_beats}; split the script into shorter pieces")
         return beats
 
+    def _join(self, a: str, b: str) -> str:
+        """Concatenate two beats. Latin runs need a space between them; CJK does not
+        (CJK chars are non-ASCII, so an ASCII boundary on both sides means latin)."""
+        if a and b and a[-1].isascii() and not a[-1].isspace() and b[0].isascii() and not b[0].isspace():
+            return a + " " + b
+        return a + b
+
     def _merge_tiny(self, beats: list[str]) -> list[str]:
         """Fold a beat shorter than min_chars into its neighbour (prefer previous)."""
         out: list[str] = []
         for b in beats:
             if out and self._len(b) < self.min_chars and self._len(out[-1]) + self._len(b) <= self.max_chars + self.min_chars:
-                out[-1] = out[-1] + b
+                out[-1] = self._join(out[-1], b)
             elif out and self._len(out[-1]) < self.min_chars:
-                out[-1] = out[-1] + b  # previous was tiny; absorb current into it
+                out[-1] = self._join(out[-1], b)  # previous was tiny; absorb current into it
             else:
                 out.append(b)
         # trailing fragment
         if len(out) >= 2 and self._len(out[-1]) < self.min_chars:
-            out[-2] = out[-2] + out[-1]
+            out[-2] = self._join(out[-2], out[-1])
             out.pop()
         return out
 

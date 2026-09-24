@@ -62,6 +62,19 @@ def test_segmenter_strips_list_markers():
     assert segment_text("-10% 是可接受的误差") == ["-10% 是可接受的误差"]
 
 
+def test_segmenter_splits_english_sentences():
+    # V19: latin "." was not a sentence boundary → an English paragraph became one
+    # wall-of-text beat. Now it splits, while decimals ("3.14", "$5.5") stay intact.
+    from monoline.pipeline.segment import SentenceSegmenter, segment_text
+    beats = segment_text("Deep sea creatures glow. This is not sunlight. It is chemistry.")
+    assert beats == ["Deep sea creatures glow.", "This is not sunlight.", "It is chemistry."]
+    assert segment_text("The rate is 3.14 and the cost is $5.5 total.") == ["The rate is 3.14 and the cost is $5.5 total."]
+    # merging two latin fragments keeps a space between them; CJK merges without one
+    seg = SentenceSegmenter()
+    assert seg._join("U.S.", "API.") == "U.S. API."
+    assert seg._join("深海", "发光") == "深海发光"
+
+
 def test_planner_classifies_content():
     from monoline.pipeline.planner import RulePlanner
     scenes = RulePlanner().plan(["标题句。", "它在基准上拿到 68.8%。", "需要注意，以官方为准。"])

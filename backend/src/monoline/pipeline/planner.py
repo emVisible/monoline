@@ -30,7 +30,7 @@ class ScenePlanner(Protocol):
     def plan(self, beats: list[str], *, brand: str = "Monoline", date_eyebrow: str = "") -> list[dict]: ...
 
 
-_TRAIL = re.compile(r"[。！？!?…；;]+$")
+_TRAIL = re.compile(r"[。！？!?…；;\.]+$")
 
 # Leading discourse markers that make poor on-slide keywords — distill skips them.
 _LEAD_CONNECT = {
