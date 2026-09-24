@@ -19,6 +19,10 @@ _SENT_SPLIT = re.compile(r"(?<=[。！？!?…])")
 # Secondary split for over-long sentences (clause boundaries, incl. semicolons).
 _CLAUSE_SPLIT = re.compile(r"(?<=[，,、：:；;])")
 _WS = re.compile(r"\s+")
+# Leading list markers people paste (markdown bullets, "1."/"2)"/"1、"). Stripped so the
+# marker never leaks into a headline/caption/TTS and "2. x" isn't misread as a stat.
+# Requires trailing whitespace → leaves "3.14" and "-10%" intact.
+_LIST_MARK = re.compile(r"^\s*(?:[-*+•·‣⁃]|\d+[.)、])\s+")
 
 
 class Segmenter(Protocol):
@@ -62,7 +66,7 @@ class SentenceSegmenter:
     def segment(self, text: str) -> list[str]:
         beats: list[str] = []
         for line in text.splitlines():
-            line = line.strip()
+            line = _LIST_MARK.sub("", line.strip(), count=1)
             if not line:
                 continue
             # explicit line break = strong boundary; split the line into sentences

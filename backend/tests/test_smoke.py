@@ -48,6 +48,20 @@ def test_segmenter_keeps_semicolon_kv_line_intact():
     assert [r["k"] for r in scene["slots"]["rows"]] == ["命中", "覆盖", "准确"]
 
 
+def test_segmenter_strips_list_markers():
+    # V18: pasted markdown/numbered bullets must not leak their marker into the
+    # headline/caption/TTS, and "2. x" must not misfire as a stat on the "2".
+    from monoline.pipeline.segment import segment_text
+    from monoline.pipeline.planner import RulePlanner
+    beats = segment_text("- 快速启动整套部署流程\n• 稳定支撑每秒十万并发\n2. 显著降低运维成本")
+    assert beats == ["快速启动整套部署流程", "稳定支撑每秒十万并发", "显著降低运维成本"]
+    # the numbered item is a statement, not a stat keyed off the "2"
+    assert RulePlanner()._classify(1, beats[2])["kind"] != "stat"
+    # decimals and negatives are NOT list markers — left intact
+    assert segment_text("学习率 3.14 是基准值") == ["学习率 3.14 是基准值"]
+    assert segment_text("-10% 是可接受的误差") == ["-10% 是可接受的误差"]
+
+
 def test_planner_classifies_content():
     from monoline.pipeline.planner import RulePlanner
     scenes = RulePlanner().plan(["标题句。", "它在基准上拿到 68.8%。", "需要注意，以官方为准。"])

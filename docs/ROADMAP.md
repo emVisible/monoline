@@ -78,6 +78,7 @@
 - ✅ V15 stat 数字滚动 count-up：`engine.count_up` 解析干净数值核+前后缀（千分位/多数字/纯文字→None 静态回退），stat.html.j2 渲染 `.cu` span（data-to/dec/start），时间线末尾一段 querySelectorAll('.cu') 代理 tween 做 0→目标滚动，与环描同步。抽帧核验 1.89s=50%、3.99s=92%（seek 下确定、后缀 % 保留）。count_up 契约单测 + 后端 32 测试全过；warmup 绿。（注：改 engine.py 需重启服务，模板才热重载。）
 - ✅ V16 表格/卡片逐行错峰：table/cards 的行嵌在 `.rows` 里、此前整块入场。现把 `.rows` 从块入场选择器排除，对 `.row` 单独加左滑 stagger（0.11）；list/compare 的行本是 `.inner` 直接子元素、V14 已逐行。抽帧核验 1.85s 三行由上到下渐显、3.6s 齐平；护栏单测锁「table/cards 各 1 条 row tween、叙事场景无」；后端 33 测试全过、warmup 绿。
 - ✅ V17 UI 无障碍：NewView 五组切换 chips（画幅/版式/质量/帧率/格式）+ 音色选择 + Studio 版式/主题，选中态此前仅靠 CSS `.on` 颜色、辅助技术读不出。现全部补 `aria-pressed`，opt-group 加 `role="group"`+`aria-label`。浏览器 evaluate 核验 DOM：版式组 role/label 到位、极简 pressed=true 其余 false。
+- ✅ V18 列表标记剥离（贴文本观感修复）：实测发现粘贴 `- 要点` / `1. 步骤` 时，标记会漏进标题/字幕/TTS（画面出现「- 快速启动」这种原始文本），且 `2. x` 被误判成 stat。段分器在按行切拍前用 `_LIST_MARK`（要求标记后带空白）剥离 `- * + • · 1. 2) 3、` 等；`3.14`/`-10%` 因无尾随空格不受影响。护栏单测覆盖剥离+小数/负数安全；后端 34 测试全过、warmup 绿。
 - 附 UI：NewView 音色选择器折叠化，主流程回到一屏（收起态 + aria-expanded + 展开 25 音色，浏览器点按核验）。
 - 成功判据：抽帧对比明显「非文字流」✅；`make warmup` 绿 ✅；后端测试不回归（29）✅；每切片有渲染证据 ✅。
 
