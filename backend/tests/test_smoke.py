@@ -60,6 +60,10 @@ def test_segmenter_strips_list_markers():
     # decimals and negatives are NOT list markers — left intact
     assert segment_text("学习率 3.14 是基准值") == ["学习率 3.14 是基准值"]
     assert segment_text("-10% 是可接受的误差") == ["-10% 是可接受的误差"]
+    # V20: markdown headers "# " stripped; "C#" (mid-line) and "#hashtag" (no space) untouched
+    assert segment_text("# 深海发光概览与要点") == ["深海发光概览与要点"]
+    assert segment_text("用 C# 写的高性能服务") == ["用 C# 写的高性能服务"]
+    assert segment_text("#hashtag 话题很火") == ["#hashtag 话题很火"]
 
 
 def test_segmenter_splits_english_sentences():

@@ -20,10 +20,10 @@ _SENT_SPLIT = re.compile(r"(?<=[。！？!?…])|(?<=\.)(?=\s)")
 # Secondary split for over-long sentences (clause boundaries, incl. semicolons).
 _CLAUSE_SPLIT = re.compile(r"(?<=[，,、：:；;])")
 _WS = re.compile(r"\s+")
-# Leading list markers people paste (markdown bullets, "1."/"2)"/"1、"). Stripped so the
-# marker never leaks into a headline/caption/TTS and "2. x" isn't misread as a stat.
-# Requires trailing whitespace → leaves "3.14" and "-10%" intact.
-_LIST_MARK = re.compile(r"^\s*(?:[-*+•·‣⁃]|\d+[.)、])\s+")
+# Leading markdown/list markers people paste (headers "# ", bullets "- • ·", "1."/"2)"/"1、").
+# Stripped so the marker never leaks into a headline/caption/TTS and "2. x" isn't misread
+# as a stat. Requires trailing whitespace → leaves "3.14", "-10%" and "C#" intact.
+_LIST_MARK = re.compile(r"^\s*(?:#{1,6}|[-*+•·‣⁃]|\d+[.)、])\s+")
 
 
 class Segmenter(Protocol):
