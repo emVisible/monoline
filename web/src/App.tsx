@@ -157,43 +157,43 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         }}
       />
       <div className="opts">
-        <div className="opt-group">
+        <div className="opt-group" role="group" aria-label="画幅">
           <span className="opt-lbl">画幅</span>
           <div className="chips">
             {["landscape", "portrait", "square"].map((r) => (
-              <button key={r} className={ratio === r ? "chip on" : "chip"} onClick={() => setRatio(r)}>{r}</button>
+              <button key={r} className={ratio === r ? "chip on" : "chip"} aria-pressed={ratio === r} onClick={() => setRatio(r)}>{r}</button>
             ))}
           </div>
         </div>
-        <div className="opt-group">
+        <div className="opt-group" role="group" aria-label="版式">
           <span className="opt-lbl">版式</span>
           <div className="chips">
             {[["minimal", "极简"], ["editorial", "杂志"], ["bold", "醒目"]].map(([v, l]) => (
-              <button key={v} className={layout === v ? "chip on" : "chip"} onClick={() => setLayout(v)}>{l}</button>
+              <button key={v} className={layout === v ? "chip on" : "chip"} aria-pressed={layout === v} onClick={() => setLayout(v)}>{l}</button>
             ))}
           </div>
         </div>
-        <div className="opt-group">
+        <div className="opt-group" role="group" aria-label="质量">
           <span className="opt-lbl">质量</span>
           <div className="chips">
             {[["draft", "草样"], ["looks", "标准"], ["delivery", "高质"]].map(([v, l]) => (
-              <button key={v} className={quality === v ? "chip on" : "chip"} onClick={() => setQuality(v)}>{l}</button>
+              <button key={v} className={quality === v ? "chip on" : "chip"} aria-pressed={quality === v} onClick={() => setQuality(v)}>{l}</button>
             ))}
           </div>
         </div>
-        <div className="opt-group">
+        <div className="opt-group" role="group" aria-label="帧率">
           <span className="opt-lbl">帧率</span>
           <div className="chips">
             {[24, 30, 60].map((f) => (
-              <button key={f} className={fps === f ? "chip on" : "chip"} onClick={() => setFps(f)}>{f}</button>
+              <button key={f} className={fps === f ? "chip on" : "chip"} aria-pressed={fps === f} onClick={() => setFps(f)}>{f}</button>
             ))}
           </div>
         </div>
-        <div className="opt-group">
+        <div className="opt-group" role="group" aria-label="导出格式">
           <span className="opt-lbl">格式</span>
           <div className="chips">
             {["mp4", "webm", "mov"].map((f) => (
-              <button key={f} className={format === f ? "chip on" : "chip"} onClick={() => setFormat(f)}>{f}</button>
+              <button key={f} className={format === f ? "chip on" : "chip"} aria-pressed={format === f} onClick={() => setFormat(f)}>{f}</button>
             ))}
           </div>
         </div>
@@ -225,7 +225,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
                       const loading = audition.loadingId === v.id;
                       return (
                         <div key={v.id} className={`vchip ${on ? "on" : ""} ${playing ? "playing" : ""}`}>
-                          <button className="vchip-pick" onClick={() => setVoice(v.id)} title={`${v.label} · ${v.lang}`}>{v.label}</button>
+                          <button className="vchip-pick" onClick={() => setVoice(v.id)} aria-pressed={on} title={`${v.label} · ${v.lang}`}>{v.label}</button>
                           <button className="vchip-play" onClick={() => audition.toggle(v.id)}
                             aria-label={playing ? `停止试听 ${v.label}` : `试听 ${v.label}`}>
                             {loading ? <span className="vload" />

@@ -374,7 +374,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
             <div className="ap-title">外观</div>
             <div className="swatches">
               {themes.map((t) => (
-                <button key={t.id} className={`swatch ${cfg.theme === t.id ? "on" : ""}`} title={t.label}
+                <button key={t.id} className={`swatch ${cfg.theme === t.id ? "on" : ""}`} aria-pressed={cfg.theme === t.id} title={t.label}
                   style={{ background: t.paper }} onClick={() => applyConfig({ theme: t.id })}>
                   <span className="sw-ink" style={{ background: t.ink }} /><span className="sw-dot" style={{ background: t.accent }} />
                 </button>
@@ -384,7 +384,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
               <label className="fld-lbl">版式</label>
               <div className="chips">
                 {[["minimal", "极简"], ["editorial", "杂志"], ["bold", "醒目"]].map(([v, l]) => (
-                  <button key={v} className={cfg.layout === v ? "chip on" : "chip"} onClick={() => applyConfig({ layout: v })}>{l}</button>
+                  <button key={v} className={cfg.layout === v ? "chip on" : "chip"} aria-pressed={cfg.layout === v} onClick={() => applyConfig({ layout: v })}>{l}</button>
                 ))}
               </div>
             </div>
