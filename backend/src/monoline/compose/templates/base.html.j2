@@ -224,10 +224,13 @@
       {%- set scene = scenes[seg.i] %}
       {%- set show_cap = captions.mode != "none" and not scene.slots.get("verbatim") %}
       {# entrance of the slide content (and its caption) at the scene's start #}
-      {# entrance: stagger the scene's icon / media / secondary content (icon→eyebrow→sub→rows…) #}
+      {# entrance: stagger the scene's icon / media / secondary content (icon→eyebrow→sub→rows…).
+         Data kinds slide in from the left (x) to match their horizontal push transition;
+         narrative kinds rise (y). Steady state is identical either way (both end at 0). #}
+      {%- set data_kind = scene.kind in ['stat','list','table','cards','compare'] %}
       tl.fromTo("#scene-{{ seg.i }} .scene-icon, #scene-{{ seg.i }} .scene-media, #scene-{{ seg.i }} .inner > *:not(.headline,.s-title,.term,.q)",
-        { opacity: 0, y: 24 },
-        { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.09 }, {{ seg.start }});
+        { opacity: 0, {% if data_kind %}x: -30{% else %}y: 24{% endif %} },
+        { opacity: 1, {% if data_kind %}x: 0{% else %}y: 0{% endif %}, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.09 }, {{ seg.start }});
       {# V9-3 kinetic headline: the display text wipes in left→right (clip-path) + settles,
          a distinct signature motion for the focal line vs the fade/rise of secondary content. #}
       tl.fromTo("#scene-{{ seg.i }} .headline, #scene-{{ seg.i }} .s-title, #scene-{{ seg.i }} .term, #scene-{{ seg.i }} .q",
