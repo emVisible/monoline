@@ -708,6 +708,49 @@ def test_shape_kinds_are_derived_not_hand_listed():
     assert scenes[-1]["kind"] == "timeline", scenes[-1]
 
 
+def test_matrix_kind_v31f():
+    """V31f: a 2×2 grid claims two dimensions, so it is only earned when the beat says
+    so — four parallel items alone are a list."""
+    import json
+    from pathlib import Path
+    from monoline.ir.sceneplan import KINDS, ScenePlan, Theme
+    from monoline.ir.timings import Timings
+    from monoline.compose.engine import render_composition
+    from monoline.pipeline.planner import plan_scenes
+
+    assert "matrix" in KINDS
+
+    def scene_of(b):
+        return [s for s in plan_scenes(["开场。", b], brand="Monoline") if s["i"] == 1][0]
+
+    m = scene_of("时间管理四象限：重要紧急、重要不紧急、紧急不重要、既不紧急也不重要")
+    assert m["kind"] == "matrix" and m["slots"]["title"] == "时间管理四象限"
+    assert len(m["slots"]["cells"]) == 4
+    assert m["slots"]["x_axis"] == ""                       # nothing named an axis → none drawn
+    # the same four items without the quadrant word stay a list
+    assert scene_of("我们有四类客户：学生、上班族、自由职业、退休人群")["kind"] == "list"
+    # a matrix word with only three items is not a quadrant
+    assert scene_of("这套方法是个矩阵：快、省、好")["kind"] != "matrix"
+    # axis words are read, with their particles stripped (「按效率轴」→ 效率)
+    ax = scene_of("按效率轴和规模维度切成矩阵：高效率高规模、高效率高成本、低效率高规模、低效率高成本")
+    assert (ax["slots"]["x_axis"], ax["slots"]["y_axis"]) == ("效率", "规模")
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["四象限"], [4.0])
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=[
+        {"i": 0, "kind": "matrix", "slots": {"title": "时间管理", "x_axis": "紧急", "y_axis": "重要",
+            "cells": ["重要紧急", "重要不紧急", "紧急不重要", "既不紧急也不重要"], "verbatim": True}}]))
+    assert html.count('class="mcell"') == 4
+    assert '<span class="m-q">01</span>' in html and '<span class="m-q">04</span>' in html
+    assert 'class="m-axis m-xaxis"' in html and 'class="m-axis m-yaxis"' in html
+    plain = render_composition(tim, ScenePlan(theme=theme, scenes=[
+        {"i": 0, "kind": "matrix", "slots": {"title": "T", "x_axis": "", "y_axis": "",
+            "cells": ["a", "b", "c", "d"], "verbatim": True}}]))
+    assert "m-axis m-xaxis" not in plain and "m-axis m-yaxis" not in plain
+    # ^ element-level on purpose: the stylesheet always contains `.m-xaxis`, so a bare
+    # substring test would pass even when no axis is rendered.
+
+
 def test_count_up_parsing_contract():
     import json
     from pathlib import Path

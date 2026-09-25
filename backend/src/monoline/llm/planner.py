@@ -27,6 +27,7 @@ ALLOWED: dict[str, dict[str, str]] = {
     "timeline": {"title": "s", "rows": "kv"},
     "share": {"title": "s", "rows": "kv"},
     "trend": {"title": "s", "series": "sl"},
+    "matrix": {"title": "s", "x_axis": "s", "y_axis": "s", "cells": "sl"},
     "cards": {"title": "s", "rows": "kv"},
     "compare": {"a": "pair", "b": "pair"},
     "flow": {"nodes": "sl"},

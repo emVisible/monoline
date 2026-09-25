@@ -194,6 +194,9 @@ _METRIC_CHUNK = re.compile(
 _DATE_CHUNK = re.compile(r"^(20\d{2}|19\d{2})\s*年?|[Qq一二三四]\s*[度Q]|^\d{1,2}\s*月")
 _SPLIT_CHUNKS = re.compile(r"[，,、；;。]")
 _FROM_TO = re.compile(r"(从|由)[^，,。]{0,8}?(到|至|涨到|升到|降到|跌至|扩至|升至)")
+# A 2×2 grid needs two named dimensions, so only an explicit quadrant word earns it.
+_MATRIX_MARK = re.compile(r"(四象限|象限|矩阵|二维定位)")
+_AXIS = re.compile(r"([^\s，,。；;、：:（）()]{1,6}?)\s*(?:轴|维度)")
 
 
 def _numeric(v: str) -> bool:
@@ -247,6 +250,32 @@ def _trend(s: str) -> tuple[str, list[str]]:
     if len(nums) < 3 and not (span and len(nums) == 2):
         return "", []
     return title, nums[:8]
+
+
+def _matrix(s: str) -> tuple[str, str, str, list[str]]:
+    """'四象限：重要紧急、重要不紧急…' → a 2×2 quadrant grid.
+
+    Only an explicit quadrant/matrix word qualifies — four parallel items alone are a
+    list, and forcing them into a grid would claim two axes that the text never named.
+    Axes are read only if stated (「效率轴」「规模维度」); otherwise they stay blank."""
+    if not _MATRIX_MARK.search(s):
+        return "", "", "", []
+    title, body = _lead(s)
+    if not title and "：" in body:                      # a long lead label (「按…切成矩阵：」)
+        head, _, tail = body.partition("：")
+        if 2 <= len(head.strip()) <= 18 and not _NUM.search(head):
+            title, body = head.strip(), tail.strip()
+    if _MATRIX_MARK.fullmatch(title or ""):
+        title = ""                       # 「四象限：」 is the shape's name, not a headline
+    cells = [c.strip() for c in _SPLIT_CHUNKS.split(body) if 2 <= len(c.strip()) <= 14]
+    cells = [c for c in cells if not _MATRIX_MARK.fullmatch(c)]
+    if len(cells) != 4:      # a quadrant means four; 2-3 items is a list, not a grid
+        return "", "", "", []
+    # strip the particles that attach to an axis word (「按效率轴」「和规模维度」) so the
+    # label on the slide reads 效率 / 规模, not 按效率 / 和规模
+    axes = [re.sub(r"^(按|和|与|及|把|对|为|是|的|在)+", "", m.group(1).strip()) for m in _AXIS.finditer(s)]
+    axes = [a for a in axes if len(a) >= 2]
+    return title, (axes[0] if axes else ""), (axes[1] if len(axes) > 1 else ""), cells[:4]
 
 
 def _timeline(s: str) -> tuple[str, list[dict]]:
@@ -435,6 +464,13 @@ class RulePlanner:
         if tpts:
             return {"i": i, "kind": "timeline", "source": "rules:dated-milestones",
                     "slots": {"title": tt, "rows": tpts, "verbatim": True}}
+
+        # V31f matrix: an explicit quadrant/matrix word turns a 4-item set into a grid.
+        mt, mx, my, mcells = _matrix(s)
+        if mcells:
+            return {"i": i, "kind": "matrix", "source": "rules:quadrant",
+                    "slots": {"title": mt, "x_axis": mx, "y_axis": my, "cells": mcells,
+                              "verbatim": True}}
 
         # V31e share: percentages that add up to one whole → a ring. Ahead of kpi
         # because a share set is also a labelled metric list.

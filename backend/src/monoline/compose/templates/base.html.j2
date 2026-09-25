@@ -343,6 +343,21 @@
       .k-trend .spark .sl-line { stroke-width: 4; }
       .k-trend .tlabels { display: flex; justify-content: space-between; width: 820px; max-width: 100%;
         margin-top: 10px; font-size: 26px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+      /* kind: matrix — four quadrants, equal weight; the ordinal is a position marker */
+      .k-matrix { width: 1180px; max-width: 100%; }
+      .k-matrix .d-title { text-align: center; margin-bottom: 40px; }
+      .k-matrix .mgrid-wrap { display: flex; align-items: stretch; gap: 22px; }
+      .k-matrix .mgrid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+      .k-matrix .mcell { position: relative; display: flex; flex-direction: column; gap: 14px;
+        min-height: 210px; padding: 30px 34px; border: 1px solid var(--hairline); border-radius: 16px;
+        background: color-mix(in oklab, var(--ink) 4%, transparent); }
+      .k-matrix .m-q { font-size: 26px; font-weight: 800; letter-spacing: 0.06em; color: var(--accent);
+        font-variant-numeric: tabular-nums; }
+      .k-matrix .m-t { font-size: 46px; font-weight: 700; line-height: 1.25; color: var(--ink); }
+      .k-matrix .m-axis { font-size: 28px; font-weight: 600; letter-spacing: 0.08em; color: var(--ink-muted); }
+      .k-matrix .m-yaxis { writing-mode: vertical-rl; text-orientation: mixed;
+        display: flex; align-items: center; justify-content: space-between; }
+      .k-matrix .m-xaxis { margin-top: 18px; text-align: center; }
       /* aspect-aware: fill the tall/narrow frame instead of letterboxing a 16:9 slide */
       body[data-aspect="portrait"] { --scene-scale: 1.24; }
       body[data-aspect="square"] { --scene-scale: 1.12; }
@@ -380,6 +395,9 @@
       body[data-aspect="portrait"] .k-trend { width: 100%; }
       body[data-aspect="portrait"] .k-trend .tv { font-size: 128px; }
       body[data-aspect="portrait"] .k-trend .spark, body[data-aspect="portrait"] .k-trend .tlabels { width: 660px; }
+      body[data-aspect="portrait"] .k-matrix { width: 100%; }
+      body[data-aspect="portrait"] .k-matrix .mcell { min-height: 168px; padding: 24px 26px; }
+      body[data-aspect="portrait"] .k-matrix .m-t { font-size: 38px; }
 
       /* ── V11 layout presets — whole-deck composition style ── */
       /* editorial: magazine-style left-aligned column (breaks the centered "text-flow" feel) */
@@ -522,6 +540,11 @@
         { clipPath: "inset(0 0% 0 0)", opacity: 1, duration: 0.9, ease: "{{ eease }}" }, {{ (seg.start + 0.22)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .tlabels > *", { opacity: 0, y: 12 },
         { opacity: 1, y: 0, duration: 0.34, ease: "power2.out", stagger: 0.07 }, {{ (seg.start + 0.5)|round(3) }});
+      {%- elif scene.kind == 'matrix' %}
+      tl.fromTo("#scene-{{ seg.i }} .mcell", { opacity: 0, scale: 0.94 },
+        { opacity: 1, scale: 1, duration: 0.46, ease: "power2.out", stagger: 0.12 }, {{ (seg.start + 0.16)|round(3) }});
+      tl.fromTo("#scene-{{ seg.i }} .m-axis", { opacity: 0 },
+        { opacity: 1, duration: 0.4, ease: "power1.out" }, {{ (seg.start + 0.5)|round(3) }});
       {%- elif scene.kind == 'share' %}
       tl.fromTo("#scene-{{ seg.i }} .donut", { opacity: 0, scale: 0.86 },
         { opacity: 1, scale: 1, duration: 0.62, ease: "back.out(1.4)", transformOrigin: "center" }, {{ (seg.start + 0.12)|round(3) }});
