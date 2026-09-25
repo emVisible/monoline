@@ -45,6 +45,12 @@ def names() -> list[str]:
     return sorted(_ICONS.keys())
 
 
+def catalog() -> list[dict[str, str]]:
+    """Name + path body for every icon — what /api/icons serves so the Studio can
+    show a preview grid. Ordered by name; the body is vendored, not user input."""
+    return [{"name": k, "body": v} for k, v in sorted(_ICONS.items())]
+
+
 # keyword → icon, first match wins (ordered by specificity). zh + en substrings.
 _ICON_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
     ("cpu", ("芯片", "半导体", "算力", "算法", "模型", "神经网络", "处理器", "推理", "边缘计算",

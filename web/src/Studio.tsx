@@ -23,7 +23,65 @@ const SCALAR_SLOTS: Record<string, string[]> = {
 };
 // kind → the string-array slot its editor exposes (list items / diagram nodes / timeline steps)
 const LIST_SLOT: Record<string, string> = { list: "items", flow: "nodes", radial: "nodes", steps: "steps", arch: "layers", cycle: "nodes" };
-const LIST_LABEL: Record<string, string> = { list: "列表项", flow: "流程节点", radial: "分支节点", steps: "步骤", arch: "层（自上而下）", cycle: "环上节点" };
+const LIST_LABEL: Record<string, string> = { list: "列表项", flow: "流程节点", radial: "分支节点", steps: "步骤", arch: "层（自上而下）", cycle: "环上节点", funnel: "漏斗层（自上而下）" };
+
+type IconDef = { name: string; body: string };
+
+function IconGlyph({ body, size = 18 }: { body: string; size?: number }) {
+  return createElement("svg", {
+    viewBox: "0 0 24 24", width: size, height: size, fill: "none", stroke: "currentColor",
+    strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true,
+    dangerouslySetInnerHTML: { __html: body },
+  });
+}
+
+/** Searchable grid picker — 158 icons is a wall of text in a <select>. */
+function IconPicker({ icons, value, onChange }: { icons: IconDef[]; value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const box = useRef<HTMLDivElement | null>(null);
+  const current = icons.find((i) => i.name === value);
+  const shown = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return s ? icons.filter((i) => i.name.includes(s)) : icons;
+  }, [icons, q]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onDown = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onDown);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("mousedown", onDown); };
+  }, [open]);
+  const pick = (v: string) => { onChange(v); setOpen(false); };
+  return (
+    <div className="icon-pick" ref={box}>
+      <button type="button" className="fld icon-trigger" aria-haspopup="listbox" aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}>
+        {current ? <IconGlyph body={current.body} /> : <span className="icon-dash">—</span>}
+        <span className="icon-name">{value || "无图标"}</span>
+        <span className="icon-count">{icons.length}</span>
+      </button>
+      {open && (
+        <div className="icon-pop" role="listbox" aria-label="图标库">
+          <input className="fld icon-filter" placeholder="筛选图标…" value={q} autoFocus
+            onChange={(e) => setQ(e.target.value)} />
+          <div className="icon-grid">
+            <button type="button" role="option" aria-selected={!value}
+              className={`icon-cell clear${!value ? " on" : ""}`} onClick={() => pick("")}>无</button>
+            {shown.map((i) => (
+              <button key={i.name} type="button" role="option" aria-selected={i.name === value} title={i.name}
+                className={`icon-cell${i.name === value ? " on" : ""}`} onClick={() => pick(i.name)}>
+                <IconGlyph body={i.body} size={20} />
+              </button>
+            ))}
+          </div>
+          {!shown.length && <p className="muted">没有匹配的图标</p>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Player({ src, w, h, registerRef }: { src: string; w: number; h: number; registerRef?: (el: HTMLElement | null) => void }) {
   const ref = useRef<HTMLElement | null>(null);
@@ -84,7 +142,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
   const [dragI, setDragI] = useState<number | null>(null);
   const [overI, setOverI] = useState<number | null>(null);
   const [themes, setThemes] = useState<{ id: string; label: string; accent: string; paper: string; ink: string }[]>([]);
-  const [icons, setIcons] = useState<string[]>([]);
+  const [icons, setIcons] = useState<IconDef[]>([]);
   const [presets, setPresets] = useState<{ id: string; name: string; config: any }[]>([]);
   const [cfg, setCfg] = useState(() => {
     try { const c = JSON.parse(job.config_json || "{}"); return { theme: c.theme || "mono-ink", accent: c.accent || "", brand: c.brand || "Monoline", voice: c.voice || "zf_xiaoxiao", layout: c.layout || "minimal", logo: c.logo || "" }; }
@@ -476,10 +534,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
               </select>
               <p className="src-badge">{scenes[sel]?.source || "manual"}</p>
               <label className="fld-lbl">图标</label>
-              <select className="fld" value={d.slots.icon ?? ""} onChange={(e) => setSlot("icon", e.target.value)}>
-                <option value="">无</option>
-                {icons.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
-              </select>
+              <IconPicker icons={icons} value={d.slots.icon ?? ""} onChange={(v) => setSlot("icon", v)} />
               <label className="fld-lbl">{d.kind === "image" ? "图片" : "配图"}</label>
               <div className="img-row">
                 {d.slots.image ? (

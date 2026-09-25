@@ -23,8 +23,10 @@ async def list_themes(request: Request) -> dict:
 
 @router.get("/icons")
 async def list_icons() -> dict:
-    from ..compose.icons import names
-    return {"icons": names()}
+    """Name + raw path data, so Studio can draw a real preview grid instead of a
+    158-row text <select>. The body is vendored Lucide markup, never user input."""
+    from ..compose.icons import catalog
+    return {"icons": catalog()}
 
 
 @router.get("/voices")
