@@ -28,6 +28,15 @@ Progress = Callable[[str, dict], Awaitable[None]]
 
 STAGES = ["script", "tts", "assemble", "plan", "fonts", "compose", "gate", "render", "deliver"]
 
+
+def keep_richer_plan(prior: dict | None, new_source: str) -> bool:
+    """True when an already-stored storyboard must survive this run of the plan stage.
+
+    Only an LLM-shaped plan is worth protecting, and only against a run that failed to
+    produce one — the rules path is what a resume falls back to when the upgrade returns
+    nothing, and it is strictly less shaped than what the user already saw."""
+    return bool(prior) and prior.get("source") == "llm" and new_source != "llm"
+
 _MIME = {"mp4": "video/mp4", "webm": "video/webm", "mov": "video/quicktime"}
 
 
@@ -205,6 +214,23 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
                 apply_icons(scenes, beats)      # promoted beats need the new kind's icon
                 number_sections(scenes)
                 source = "llm" if llm.get("upgraded") else "rules"
+        if source != "llm":
+            prior = await repo.get_plan(job_id)
+            if keep_richer_plan(prior, source):
+                # Measured on job 001a0d863e: v1(source=llm) shaped four beats into
+                # flow/steps/definition, a resume then re-ran the stage, got zero
+                # promotions, and its v2(rules) silently became the live storyboard.
+                # A re-run must never downgrade the picture the user already saw.
+                await log("plan", "本次没有 LLM 升格，沿用此前已生成的分镜（重跑不会把画面改差）",
+                          level="warn")
+                kept = ScenePlan.model_validate_json(prior["plan_json"])
+                (ws.ir / "scene_plan.json").write_text(kept.model_dump_json(indent=2), encoding="utf-8")
+                kept_kinds: dict[str, int] = {}
+                for sc in kept.scenes:
+                    kept_kinds[sc["kind"]] = kept_kinds.get(sc["kind"], 0) + 1
+                return {"scenes": len(kept.scenes), "plan_version": prior["version"],
+                        "kinds": kept_kinds, "warnings": kept.validate_against(len(beats)),
+                        "source": "llm:kept", "llm": llm}
         plan = ScenePlan(job_id=job_id, canvas=Canvas(**canvas), theme=theme,
                          brand=Brand(label=config.get("brand", "Monoline"), logo=config.get("logo", "")), scenes=scenes)
         warnings = plan.validate_against(len(beats))

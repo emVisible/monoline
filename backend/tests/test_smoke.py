@@ -1066,6 +1066,18 @@ def test_stat_ordinal_guard_and_age_unit_v39():
     assert k("它在 DeepSWE 基准上拿到 68.8%。") == "stat"   # the good case still works
 
 
+def test_resume_cannot_downgrade_a_shaped_plan_v41():
+    """Job 001a0d863e left two plan rows: v1(source=llm, 4 shaped beats) then
+    v2(source=rules, none) — the resume's empty upgrade silently won."""
+    from monoline.pipeline.runner import keep_richer_plan
+
+    assert keep_richer_plan({"source": "llm"}, "rules") is True
+    assert keep_richer_plan({"source": "llm"}, "llm") is False      # a newer shaped plan may replace
+    assert keep_richer_plan({"source": "rules"}, "rules") is False  # nothing better to keep
+    assert keep_richer_plan({"source": "manual"}, "rules") is False # a hand edit is not a downgrade guard
+    assert keep_richer_plan(None, "rules") is False                 # first run
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`
