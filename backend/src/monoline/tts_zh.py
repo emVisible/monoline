@@ -31,6 +31,7 @@ _CJK_RANGES = ((0x3005, 0x3007), (0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0x
 _CJK = re.compile("([" + "".join(f"{chr(a)}-{chr(b)}" for a, b in _CJK_RANGES) + "]+)")
 # Our planner emits beats like "需求->设计->开发" for flow scenes; the arrow is a
 # diagram glyph, so it must become a pause rather than be read out loud.
+_LONG_END = re.compile("[" + "".join(chr(c) for c in (0x2026, 0x2014, 0x2015)) + "]")
 _ARROW = re.compile("[" + "".join(chr(c) for c in (0x2192, 0x21D2, 0x279C, 0x27A6)) + "]|-{1,2}>|=>")
 
 _engine: dict = {}
@@ -101,17 +102,89 @@ def phonemize(text: str) -> str:
     return " ".join(p for p in out if p.strip())
 
 
-def synthesize(text: str, voice: str, out_wav: str, *, speed: float = 1.0) -> float:
-    """Write one line to `out_wav`; return its duration in seconds."""
-    import soundfile as sf
+_CLAUSE_END = re.compile(r"[，,；;、]")
+_SENT_END = re.compile(r"[。！!？?]")
+
+
+def _phrasing(text: str) -> list[tuple[str, str]]:
+    """Split a line into (chunk, gap-kind) so each clause is voiced on its own and the
+    breath between them is ours to size. Ellipses and dashes become a LONG gap."""
+    from . import narration
+
+    text = narration.clean(text)
+    parts: list[tuple[str, str]] = []
+    cur = ""
+    for ch in text:
+        cur += ch
+        if _LONG_END.match(ch):
+            parts.append((cur, "long")); cur = ""
+        elif _SENT_END.match(ch):
+            parts.append((cur, "sentence")); cur = ""
+        elif _CLAUSE_END.match(ch):
+            parts.append((cur, "clause")); cur = ""
+    if cur.strip():
+        parts.append((cur, "none"))
+    return [(re.sub(r"\s+", " ", a).strip(), b) for a, b in parts if a.strip()]
+
+
+def render(text: str, voice: str, *, speed: float = 1.0) -> tuple:
+    """Synthesize one line with real breaths; return (float32 samples, sample_rate)."""
+    import numpy as np
+    import soundfile as sf  # noqa: F401  (kept for the writer in synthesize)
+
+    from . import narration
 
     eng = _load()
     if eng is None:
         raise RuntimeError("tone-correct zh engine unavailable")
-    phones = phonemize(text)
-    if not phones.strip():
+    chunks = _phrasing(text)
+    if not chunks:
+        raise ValueError(f"nothing to say in {text!r}")
+    gaps = {"clause": narration.GAP_CLAUSE, "sentence": narration.GAP_SENTENCE,
+            "long": narration.GAP_LONG, "none": 0.0}
+    out: list = []
+    sr = 0
+    for i, (chunk, kind) in enumerate(chunks):
+        phones = phonemize(chunk)
+        if not phones.strip():
+            continue
+        audio, sr = eng["k"].create(phones, voice, speed, is_phonemes=True)
+        x = np.asarray(audio, dtype=np.float32)
+        x = _trim_tail(x, sr, narration.TRAIL_KEEP)
+        out.append(x)
+        if i < len(chunks) - 1 and gaps[kind]:
+            out.append(np.zeros(int(gaps[kind] * sr), dtype=np.float32))
+    if not out:
         raise ValueError(f"no phonemes for {text!r}")
-    audio, sr = eng["k"].create(phones, voice, speed, is_phonemes=True)
+    import numpy as np
+
+    body = np.concatenate([np.zeros(int(narration.GAP_HEAD * sr), dtype=np.float32), *out,
+                           np.zeros(int(narration.GAP_TAIL * sr), dtype=np.float32)])
+    return body, sr
+
+
+def _trim_tail(x, sr: int, keep: float):
+    """Cut the model's own trailing silence down to `keep` seconds so gaps stay additive."""
+    import numpy as np
+
+    hop = max(1, int(0.01 * sr))
+    thr = max(0.015, float(np.abs(x).max()) * 0.06)
+    end = len(x)
+    i = len(x)
+    while i > 0 and i > end - int(2.0 * sr):
+        seg = x[max(0, i - hop):i]
+        if len(seg) and float(np.sqrt(np.mean(seg ** 2))) > thr:
+            break
+        i -= hop
+    keep_n = int(keep * sr)
+    return x[:min(len(x), i + keep_n)]
+
+
+def synthesize(text: str, voice: str, out_wav: str, *, speed: float = 1.0) -> float:
+    """Write one line to `out_wav`; return its duration in seconds."""
+    import soundfile as sf
+
+    audio, sr = render(text, voice, speed=speed)
     sf.write(out_wav, audio, sr)
     return len(audio) / sr
 

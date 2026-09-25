@@ -706,3 +706,27 @@ def test_spa_index_is_not_cacheable():
     'clicked generate, nothing happened'."""
     from monoline.api.app import SpaStatic
     assert SpaStatic.__doc__ and "never be cached" in SpaStatic.__doc__
+
+
+def test_narration_stops_spelling_punctuation_aloud():
+    """Measured before the fix: a bare % reached the model as "percent" and ** as
+    "asterisk asterisk", because non-CJK runs go through an English G2P."""
+    from monoline import narration
+    assert narration.clean("覆盖率 92%。") == "覆盖率 92%。"          # numbers stay, they read as 百分之…
+    assert "%" not in narration.clean("命中率 %。")                  # a stray % is not a word
+    for tok in ("*", "_", "~", "`", "#", "|", "→", "😂"):
+        assert tok not in narration.clean(f"甲{tok}乙")
+    assert narration.clean("需求→设计→开发") == "需求，设计，开发"
+    assert narration.clean("慢——真的很慢") .endswith("慢")
+    assert "……" in narration.clean("等等……再说明白")
+    # rate is bounded inside what the synth accepts, and it differentiates line shapes
+    assert 0.5 <= narration.rate("") <= 2.0
+    assert narration.rate("效率提升 3 倍。") < narration.rate("这是一句明显超过三十四个字的很长的旁白句子用来验证长句会略微加快的行为")
+
+
+def test_phrasing_splits_on_breaths():
+    from monoline import tts_zh
+    parts = tts_zh._phrasing("深海会发光，这不是反射阳光，而是体内的化学反应。")
+    assert [k for _, k in parts] == ["clause", "clause", "sentence"]
+    long_gap = tts_zh._phrasing("它更亮……也更容易被看见。")
+    assert "long" in [k for _, k in long_gap]

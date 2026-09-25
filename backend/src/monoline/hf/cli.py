@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from pathlib import Path
 from dataclasses import dataclass
 
 from ..settings import Settings
@@ -79,6 +80,11 @@ class HF:
 
     async def tts(self, text_file: str, out_wav: str, *, voice: str, lang: str, speed: float = 1.0) -> dict:
         """Synthesize one line; return the parsed --json payload (durationSeconds etc.)."""
+        from .. import narration
+
+        text = Path(text_file).read_text(encoding="utf-8")
+        spoken = narration.clean(text)
+        eff = max(0.5, min(2.0, round(speed * narration.rate(spoken), 3)))
         if lang == "zh":
             # espeak-ng (what `hyperframes tts` uses) cannot carry Mandarin tones into
             # Kokoro's vocabulary — see monoline/tts_zh.py. Fall back to the CLI only if
@@ -88,16 +94,21 @@ class HF:
             if tts_zh.available():
                 try:
                     dur = await asyncio.to_thread(
-                        tts_zh.synthesize_file, text_file, out_wav, voice=voice, speed=speed
+                        tts_zh.synthesize, spoken, voice, out_wav, speed=eff
                     )
                     return {"durationSeconds": dur, "engine": "kokoro+misaki"}
                 except Exception as exc:  # noqa: BLE001
                     import sys
 
                     print(f"zh tone path failed ({exc}); falling back to hyperframes tts", file=sys.stderr)
+        # the fallback engine gets the same cleaned text and the same rate decision
+        if spoken != text.strip():
+            scrubbed = Path(out_wav).with_suffix(".clean.txt")
+            scrubbed.write_text(spoken, encoding="utf-8")
+            text_file = str(scrubbed)
         args = ["tts", text_file, "--voice", voice, "--lang", lang, "-o", out_wav, "--json"]
-        if speed != 1.0:
-            args += ["--speed", str(speed)]
+        if eff != 1.0:
+            args += ["--speed", str(eff)]
         r = await self.run(args, timeout=300)
         if not r.ok:
             raise HFError(f"tts failed rc={r.returncode}: {r.stderr[-400:]}")

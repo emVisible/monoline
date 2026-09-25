@@ -96,6 +96,13 @@
   - 判定范围同步扩大：planner 新增 `rules:arrow-chain` / `rules:hub-enumeration`（「X 分为/包括/涵盖 A、B、C」）/ `rules:ordinal-chain`（①②③ / 第 N 步）三条抽取规则；段分器把「引导句：箭头链」拆成两拍（引导句是句子、链是图，1 拍 1 镜时不拆就丢图），k:v 行与 、枚举仍保持整拍。
   - 版式 preset 与画幅联动：editorial 左对齐、bold 加粗描边/加粗标题；竖屏图元字号 38px、导图高度 900px。
   - 实测：贴一段含链/分层/序号的中文段落 → 自动出 flow + radial + steps 三镜并成功出片（作业 succeeded，18.2s），抽帧确认三种图均正确成图、无溢出；后端 44 测试全过（+5）、warmup 绿、tsc/build 干净。
+- ✅ V30 生成流程与旁白表现力（用户四点：点了没反应/生成中不该出现 card/外观该放生成前/旁白匀速且标点被念出来）：
+  - **零静默失败**：主按钮不再 disabled 到无处申诉——空内容点击给出「还没有内容 — 粘贴一段文字，或点 ✨ 让 AI 写一段」并聚焦输入框；POST 期间显示「创建中…」；后端 422（如 60 拍上限）直接显示。AI 写稿空主题同样给原因。**并查出真凶之一：index.html 无 Cache-Control，浏览器拿旧 bundle → 行为永远是旧代码**，`SpaStatic` 对 html 加 `no-store`（哈希 asset 仍可缓存）。
+  - **阶段解耦**：RUNNING 时右侧属性面板只留「先生成，再调整」的进度提示，配置/逐拍编辑卡 0 个（浏览器实测）；终态才出现。
+  - **外观前移**：主题/品牌/强调色/Logo 变成用户级身份 `brand.json`（GET/PATCH /api/brand、POST/DELETE /api/brand/logo），首页「外观 · 品牌」区设定后对每个新作业生效；create_job 兜底并把 Logo 冻结进作业 assets（实测新作业带 `Acme 实验室` + `#FF7A5A` + logo img）。修掉 `Path("") == cwd` 让首次上传去 `unlink('.')` 的 500。
+  - **标点不再被念出来**（取证→修）：`%` 实测被读成 "percent"、`**` 读成 "asterisk asterisk"（非中文段走英文 G2P）。新增 `narration.clean()`：破折/箭头→逗号停顿、省略号→长停顿、emoji/markdown 符号/裸 % 删除；`92%` 仍读「百分之九十二」。两条 TTS 路（misaki 与 espeak 回退）共用。
+  - **停顿与语气**：`is_phonemes=True` 下逗号不是 stop，Kokoro 的 sentence/clause_pause 对整句几乎无效（实测 5.35s 里只有两处 0.15s）。改为按分句切块分别合成、由我们插入真实呼吸（从句 0.20s、句末 0.42s、省略/破折 0.62s，并裁掉每块自带尾静音避免叠加），语速按行形状选（数字/短句 0.90、常规 0.97、长句 1.04）。成片旁白实测：分句呼吸 0.26-0.28s、破折号处 0.66s。诚实边界：Kokoro 没有音高参数，「语气起伏」能控的是节奏与停顿，真要语调变化得换模型或云 TTS。
+  - 后端 51 测试全过（+4：品牌往返/标点不拼读/分句/SPA no-store）、tsc/build 干净、warmup 绿。
 - 附 UI：NewView 音色选择器折叠化，主流程回到一屏（收起态 + aria-expanded + 展开 25 音色，浏览器点按核验）。
 - ✅ V29 接上本地 Ollama（用户起了 `batiai/gemma4-e4b:q4`，要求「联通 + 界面提示是否连通」）：
   - **目标解析**：`llm/client.py::detect()` — 显式 `MONOLINE_LLM_*` 优先，否则探活本地 Ollama（`/api/tags`）并选模型；结果缓存 15s，探活延迟回给前端。`/api/script/status` 从「读配置」改成「真探活」（旧实现只判 env，永远显示未配置=假提示）。
