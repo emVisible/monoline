@@ -847,6 +847,32 @@ def test_image_treatment_and_ken_burns_v33():
     assert "scene-2 .shot" not in js                        # nothing to drift without an image
 
 
+def test_reveal_density_scales_with_dwell_v34():
+    """V34: every item reveal used a fixed 0.1s gap, so an 8s narration beat laid out its
+    whole slide in half a second and then held a dead frame for 7.5s."""
+    import json
+    import re
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    durs = [1.2, 2.0, 4.0, 9.0]
+    tim = Timings.from_durations(["一。", "二。", "三。", "四。"], durs)
+    rows = [{"k": f"项{j}", "v": f"值{j}"} for j in range(5)]
+    scenes = [{"i": i, "kind": "table", "slots": {"title": f"表{i}", "rows": rows}} for i in range(4)]
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=scenes))
+
+    got = [float(a) for a in re.findall(r'\.row, #scene-\d+ \.brow".*?amount: ([\d.]+)', html, re.S)]
+    assert got == [0.22, 0.68, 1.36, 2.6]          # grows with dwell, floored, then capped
+    for sd, d in zip(got, durs):
+        assert 0.28 + sd + 0.7 <= d + 1e-6         # last item settles before the scene leaves
+    # ratchet: item reveals are all amount-based now; the only fixed gap left is the
+    # 3-element icon→eyebrow→sub cascade, which should stay snappy
+    assert set(re.findall(r"stagger: (?:\{ amount: [\d.]+|([\d.]+))", html)) <= {"0.09", ""}
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`

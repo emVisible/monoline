@@ -538,29 +538,36 @@
          narrative kinds rise (y). Steady state is identical either way (both end at 0). #}
       {%- set data_kind = scene.kind in ['stat','list','table','cards','compare','bars'] %}
       {%- set diagram = scene.kind in ['flow','radial','steps','arch','cycle','funnel'] %}
+      {#- V34: item reveals are spread across the scene's own dwell instead of a fixed
+          0.1s gap. A 1.6s beat must still snap; an 8s narration beat that finishes its
+          layout in 0.5s then holds a dead frame for 7.5s — that hold is what reads as
+          "auto-generated". Bounded by dur-1.15 so the last item still settles before
+          the scene transitions out (0.28 lead-in + 0.7 tween), and by 2.6s so a long
+          chapter beat doesn't crawl. -#}
+      {%- set sd = [[0.22, [seg.dur * 0.34, seg.dur - 1.15] | min] | max, 2.6] | min | round(3) %}
       {%- if diagram %}
       {#- V27 diagrams assemble themselves: title drops, then pills pop in reading order
           while their connectors surface one beat behind the node they lead to. -#}
       tl.fromTo("#scene-{{ seg.i }} .d-title", { opacity: 0, y: -20 },
         { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}" }, {{ seg.start }});
       tl.fromTo("#scene-{{ seg.i }} .node", { opacity: 0, scale: 0.82 },
-        { opacity: 1, scale: 1, duration: 0.52, ease: "back.out(1.6)", stagger: 0.16 }, {{ (seg.start + 0.12)|round(3) }});
+        { opacity: 1, scale: 1, duration: 0.52, ease: "back.out(1.6)", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.12)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .link, #scene-{{ seg.i }} .spoke", { opacity: 0 },
-        { opacity: 1, duration: 0.34, ease: "power1.out", stagger: 0.16 }, {{ (seg.start + 0.26)|round(3) }});
+        { opacity: 1, duration: 0.34, ease: "power1.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.26)|round(3) }});
       {%- if scene.kind == 'arch' %}
       {#- bottom-up: the foundation arrives first, the accent layer last -#}
       tl.fromTo("#scene-{{ seg.i }} .layer", { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: { amount: 0.62, from: "end" } }, {{ (seg.start + 0.1)|round(3) }});
+        { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: { amount: {{ sd }}, from: "end" } }, {{ (seg.start + 0.1)|round(3) }});
       {%- elif scene.kind == 'funnel' %}
       tl.fromTo("#scene-{{ seg.i }} .fbar", { opacity: 0, scaleX: 0 },
-        { opacity: 1, scaleX: 1, duration: 0.5, ease: "power2.out", transformOrigin: "center", stagger: 0.15 }, {{ (seg.start + 0.12)|round(3) }});
+        { opacity: 1, scaleX: 1, duration: 0.5, ease: "power2.out", transformOrigin: "center", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.12)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .fv", { opacity: 0, x: -14 },
-        { opacity: 1, x: 0, duration: 0.34, ease: "power2.out", stagger: 0.15 }, {{ (seg.start + 0.34)|round(3) }});
+        { opacity: 1, x: 0, duration: 0.34, ease: "power2.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.34)|round(3) }});
       {%- elif scene.kind == 'cycle' %}
       tl.fromTo("#scene-{{ seg.i }} .hub-mark", { opacity: 0, scale: 0.7 },
         { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.5)" }, {{ (seg.start + 0.06)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .arc, #scene-{{ seg.i }} .arc-tip", { opacity: 0 },
-        { opacity: 1, duration: 0.4, ease: "power1.out", stagger: 0.12 }, {{ (seg.start + 0.55)|round(3) }});
+        { opacity: 1, duration: 0.4, ease: "power1.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.55)|round(3) }});
       {%- endif %}
       tl.fromTo("#scene-{{ seg.i }} .rail-fill", { scaleY: 0 },
         { scaleY: 1, duration: {{ (0.16 * (scene.slots.steps | length) + 0.42) | round(3) if scene.slots.steps else 0.6 }}, ease: "power1.inOut", transformOrigin: "top center" }, {{ (seg.start + 0.2)|round(3) }});
@@ -573,34 +580,34 @@
          entrance above excludes .rows and each row staggers in from the left instead). #}
       {%- if scene.kind in ['table','cards','bars'] %}
       tl.fromTo("#scene-{{ seg.i }} .row, #scene-{{ seg.i }} .brow", { opacity: 0, x: -24 },
-        { opacity: 1, x: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.11 }, {{ (seg.start + 0.12)|round(3) }});
+        { opacity: 1, x: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.12)|round(3) }});
       {%- endif %}
       {#- V31d: kpi cards pop in reading order; the timeline rail draws, then its
           ticks land on it. Rail scales along the axis the layout actually uses. -#}
       {%- if scene.kind == 'kpi' %}
       tl.fromTo("#scene-{{ seg.i }} .kcard", { opacity: 0, y: 18, scale: 0.94 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "back.out(1.5)", stagger: 0.12 }, {{ (seg.start + 0.16)|round(3) }});
+        { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "back.out(1.5)", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.16)|round(3) }});
       {%- elif scene.kind == 'timeline' %}
       tl.from("#scene-{{ seg.i }} .tl-rail", { {% if aspect == 'portrait' %}scaleY: 0{% else %}scaleX: 0{% endif %}, duration: 0.8, ease: "power1.inOut" }, {{ (seg.start + 0.1)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .tl-p", { opacity: 0, y: 16 },
-        { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.16 }, {{ (seg.start + 0.26)|round(3) }});
+        { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.26)|round(3) }});
       {%- elif scene.kind == 'trend' %}
       {#- the line wipes in left→right like the hero text, so the series reads as being
           drawn rather than fading into place -#}
       tl.fromTo("#scene-{{ seg.i }} .spark", { clipPath: "inset(0 100% 0 0)", opacity: 0.001 },
         { clipPath: "inset(0 0% 0 0)", opacity: 1, duration: 0.9, ease: "{{ eease }}" }, {{ (seg.start + 0.22)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .tlabels > *", { opacity: 0, y: 12 },
-        { opacity: 1, y: 0, duration: 0.34, ease: "power2.out", stagger: 0.07 }, {{ (seg.start + 0.5)|round(3) }});
+        { opacity: 1, y: 0, duration: 0.34, ease: "power2.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.5)|round(3) }});
       {%- elif scene.kind == 'matrix' %}
       tl.fromTo("#scene-{{ seg.i }} .mcell", { opacity: 0, scale: 0.94 },
-        { opacity: 1, scale: 1, duration: 0.46, ease: "power2.out", stagger: 0.12 }, {{ (seg.start + 0.16)|round(3) }});
+        { opacity: 1, scale: 1, duration: 0.46, ease: "power2.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.16)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .m-axis", { opacity: 0 },
         { opacity: 1, duration: 0.4, ease: "power1.out" }, {{ (seg.start + 0.5)|round(3) }});
       {%- elif scene.kind == 'share' %}
       tl.fromTo("#scene-{{ seg.i }} .donut", { opacity: 0, scale: 0.86 },
         { opacity: 1, scale: 1, duration: 0.62, ease: "back.out(1.4)", transformOrigin: "center" }, {{ (seg.start + 0.12)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .legend li", { opacity: 0, x: -22 },
-        { opacity: 1, x: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.11 }, {{ (seg.start + 0.3)|round(3) }});
+        { opacity: 1, x: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.3)|round(3) }});
       {%- endif %}
       {# V9-3 kinetic headline: the display text wipes in left→right (clip-path) + settles,
          a distinct signature motion for the focal line vs the fade/rise of secondary content. #}
@@ -612,7 +619,7 @@
       {# V9-5 data-viz draw-in: ring strokes in from empty, table bars grow left→right.
          stroke/scaleX only → deterministic; .from() reads each element's authored end value. #}
       tl.from("#scene-{{ seg.i }} .ring-fill", { strokeDashoffset: 263.894, duration: 0.9, ease: "power2.out" }, {{ (seg.start + 0.2)|round(3) }});
-      tl.from("#scene-{{ seg.i }} .tbar, #scene-{{ seg.i }} .bfill", { scaleX: 0, transformOrigin: "left center", duration: 0.7, ease: "power2.out", stagger: 0.08 }, {{ (seg.start + 0.28)|round(3) }});
+      tl.from("#scene-{{ seg.i }} .tbar, #scene-{{ seg.i }} .bfill", { scaleX: 0, transformOrigin: "left center", duration: 0.7, ease: "power2.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.28)|round(3) }});
       {#- V33 Ken Burns: the shot drifts for as long as the scene is on screen, so a
           still image is never a dead rectangle. Scale-only — it overflows the .shot box
           and is clipped, so it stays inside the transform allowlist. -#}
