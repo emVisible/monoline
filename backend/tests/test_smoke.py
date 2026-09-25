@@ -916,6 +916,52 @@ def test_real_job_defects_v35():
         assert sel in rules[0]
 
 
+def test_peak_marker_v36():
+    """V36: a designed slide points at the one number that matters. The marker must come
+    from the same geometry helper as the line, or it drifts off its own point."""
+    from monoline.compose.viz import peak_marker, sparkline, _points
+
+    m = peak_marker(["1.2亿", "3.6亿", "1.9亿", "2.4亿"], w=820, h=200)
+    assert m["value"] == "3.6亿" and m["index"] == 1
+    assert (m["x"], m["y"]) == _points([1.2, 3.6, 1.9, 2.4], 820, 200)[1]
+    assert peak_marker(["1.2亿", "1.9亿", "2.4亿"], w=820, h=200) is None    # peak is the hero
+    assert peak_marker(["1.2亿", "3.6亿"], w=820, h=200) is None             # two points, no shape
+    assert peak_marker(["甲", "乙", "丙"], w=820, h=200) is None              # nothing numeric
+    # refactor guard: extracting _points must not move a single pixel of the line
+    assert sparkline(["1", "2"], w=100, h=40) == (
+        '<svg class="spark" viewBox="0 0 100 40" aria-hidden="true">'
+        '<polyline class="sl-line" points="10.0,30.0 90.0,10.0" fill="none" stroke-width="3" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+        '<circle class="sl-dot" cx="90.0" cy="10.0" r="5"/></svg>')
+
+
+def test_peak_annotation_and_dense_list_v36():
+    """V36 annotation layer + the row-height fix V35b needed once a 7-item list existed."""
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["一。", "二。", "三。"], [6.0, 6.0, 6.0])
+    scenes = [
+        {"i": 0, "kind": "trend", "slots": {"title": "季度营收", "series": ["1.2亿", "3.6亿", "1.9亿", "2.4亿"]}},
+        {"i": 1, "kind": "trend", "slots": {"title": "持续增长", "series": ["1.2亿", "1.9亿", "2.4亿"]}},
+        {"i": 2, "kind": "list", "slots": {"items": ["写稿", "配音", "切分", "分镜", "字体", "合成", "渲染"]}},
+    ]
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=scenes))
+
+    assert html.count('class="callout"') == 1                     # only the mid-series peak
+    assert "3.6亿" in html.split('class="callout"')[1][:80]
+    assert "峰值" in html.split('class="callout"')[1][:120]
+    # the callout is placed from the peak's own viewBox coordinates, not eyeballed
+    assert 'left: 33.74%; top: calc(5.0% + 20px)' in html
+    # 7 rows must fit the same box 6 rows used to fill
+    assert "--li-fs: 39px; --li-pad: 15px" in html
+    assert "font-size: var(--li-fs, 46px)" in html
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`

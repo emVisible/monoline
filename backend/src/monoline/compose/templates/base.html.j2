@@ -249,7 +249,8 @@
       .k-list { text-align: left; width: 1120px; max-width: 100%; }
       .k-list .l-title { font-size: 52px; font-weight: 700; margin-bottom: 24px; }
       .k-list .items { list-style: none; }
-      .k-list .item { font-size: 46px; padding: 18px 0; border-bottom: 1px solid var(--hairline); color: var(--ink); }
+      .k-list .item { font-size: var(--li-fs, 46px); padding: var(--li-pad, 18px) 0;
+        border-bottom: 1px solid var(--hairline); color: var(--ink); }
       .k-list .item::before { content: "— "; color: var(--accent); }
       /* kind: section */
       .k-section { text-align: left; }
@@ -393,6 +394,17 @@
         color: var(--accent); font-variant-numeric: tabular-nums; }
       .k-trend .spark { width: 820px; max-width: 100%; height: auto; margin-top: 6px; }
       .k-trend .spark .sl-line { stroke-width: 4; }
+      /* V36: the peak is by definition the topmost point, so the callout goes under it,
+         into the band the line has already vacated, with a dot marking the point itself. */
+      .k-trend .plot { position: relative; }
+      .k-trend .callout { position: absolute; transform: translateX(-50%);
+        display: flex; align-items: baseline; gap: 10px; white-space: nowrap;
+        padding: 2px 12px; border-radius: 8px;
+        background: color-mix(in oklab, var(--paper) 78%, transparent); }
+      .k-trend .callout::before { content: ""; position: absolute; left: 50%; top: -18px;
+        margin-left: -3.5px; width: 7px; height: 7px; border-radius: 999px; background: var(--accent); }
+      .k-trend .cl-v { font-size: 32px; font-weight: 700; color: var(--accent); }
+      .k-trend .cl-l { font-size: 21px; letter-spacing: 0.16em; color: var(--ink-faint); }
       .k-trend .tlabels { display: flex; justify-content: space-between; width: 820px; max-width: 100%;
         margin-top: 10px; font-size: 26px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
       /* kind: matrix — four quadrants, equal weight; the ordinal is a position marker */
