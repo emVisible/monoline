@@ -81,11 +81,28 @@ donut 四段用 ink 的四个透明度档位，而不是四种颜色。加颜色
    作废。剔除合成稿后的真实分布（42 稿 / 164 拍）：**statement 118 = 72.0%**、definition
    13 = 7.9%、section 6 = 3.7%、note 5 = 3.0%、bars 3 = 1.8%、kpi 2 = 1.2%。
    含合成稿的全量是 236 拍 / statement 80.5%。两个口径都记在这里，以后引用必须说明是哪一个。
-10. **同一份稿子两次跑，分镜结果不一样。** 2026-09-25 用同一条 15 行文稿连跑两次：第一次
-    判出 flow / steps / definition / trend，第二次同一批句子全成了 statement（14 拍里 4 拍
-    变了形）。规则路径本身是确定的，变化来自 V29b 的 LLM 升格。对一个宣传「同样的文字永远
-    得到同样的片子」的工具，这是要正面处理的：要么把 LLM 升格结果按 (script_hash) 落盘复用，
-    要么在界面上说明「分镜会随模型变化」并默认关闭。先量：同一稿跑 5 次，看变形率。
+10. **同一份稿子两次跑，分镜结果不一样——已定位到两个独立缺陷。**
+    2026-09-05→25 用同一条 15 行文稿连跑，作业 `001a0d863e3f57beb236550` 留下两行 plan：
+
+    ```
+    v1 source=llm   title statement flow list steps statement kpi definition list section statement statement steps summary
+    v2 source=rules title statement statement list statement statement kpi statement list section statement statement statement summary
+    ```
+
+    两次 events 都记到同一个模型（`分镜判定：batiai/gemma4-e4b:q4`），也就是 **target.ok
+    两次都成立、upgrade 两次都真的跑了**，但第二次 `llm["upgraded"]` 为空，于是 source 落回
+    rules、四类升格（flow / steps×2 / definition）全部退回 statement。
+
+    - **缺陷 A：LLM 升格不可复现。** `planner.upgrade()` 已经是 `temperature=0.0`，
+      本地量化小模型仍给不出稳定结果。这不是采样温度能修的。
+    - **缺陷 B（更要命，且便宜可修）：resume 会用更差的 plan 静默覆盖更好的。**
+      第二次是因为我中途起了一个 uvicorn、supervisor 把在跑的作业当中断作业 reconcile 掉
+      才重跑的；`stage()` 的缓存判定此时 prior 状态是 running 不成立 → 正常重跑。问题是
+      重跑结果（0 升格）直接成为唯一生效版本，compose 用它出片，用户看不到任何降级提示。
+
+    先修 B：plan 阶段若本次 `upgraded` 为空而该作业已存在 `source='llm'` 的 plan，就沿用
+    旧版本并记一条 warn，而不是覆盖。A 需要的是把升格结果按 (script_hash, model) 落盘复用
+    ——同一个 job 内已经天然复用（DB 里那份），跨 job 才谈得上「同样的文字同样的片子」。
 
 > **数字上屏的原则（V39 补）**：一个数字被放大成 hero 之前，先问它是不是**量级**。序数
 > （第10句）、约数（40多岁）、以及会把残留量词丢进标签的数量（7个案例 → 「 个案例」）
