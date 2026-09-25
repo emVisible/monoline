@@ -676,7 +676,8 @@ def test_share_and_trend_kinds_v31e():
     assert kind_of("安卓占 45%，iOS 占 30%，其他 25%")["kind"] == "share"
 
     tr = kind_of("季度营收 1.2 亿、1.9 亿、2.4 亿、3.1 亿")
-    assert tr["kind"] == "trend" and tr["slots"]["series"] == ["1.2 亿", "1.9 亿", "2.4 亿", "3.1 亿"]
+    # unit stays glued to the number (V31d convention) — it is what the axis labels show
+    assert tr["kind"] == "trend" and tr["slots"]["series"] == ["1.2亿", "1.9亿", "2.4亿", "3.1亿"]
     assert kind_of("转化率从 12% 涨到 48%")["kind"] == "trend"             # 2 points + 从…到…
     assert kind_of("速度 120，功耗 45，成本 30")["kind"] == "bars"          # 3 numbers, no order claimed
 
@@ -871,6 +872,48 @@ def test_reveal_density_scales_with_dwell_v34():
     # ratchet: item reveals are all amount-based now; the only fixed gap left is the
     # 3-element icon→eyebrow→sub cascade, which should stay snappy
     assert set(re.findall(r"stagger: (?:\{ amount: [\d.]+|([\d.]+))", html)) <= {"0.09", ""}
+
+
+def test_real_job_defects_v35():
+    """Three defects found by snapshotting every beat of a real 15-line job."""
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+    from monoline.pipeline.planner import RulePlanner, _trend
+
+    p = RulePlanner()
+
+    # 1. a falling line drawn through two incomparable numbers states something the
+    #    script never said — 300 字 and 21.7 秒 are not a series
+    assert _trend("实测数据：一段 300 字的稿子，从粘贴到出片平均 21.7 秒。") == ("", [])
+    assert p._classify(0, "实测数据：一段 300 字的稿子，从粘贴到出片平均 21.7 秒。")["kind"] != "trend"
+    # …while genuine series still read as one
+    assert _trend("季度营收：1.2 亿、1.9 亿、2.4 亿、3.1 亿。")[1] == ["1.2亿", "1.9亿", "2.4亿", "3.1亿"]
+    assert _trend("渗透率从 12% 涨到 48%。")[1] == ["12%", "48%"]
+
+    # 2. the enumeration silently dropped its first and last items
+    line = "它把整条链路拆成七步：写稿、配音、切分、分镜、字体、合成、渲染。"
+    items = p._classify(0, line)["slots"]["items"]
+    assert items == ["写稿", "配音", "切分", "分镜", "字体", "合成", "渲染"]
+
+    # 4. the verb and the discourse lead-in were sliced into the card labels
+    #    (「6% 分镜判定只」「42% 其中配音」 on the real job)
+    from monoline.pipeline.planner import _kpis
+    _, cards = _kpis("其中配音占 42%，渲染占 33%，分镜判定只占 6%。")
+    assert [c["k"] for c in cards] == ["配音", "渲染", "分镜判定"]
+    assert [c["v"] for c in cards] == ["42%", "33%", "6%"]
+
+    # 3. display type orphaned: a 200px title split 「剪辑」 across the break
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["标题。"], [3.0])
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "title", "slots": {"headline": "标题"}}]))
+    css = html.split("<style>")[1].split("</style>")[0]
+    rules = [ln for ln in css.splitlines() if "text-wrap: balance" in ln]
+    assert len(rules) == 1
+    for sel in (".headline", ".s-title", ".term", ".q", ".d-title", ".cap > .inner"):
+        assert sel in rules[0]
 
 
 def test_composed_css_stays_balanced():

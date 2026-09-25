@@ -187,10 +187,16 @@ _FUNNEL_MARK = re.compile(
 # ── V31d: colon-free metric lists (kpi) and dated milestones (timeline) ─────────
 # 「日活 120 万，留存 45%，营收 3.2 亿」 has no colons, so _KV never sees it and it
 # used to fall through to a plain sentence. A chunk is label + number + optional unit.
+_UNIT_ALT = r"%|％|万|亿|元|人|次|天|周|月|小时|分钟|ms|s|秒|倍|台|单|家|户|字|K|M|G|GB"
+# a number plus whatever unit glyph sits right after it ('' when bare) — used to tell
+# whether two numbers are even comparable before a chart is drawn through them
+_NUM_UNIT = re.compile(r"([\d][\d.,]*)\s*(" + _UNIT_ALT + r")?")
+_METRIC_LEAD = re.compile(r"^(其中|另外|同时|以及)")
 _METRIC_CHUNK = re.compile(
     r"^([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9]{0,7}?)\s*"
-    r"(?:占|为|是|达|约|达到|仅|已)?\s*"
-    r"([\d][\d.,]*)\s*(%|％|万|亿|元|人|次|天|周|月|小时|分钟|ms|s|秒|倍|台|单|家|户|K|M|G|GB)?\s*$")
+    r"(?:(?:仅|只|约|已)?\s*(?:占|为|是|达|达到))?\s*"
+    r"([\d][\d.,]*)\s*(" + _UNIT_ALT + r")?\s*$")
+
 _DATE_CHUNK = re.compile(r"^(20\d{2}|19\d{2})\s*年?|[Qq一二三四]\s*[度Q]|^\d{1,2}\s*月")
 _SPLIT_CHUNKS = re.compile(r"[，,、；;。]")
 _FROM_TO = re.compile(r"(从|由)[^，,。]{0,8}?(到|至|涨到|升到|降到|跌至|扩至|升至)")
@@ -243,11 +249,19 @@ def _trend(s: str) -> tuple[str, list[str]]:
     """'1.2 亿、1.9 亿、2.4 亿、3.1 亿' or '从 12% 涨到 48%' → a series line.
 
     Needs 3+ numbers, or 2 with an explicit 从…到…: two lone numbers are a comparison
-    (bars), and calling that a trend would invent an ordering between them."""
+    (bars), and calling that a trend would invent an ordering between them.
+
+    Every number must carry the same unit. 「一段 300 字的稿子，从粘贴到出片平均 21.7 秒」
+    has a 从…到… and two numbers, but 字 and 秒 are not a series — drawing a falling line
+    through them states something the文稿 never said."""
     title, body = _lead(s)
-    nums = [x.strip() for x in _NUM.findall(body) if any(ch.isdigit() for ch in x)]
+    hits = [(m.group(1), m.group(2) or "") for m in _NUM_UNIT.finditer(body)
+            if any(ch.isdigit() for ch in m.group(1))]
+    nums = [f"{n}{u}" for n, u in hits]        # unit rides along — it is the axis label
     span = bool(_FROM_TO.search(body))
     if len(nums) < 3 and not (span and len(nums) == 2):
+        return "", []
+    if len({u for _, u in hits}) > 1:
         return "", []
     return title, nums[:8]
 
@@ -310,7 +324,10 @@ def _kpis(s: str) -> tuple[str, list[dict]]:
         m = _METRIC_CHUNK.match(c)
         if not m or _DATE_CHUNK.search(c):
             return "", []                      # one non-metric chunk breaks the set
-        label, num, unit = m.group(1).strip(), m.group(2).strip(), (m.group(3) or "").strip()
+        raw = m.group(1).strip()
+        # 「其中配音」 is a discourse lead-in, not part of the metric's name
+        label = _METRIC_LEAD.sub("", raw).strip() or raw
+        num, unit = m.group(2).strip(), (m.group(3) or "").strip()
         if len(label) < 2:
             return "", []
         out.append({"k": label, "v": f"{num}{unit}"})
@@ -524,10 +541,13 @@ class RulePlanner:
 
         # list: true 、-enumeration of 3+ short parallel items
         if "、" in s:
-            items = [x.strip() for x in _ENUM.split(s) if 2 <= len(x.strip()) <= 12]
+            # The lead-in rides on the first chunk ("拆成七步：写稿") and gets it killed by
+            # the length filter, silently dropping an item. Cut at the colon first.
+            src = s.split("：")[-1] if "：" in s else s
+            items = [x.strip(" 。.") for x in _ENUM.split(src) if 2 <= len(x.strip(" 。.")) <= 12]
             if len(items) >= 3:
                 return {"i": i, "kind": "list", "source": "rules:enumeration",
-                        "slots": {"title": "", "items": items[:5]}}
+                        "slots": {"title": "", "items": items[:8]}}
 
         if _SECTION_MARK.match(s):
             ts = self._text_slots(b)

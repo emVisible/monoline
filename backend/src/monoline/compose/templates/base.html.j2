@@ -156,6 +156,11 @@
         background: color-mix(in oklab, var(--paper) 70%, transparent);
         border: 1px solid var(--hairline); padding: 18px 40px; border-radius: 10px; }
 
+      /* V35: display type must not leave an orphan. Measured on a real 14-beat job: the
+         200px title broke 「剪｜辑」 across two lines and three statement headlines hung a
+         2-3 character tail under themselves. Balance evens the lines instead. */
+      .headline, .s-title, .term, .q, .d-title, .cap > .inner { text-wrap: balance; }
+
       /* kind: title */
       .k-title .eyebrow { font-size: 30px; letter-spacing: 0.45em; color: var(--ink-muted); text-transform: uppercase; }
       .k-title .headline { font-size: 200px; font-weight: 800; letter-spacing: -0.035em; line-height: 0.95; margin: 12px 0; }
