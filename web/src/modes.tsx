@@ -78,6 +78,8 @@ export const MODE_GROUPS: ModeGroup[] = [
     id: "media", zh: "素材", note: "真实画面进场", modes: [
       { kind: "image", zh: "图片", desc: "相框 + 统一色调 + 缓慢推拉", glyph:
         '<rect x="7" y="7" width="34" height="18" rx="2"/><path d="M11 21.4l6.4-7.2 4.2 4.6 4.2-5.2 5.2 7.8z" class="mg-a"/><circle cx="16" cy="12.4" r="1.7"/>' },
+      { kind: "showcase", zh: "图片卡行", desc: "并排的截图卡，各带名称与说明", glyph:
+        '<rect x="4" y="8" width="12" height="11" rx="1.5"/><rect x="18" y="8" width="12" height="11" rx="1.5" class="mg-a"/><rect x="32" y="8" width="12" height="11" rx="1.5"/><line x1="4" y1="23" x2="13" y2="23" stroke-width="1.6"/><line x1="18" y1="23" x2="27" y2="23" stroke-width="1.6"/><line x1="32" y1="23" x2="41" y2="23" stroke-width="1.6"/>' },
     ],
   },
 ];

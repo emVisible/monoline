@@ -212,6 +212,24 @@
         font-size: 27px; color: var(--ink-muted); }
       .k-poster .p-dash { width: 58px; height: 2px; flex: none; background: var(--ink-faint); }
 
+      /* kind: showcase — a row of image cards (each card owns its asset). */
+      .k-showcase { width: 100%; }
+      .k-showcase .sc-title { font-size: 44px; font-weight: 700; color: var(--ink);
+        margin-bottom: 36px; text-align: left; }
+      .k-showcase .sc-row { display: flex; gap: 32px; align-items: flex-start; }
+      .k-showcase .sc-row.stack { flex-direction: column; gap: 26px; }
+      .k-showcase .sc-card { flex: 1 1 0; min-width: 0; margin: 0;
+        display: flex; flex-direction: column; gap: 16px; }
+      .k-showcase .shot { display: flex; align-items: center; justify-content: center;
+        height: 320px; background: var(--surface); border-radius: 14px; }
+      .k-showcase .sc-row.stack .shot { height: 380px; }
+      .k-showcase .shot img { max-width: 90%; max-height: 86%; }
+      .k-showcase .sc-ph { height: 320px; display: flex; align-items: center; justify-content: center;
+        border: 1px dashed var(--hairline); border-radius: 14px; color: var(--ink-faint); font-size: 22px; }
+      .k-showcase .sc-name { font-size: 30px; font-weight: 650; color: var(--ink); }
+      .k-showcase .sc-note { display: block; margin-top: 4px; font-size: 22px; line-height: 1.45;
+        color: var(--ink-muted); }
+
       /* kind: stat */
       .k-stat .value { font-size: 260px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--accent); }
       .k-stat .ring-wrap { position: relative; width: 400px; height: 400px; }

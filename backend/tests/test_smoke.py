@@ -1157,6 +1157,36 @@ def test_mode_library_catalog_is_the_single_source_v44():
     assert "h === \"modes\"" in app and "<ModesView />" in app
 
 
+def test_showcase_kind_v45():
+    """V45: a row of image cards — the third look from the reference screenshots.
+    Each card owns its own asset, so the row can carry a caption per screenshot, and a
+    card without an image still holds its slot instead of collapsing the grid."""
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme, KINDS
+    from monoline.compose.engine import render_composition
+
+    assert "showcase" in KINDS
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["三个界面。"], [5.0])
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "showcase", "slots": {
+        "title": "三种界面", "image_tone": "mono",
+        "rows": [{"k": "编辑器", "v": "三栏布局", "img": "assets/a.png"},
+                 {"k": "首页", "v": "粘贴即出片", "img": "assets/b.png"},
+                 {"k": "设置", "v": "品牌与音色"}]}}]))
+    assert html.count('class="shot') == 2, "one card per uploaded asset"
+    assert 'class="sc-ph"' in html and "未配图" in html
+    assert 'src="assets/a.png"' in html and "三种界面" in html
+    assert "tone-color" not in html.split('<div class="inner k-showcase">')[1], \
+        "mono tone must not opt out of the shared treatment (the stylesheet always ships both rules)"
+    # positive control: the same render with tone=color must light the class up
+    color_html = render_composition(tim, ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "showcase", "slots": {
+        "title": "三种界面", "image_tone": "color",
+        "rows": [{"k": "编辑器", "v": "", "img": "assets/a.png"}]}}]))
+    assert 'class="shot tone-color"' in color_html.split('<div class="inner k-showcase">')[1]
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`

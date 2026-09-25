@@ -20,7 +20,7 @@ const SCALAR_SLOTS: Record<string, string[]> = {
   section: ["index", "title"], definition: ["term", "gloss"], stat: ["value", "unit", "label", "delta", "trend"],
   table: ["title"], cards: ["title", "tagline"], quote: ["q", "attr"], list: ["title"], note: ["marker", "body"],
   compare: ["pivot"], image: ["headline"], flow: ["title"], steps: ["title"], radial: ["hub"], arch: ["title"], cycle: ["title"], funnel: ["title"],
-  poster: ["tab", "body", "by"],
+  poster: ["tab", "body", "by"], showcase: ["title"],
   bars: ["title"], kpi: ["title"], timeline: ["title"], share: ["title"], trend: ["title"], matrix: ["title", "x_axis", "y_axis"],
 };
 // kind → the string-array slot its editor exposes (list items / diagram nodes / timeline steps)
@@ -278,6 +278,12 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
   const setSlot = (key: string, val: any) => draft && saveScene({ ...draft, slots: { ...draft.slots, [key]: val } });
   const setRows = (rows: { k: string; v: string }[]) =>
     draft && saveScene({ ...draft, slots: { ...draft.slots, ...(draft.slots.stages ? { stages: rows } : { rows }) } });
+  const patchRow = (ri: number, patch: Record<string, string>) => {
+    if (!draft) return;
+    const rows = [...(draft.slots.rows || draft.slots.stages || [])];
+    rows[ri] = { ...rows[ri], ...patch };
+    setRows(rows);
+  };
   const setCompare = (side: "a" | "b", key: string, val: string) =>
     draft && saveScene({ ...draft, slots: { ...draft.slots, [side]: { ...(draft.slots[side] || {}), [key]: val } } });
 
@@ -288,8 +294,10 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
     const slots = { ...draft.slots };
     const pairKey = kind === "funnel" ? "stages" : "rows";
     if ((kind === "table" || kind === "cards" || kind === "bars" || kind === "kpi" || kind === "timeline"
-         || kind === "share" || kind === "funnel") && !Array.isArray(slots[pairKey])) {
-      slots[pairKey] = [{ k: "", v: "" }, { k: "", v: "" }];
+         || kind === "share" || kind === "funnel" || kind === "showcase") && !Array.isArray(slots[pairKey])) {
+      slots[pairKey] = kind === "showcase"
+        ? [{ k: "", v: "", img: "" }, { k: "", v: "", img: "" }, { k: "", v: "", img: "" }]
+        : [{ k: "", v: "" }, { k: "", v: "" }];
     }
     if (kind === "trend" && !Array.isArray(slots.series)) slots.series = ["", "", ""];
     if (kind === "matrix" && !Array.isArray(slots.cells)) slots.cells = ["", "", "", ""];
@@ -331,13 +339,16 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
     }
   };
 
-  const uploadImage = async (file: File) => {
+  const uploadImage = async (file: File, onDone?: (rel: string) => void) => {
     setImgBusy(true);
     try {
       const fd = new FormData();
       fd.append("file", file);
       const r = await fetch(`/api/jobs/${job.id}/assets`, { method: "POST", body: fd });
-      if (r.ok) { const d = await r.json(); setSlot("image", d.rel); }
+      if (r.ok) {
+        const d = await r.json();
+        if (onDone) onDone(d.rel); else setSlot("image", d.rel);
+      }
     } finally {
       setImgBusy(false);
     }
@@ -571,7 +582,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                   <input className="fld" value={d.slots.image_caption ?? ""} onChange={(e) => setSlot("image_caption", e.target.value)} />
                 </div>
               )}
-              {d.slots.image && (
+              {(d.slots.image || d.kind === "showcase") && (
                 <div className="fld-row">
                   <label className="fld-lbl">图片色调</label>
                   <div className="chips" role="group" aria-label="图片色调">
@@ -592,11 +603,18 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
 
               {(d.slots.rows || d.slots.stages) && (
                 <div className="rows-edit">
-                  <label className="fld-lbl">{d.slots.stages ? "漏斗层" : "数据行"}</label>
+                  <label className="fld-lbl">{d.slots.stages ? "漏斗层" : d.kind === "showcase" ? "卡片（名称 / 说明 / 配图）" : "数据行"}</label>
                   {(d.slots.rows || d.slots.stages).map((r: any, ri: number) => (
-                    <div key={ri} className="row2">
-                      <input className="fld" value={r.k} onChange={(e) => { const rows = [...(d.slots.rows || d.slots.stages)]; rows[ri] = { ...r, k: e.target.value }; setRows(rows); }} />
-                      <input className="fld" value={r.v} onChange={(e) => { const rows = [...(d.slots.rows || d.slots.stages)]; rows[ri] = { ...r, v: e.target.value }; setRows(rows); }} />
+                    <div key={ri} className={`row2${d.kind === "showcase" ? " row-img" : ""}`}>
+                      <input className="fld" value={r.k} onChange={(e) => patchRow(ri, { k: e.target.value })} />
+                      <input className="fld" value={r.v} onChange={(e) => patchRow(ri, { v: e.target.value })} />
+                      {d.kind === "showcase" && (
+                        <label className="ghost file row-pick" title="给这张卡配图">
+                          {imgBusy ? "…" : r.img ? "换图" : "配图"}
+                          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden disabled={imgBusy}
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f, (rel) => patchRow(ri, { img: rel })); e.target.value = ""; }} />
+                        </label>
+                      )}
                     </div>
                   ))}
                 </div>

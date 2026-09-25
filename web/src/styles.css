@@ -238,6 +238,8 @@ body {
 .fld:focus { border-color:var(--accent); }
 .fld-row { display:flex; flex-direction:column; }
 .rows-edit { display:flex; flex-direction:column; gap:6px; } .row2 { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.row2.row-img { grid-template-columns:1fr 1fr auto; }
+.row-pick { font-size:12px; padding:0 10px; white-space:nowrap; }
 .img-row { display:flex; align-items:center; gap:10px; } .img-thumb { width:56px; height:56px; object-fit:cover; border-radius:8px; border:1px solid var(--hairline); }
 .img-none { font-size:12.5px; color:var(--ink-faint); }
 .src-badge { font-size:11px; color:var(--ink-faint); font-family:ui-monospace,monospace; }
