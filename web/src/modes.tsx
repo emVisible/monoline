@@ -199,7 +199,7 @@ export function ModePicker({ value, used, onChange }: { value: string; used: Rec
                   className={`mode-row${m.kind === value ? " on" : ""}`} onClick={() => pick(m.kind)}>
                   <ModeGlyph body={m.glyph} w={44} h={28} />
                   <span className="mode-rowtxt"><b>{t(m.zh)}</b><i>{t(m.desc)}</i></span>
-                  {used[m.kind] ? <span className="mode-used">{used[m.kind]} 拍</span> : null}
+                  {used[m.kind] ? <span className="mode-used">{used[m.kind]}{t(" 拍")}</span> : null}
                 </button>
               ))}
             </div>

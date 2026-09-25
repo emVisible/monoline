@@ -527,7 +527,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
             <div className="appearance">
               <div className="ap-title">{t("配音")}</div>
               <div className="ap-row">
-                <label className="fld-lbl">音色{voiceBusy && <span className="resynth-tag"> {t("· 重合成中…")}</span>}</label>
+                <label className="fld-lbl">{t("音色")}{voiceBusy && <span className="resynth-tag"> {t("· 重合成中…")}</span>}</label>
                 <div className="voice-edit">
                   <select className="fld" value={cfg.voice} disabled={voiceBusy} onChange={(e) => changeVoice(e.target.value)}>
                     {groupVoices(voices).map((g) => (
@@ -543,21 +543,21 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                       : <span className="vplay" />}
                   </button>
                 </div>
-                {voiceBusy && <p className="voice-busy-note">逐拍重新合成中（约 {Math.max(2, segments.length * 3)} 秒）…</p>}
+                {voiceBusy && <p className="voice-busy-note">{t("逐拍重新合成中（约 ")}{Math.max(2, segments.length * 3)}{t(" 秒）…")}</p>}
               </div>
             </div>
           )}
           {!d ? <p className="muted">{t("选左侧一拍")}</p> : (
             <>
               <div className="fld-row">
-                <label className="fld-lbl">旁白{resynth && <span className="resynth-tag"> {t("· 重合成中…")}</span>}</label>
+                <label className="fld-lbl">{t("旁白")}{resynth && <span className="resynth-tag"> {t("· 重合成中…")}</span>}</label>
                 <textarea className="fld narration" key={`n-${sel}`} rows={3}
                   defaultValue={segments[sel]?.text ?? ""}
                   onChange={(e) => saveNarration(sel, e.target.value)} />
               </div>
               <div className="fld-lbl-row">
                 <label className="fld-lbl">{t("呈现模式")}</label>
-                <a className="mode-lib-link" href="#/modes">全部 {MODE_COUNT} 种</a>
+                <a className="mode-lib-link" href="#/modes">{t("全部 ")}{MODE_COUNT}{t(" 种")}</a>
               </div>
               <ModePicker value={d.kind} used={kindUsed} onChange={changeKind} />
               <p className="src-badge">{scenes[sel]?.source || "manual"}</p>

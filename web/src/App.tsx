@@ -200,7 +200,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
           <i className="llm-dot" aria-hidden="true" />
           {llm.ready
             ? <>{t("模型已连通 ·")} <code>{llm.model}</code>{llm.source === "ollama" ? t(" · 本地 Ollama") : ""}{llm.latency_ms !== null ? ` · ${llm.latency_ms}ms` : ""}</>
-            : <>模型未连通 · {llm.detail || t("未检测到可用端点")}</>}
+            : <>{t("模型未连通 · ")}{llm.detail || t("未检测到可用端点")}</>}
           <button className="llm-retry" onClick={() => loadLlm(true)} disabled={llmBusy}
             aria-label={t("重新检测模型连通")}>{llmBusy ? t("检测中…") : t("重试")}</button>
         </span>
@@ -466,7 +466,7 @@ function SetupView() {
               <div className="check-body">
                 <div className="check-top"><span className="check-name">{t(CHECK_LABEL[c.name]) || c.name}</span><span className="check-state">{c.state}</span></div>
                 {c.found && <div className="check-found">{c.found}</div>}
-                {c.state !== "ok" && c.fix && <div className="check-fix">修复：{c.fix}</div>}
+                {c.state !== "ok" && c.fix && <div className="check-fix">{t("修复：")}{c.fix}</div>}
               </div>
             </div>
           ))}

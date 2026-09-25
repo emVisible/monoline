@@ -94,6 +94,33 @@ def test_every_ui_literal_has_an_english_entry():
         "\n".join(f"  {n}: {k[:60]!r}" for n, k in loose[:15])
 
 
+CODE_PUNCT = re.compile(r"""[(){}\[\]<>;=,'"`&|\\]""")
+
+
+def jsx_text(src: str):
+    """Yield CJK text sitting directly between tags.
+
+    String literals are not the whole surface: `全部 {N} 种` renders Chinese text that no
+    `"..."` scan can see, so the gate would pass while the UI leaks. A text run ends at the
+    next tag **or** the next `{expr}` — `>音色{busy && …}` leaked when only `<` terminated it.
+    Two more filters keep the signal honest: one line only, and no code punctuation in what
+    survives, or the SVG glyph strings in modes.tsx get reported as leaks.
+    """
+    clean = strip_comments(src)
+    for m in re.finditer(r">([^<>\n{]+)", clean):
+        residue = m.group(1)
+        if CJK.search(residue) and not CODE_PUNCT.search(residue):
+            yield residue.strip()
+
+
+def test_jsx_text_nodes_are_translated():
+    """Anything the scanner captures is raw JSX text, so it renders Chinese in both
+    languages regardless of whether the dictionary happens to hold that key."""
+    leaks = [(name, node) for name in SOURCES for node in jsx_text((WEB / name).read_text())]
+    assert not leaks, "CJK JSX text outside {t()}:\n" + \
+        "\n".join(f"  {n}: {k[:60]!r}" for n, k in sorted(set(leaks))[:15])
+
+
 def test_dictionary_has_no_dead_entries():
     """A key nobody can reach is a translation nobody will ever see — usually a renamed label."""
     used: set[str] = set()

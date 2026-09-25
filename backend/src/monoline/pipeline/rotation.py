@@ -16,7 +16,6 @@ import re
 MAX_RUN = 2                      # a third identical layout in a row already reads as monotone
 TEXT_RUN = {"statement"}         # kinds that dominate the runs today
 _QUOTED = re.compile(r"[“「](.{4,}?)[”」]")
-_KV = re.compile(r"([\w一-鿿]{2,10})[：:]([^\s：]{1,24})")
 _CLAUSE = re.compile(r"[，、：；,;]")
 
 
@@ -45,14 +44,6 @@ def _poster(beat: str) -> dict | None:
     return {"kind": "poster", "slots": {"body": quoted, "by": by, "verbatim": True}}
 
 
-def _cards(beat: str) -> dict | None:
-    pairs = [{"k": k.strip(), "v": v.strip("，。、")} for k, v in _KV.findall(beat)]
-    pairs = [p for p in pairs if p["k"] and p["v"]]
-    if len(pairs) < 2:
-        return None
-    return {"kind": "cards", "slots": {"title": "", "rows": pairs[:4], "verbatim": True}}
-
-
 def _split(beat: str) -> dict | None:
     lb = _lead_body(beat)
     if not lb:
@@ -61,8 +52,13 @@ def _split(beat: str) -> dict | None:
     return {"kind": "split", "slots": {"lead": lead, "body": body, "verbatim": True}}
 
 
-# most specific first: a quote card beats a card grid beats a two-column text slide
-_ALTERNATIVES = (_poster, _cards, _split)
+# A `cards` branch used to sit here and it was unreachable by construction, not by luck:
+# rotation only converts beats the planner left as `statement`, and the planner's own
+# `rules:kv-pairs` rule claims every beat with two 「名：值」 pairs first (→ table, or bars
+# when they are metrics). Measured over 275 real beats + 4 adversarial ones: 2 matched the
+# pattern, 0 of those were `statement`. `poster` and `split` were checked the same way and
+# are live (4/4 and 113 reachable).
+_ALTERNATIVES = (_poster, _split)
 
 # Content-free variety: the same sentence, three different layouts. A deck that answers
 # every beat with one centred line reads as generated even when the words are right, and
