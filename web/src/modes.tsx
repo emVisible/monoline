@@ -64,7 +64,7 @@ export const MODE_GROUPS: ModeGroup[] = [
         '<circle cx="10" cy="15" r="3.6" class="mg-a"/><circle cx="24" cy="15" r="3.6"/><circle cx="38" cy="15" r="3.6"/><line x1="14.2" y1="15" x2="19.8" y2="15" stroke-width="1.4"/><line x1="28.2" y1="15" x2="33.8" y2="15" stroke-width="1.4"/>' },
       { kind: "timeline", zh: "时间轴", desc: "横轴刻度 + 错落事件", glyph:
         '<line x1="6" y1="22" x2="42" y2="22" class="mg-a" stroke-width="1.6"/><circle cx="13" cy="22" r="1.8"/><circle cx="24" cy="22" r="1.8"/><circle cx="35" cy="22" r="1.8"/><line x1="13" y1="19" x2="13" y2="12" stroke-width="1.4"/><line x1="24" y1="19" x2="24" y2="8" stroke-width="1.4"/><line x1="35" y1="19" x2="35" y2="13" stroke-width="1.4"/>' },
-      { kind: "radial", zh: "导图", desc: "中心概念向外放射分支", glyph:
+      { kind: "radial", zh: "导图", desc: "中心概念放射分支，分支可带截图", glyph:
         '<circle cx="24" cy="15" r="4" class="mg-a"/><circle cx="9" cy="8" r="2.4"/><circle cx="9" cy="22" r="2.4"/><circle cx="39" cy="8" r="2.4"/><circle cx="39" cy="22" r="2.4"/><path d="M20.6 12.8 11.1 9.2M20.6 17.2l-9.5 3.6M27.4 12.8l9.5-3.6M27.4 17.2l9.5 3.6" stroke-width="1.4"/>' },
       { kind: "cycle", zh: "循环", desc: "节点坐在圆环上，讲闭环", glyph:
         '<circle cx="24" cy="15" r="9" stroke-dasharray="3 3" class="mg-a"/><circle cx="24" cy="6" r="2.4"/><circle cx="32" cy="19.5" r="2.4"/><circle cx="16" cy="19.5" r="2.4"/>' },

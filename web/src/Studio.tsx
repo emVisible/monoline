@@ -25,7 +25,7 @@ const SCALAR_SLOTS: Record<string, string[]> = {
 };
 // kind → the string-array slot its editor exposes (list items / diagram nodes / timeline steps)
 const LIST_SLOT: Record<string, string> = { list: "items", flow: "nodes", radial: "nodes", steps: "steps", arch: "layers", cycle: "nodes", trend: "series", matrix: "cells", poster: "hl" };
-const LIST_LABEL: Record<string, string> = { list: "列表项", flow: "流程节点", radial: "分支节点", steps: "步骤", arch: "层（自上而下）", cycle: "环上节点", funnel: "漏斗层（自上而下）", trend: "数值序列", matrix: "四个象限（按 01→04 顺序）" };
+const LIST_LABEL: Record<string, string> = { list: "列表项", flow: "流程节点", radial: "分支节点（可逐个配截图）", steps: "步骤", arch: "层（自上而下）", cycle: "环上节点", funnel: "漏斗层（自上而下）", trend: "数值序列", matrix: "四个象限（按 01→04 顺序）" };
 
 type IconDef = { name: string; body: string };
 
@@ -625,8 +625,27 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                   <label className="fld-lbl">{LIST_LABEL[d.kind]}</label>
                   {(d.slots[LIST_SLOT[d.kind]] as string[]).map((it: string, ii: number) => {
                     const key = LIST_SLOT[d.kind];
-                    return <input key={ii} className="fld" value={it}
-                      onChange={(e) => { const arr = [...(d.slots[key] as string[])]; arr[ii] = e.target.value; setSlot(key, arr); }} />;
+                    const text = (
+                      <input key={ii} className="fld" value={it}
+                        onChange={(e) => { const arr = [...(d.slots[key] as string[])]; arr[ii] = e.target.value; setSlot(key, arr); }} />
+                    );
+                    // radial branches are the one list slot that can carry a screenshot
+                    if (d.kind !== "radial" || key !== "nodes") return text;
+                    const imgs = (d.slots.node_imgs as string[]) || [];
+                    return (
+                      <div key={ii} className="row2 row-node">
+                        {text}
+                        <label className="ghost file row-pick" title="给这个节点配截图">
+                          {imgBusy ? "…" : imgs[ii] ? "换图" : "配图"}
+                          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden disabled={imgBusy}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) uploadImage(f, (rel) => { const n = [...imgs]; n[ii] = rel; setSlot("node_imgs", n); });
+                              e.target.value = "";
+                            }} />
+                        </label>
+                      </div>
+                    );
                   })}
                 </div>
               )}

@@ -1187,6 +1187,38 @@ def test_showcase_kind_v45():
     assert 'class="shot tone-color"' in color_html.split('<div class="inner k-showcase">')[1]
 
 
+def test_radial_screenshot_nodes_v45():
+    """V45: a branch may carry the interface it names. node_imgs is an index-aligned
+    overlay rather than a new node shape, so every plan already written with plain
+    string nodes keeps rendering text-only chips."""
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["三个分支。"], [5.0])
+    nodes = ["内容", "分发", "转化"]
+
+    def frag(slots):
+        html = render_composition(tim, ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "radial", "slots": slots}]))
+        return html.split('<div class="inner k-radial">')[1]
+
+    plain = frag({"hub": "增长飞轮", "nodes": nodes})
+    assert "has-img" not in plain and plain.count('class="pos"') == 4
+    mixed = frag({"hub": "增长飞轮", "nodes": nodes, "node_imgs": ["assets/a.png", "", "assets/c.png"]})
+    assert mixed.count('class="n-img"') == 2 and mixed.count("has-img") == 2
+    assert mixed.count('class="node"') == 1, "the middle branch stays a text chip"
+    assert 'src="assets/a.png"' in mixed and "assets/c.png" in mixed
+    # an image chip is ~210px tall, so branches carrying one are capped (hub + 4 = 5 slots)
+    many = frag({"hub": "H", "nodes": ["一", "二", "三", "四", "五"],
+                 "node_imgs": ["assets/a.png", "", "", "", ""]})
+    assert many.count('class="pos"') == 5
+    texty = frag({"hub": "H", "nodes": ["一", "二", "三", "四", "五"]})
+    assert texty.count('class="pos"') == 6, "text-only branches keep the old 5-branch cap"
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`

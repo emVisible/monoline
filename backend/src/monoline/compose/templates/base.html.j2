@@ -338,6 +338,15 @@
       .k-radial .spoke { fill: none; stroke: color-mix(in oklab, var(--ink) 34%, transparent);
         stroke-width: 2.5; stroke-linecap: round; }
       .k-radial .pos { position: absolute; transform: translate(-50%, -50%); }
+      /* V45 screenshot nodes: a branch may carry the interface it names. The chip turns
+         into a card — image on top (cover, so the chip stays a uniform block), label below. */
+      .node.has-img { flex-direction: column; align-items: stretch; gap: 0; padding: 0;
+        overflow: hidden; }
+      .node.has-img .n-img { display: block; width: 268px; height: 152px; object-fit: cover;
+        border-bottom: 1px solid var(--hairline);
+        filter: grayscale(1) contrast(1.06) brightness(1.02); }
+      .node.has-img .n-t { padding: 14px 20px; font-size: 30px; line-height: 1.3; }
+      body[data-aspect="portrait"] .node.has-img .n-img { width: 224px; height: 132px; }
       /* kind: steps — numbered pills on a rail that fills top→bottom */
       .k-steps { width: 820px; }
       .k-steps .d-title { margin-bottom: 34px; }
