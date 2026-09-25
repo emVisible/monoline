@@ -232,7 +232,7 @@ def _kpis(s: str) -> tuple[str, list[dict]]:
         label, num, unit = m.group(1).strip(), m.group(2).strip(), (m.group(3) or "").strip()
         if len(label) < 2:
             return "", []
-        out.append({"k": label, "v": f"{num} {unit}".strip()})
+        out.append({"k": label, "v": f"{num}{unit}"})
     if len(out) < 2:
         return "", []
     lead = _LEAD_LABEL.match(s)

@@ -616,6 +616,7 @@ def test_kpi_and_timeline_kinds_v31d():
     k = kind_of("日活 120 万，留存 45%，营收 3.2 亿")
     assert k["kind"] == "kpi"                      # mixed units → not comparable by length
     assert [r["k"] for r in k["slots"]["rows"]] == ["日活", "留存", "营收"]
+    assert [r["v"] for r in k["slots"]["rows"]] == ["120万", "45%", "3.2亿"]   # no "45 %" gap
     # 留存 used to be a funnel marker word: as a standalone rate it must not be one
     assert kind_of("曝光 12000 人、点击 3400 人、下单 520 人")["kind"] == "funnel"
     assert kind_of("速度 120，功耗 45，成本 30")["kind"] == "bars"
