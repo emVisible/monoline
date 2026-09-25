@@ -17,7 +17,7 @@ const STAGE_LABEL: Record<string, string> = {
 // scalar slot keys to expose per kind (arrays handled separately)
 const SCALAR_SLOTS: Record<string, string[]> = {
   title: ["eyebrow", "headline", "sub"], statement: ["eyebrow", "headline", "sub"], summary: ["eyebrow", "headline"],
-  section: ["index", "title"], definition: ["term", "gloss"], stat: ["value", "unit", "label"],
+  section: ["index", "title"], definition: ["term", "gloss"], stat: ["value", "unit", "label", "delta", "trend"],
   table: ["title"], cards: ["title", "tagline"], quote: ["q", "attr"], list: ["title"], note: ["marker", "body"],
   compare: ["pivot"], image: ["headline"], flow: ["title"], steps: ["title"], radial: ["hub"], arch: ["title"], cycle: ["title"], funnel: ["title"],
 };

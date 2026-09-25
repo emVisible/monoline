@@ -143,6 +143,25 @@
       .k-stat .value.in-ring { font-size: 108px; }
       .k-stat .unit { font-size: 60px; color: var(--ink-muted); }
       .k-stat .label { font-size: 44px; color: var(--ink); margin-top: 24px; }
+      /* ── V31c data-viz kit: delta chip, sparkline, donut ──
+         Monochrome by rule: direction reads from the arrow and the accent, never
+         from a red/green that would break the theme. */
+      .delta { display: inline-flex; align-items: center; gap: 12px; margin-top: 26px;
+        padding: 10px 24px; border: 1px solid var(--hairline); border-radius: 999px;
+        font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+      .delta svg { width: 26px; height: 26px; flex: none; fill: currentColor; }
+      .delta.up { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, var(--hairline)); }
+      .delta.down svg { transform: rotate(180deg); }
+      .delta.down { color: var(--ink-muted); }
+      .spark { display: block; width: 320px; max-width: 100%; height: auto; margin-top: 30px; }
+      .spark .sl-line { stroke: var(--accent); }
+      .spark .sl-dot { fill: var(--accent); }
+      .donut { display: block; width: 300px; max-width: 100%; height: auto; }
+      .donut .dn-track { stroke: var(--hairline); }
+      .donut .dn-1 { stroke: var(--accent); }
+      .donut .dn-2 { stroke: color-mix(in oklab, var(--ink) 62%, transparent); }
+      .donut .dn-3 { stroke: color-mix(in oklab, var(--ink) 34%, transparent); }
+      .donut .dn-4 { stroke: color-mix(in oklab, var(--ink) 18%, transparent); }
       /* kind: table */
       .k-table { width: 1120px; max-width: 100%; text-align: left; }
       .k-table .t-title { font-size: 56px; font-weight: 700; margin-bottom: 28px; }

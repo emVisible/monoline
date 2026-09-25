@@ -105,3 +105,111 @@ def stack_widths(n: int) -> list[float]:
     if n <= 1:
         return [86.0]
     return [round(60.0 + i * (38.0 / (n - 1)), 1) for i in range(n)]
+
+
+def _nums(values: list) -> list[float]:
+    """First number in each value, as a float ('Q3 1.2M' → 1.2). Non-numerics → 0.0."""
+    out = []
+    for v in values:
+        m = _NUM_ONLY.search(str(v))
+        out.append(float(m.group(0)) if m else 0.0)
+    return out
+
+
+def _series(values: object) -> list[float]:
+    """Numbers in order, from whatever a slot holds. A list comes through as-is; a
+    string is split on separators first, because 「1.2 / 1.9 / 2.4」 as one string
+    would otherwise be read digit by digit into a jagged lie."""
+    if isinstance(values, str):
+        values = re.split(r"[/,;、|→\s]+", values.strip())
+    return [float(m.group(0)) for m in (_NUM_ONLY.search(str(v)) for v in (values or [])) if m]
+
+
+def sparkline(values: list, *, w: int = 320, h: int = 96) -> str:
+    """A trend line for a short numeric series, scaled to its own min/max.
+
+    Returns '' unless at least two entries actually carry a number — a line through
+    one point is a lie, and a flat line through 「营收」「利润」 would be worse. Geometry
+    is rounded to 2dp so identical input always yields identical markup (determinism
+    gate)."""
+    nums = _series(values)
+    if len(nums) < 2:
+        return ""
+    pad = 10.0
+    lo, hi = min(nums), max(nums)
+    span = hi - lo
+    n = len(nums)
+    pts = []
+    for i, v in enumerate(nums):
+        x = round(i / (n - 1) * (w - pad * 2) + pad, 2)
+        # a flat series has no span to divide by — sit it mid-box instead of NaN-ing
+        y = round(h / 2, 2) if span == 0 else round(h - pad - (v - lo) / span * (h - pad * 2), 2)
+        pts.append(f"{x},{y}")
+    lx, ly = pts[-1].split(",")
+    return (
+        f'<svg class="spark" viewBox="0 0 {w} {h}" aria-hidden="true">'
+        f'<polyline class="sl-line" points="{" ".join(pts)}" fill="none" stroke-width="3" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+        f'<circle class="sl-dot" cx="{lx}" cy="{ly}" r="5"/></svg>'
+    )
+
+
+def donut(shares: list) -> str:
+    """A segmented ring for part-of-whole data (4 tones max, to stay monochrome).
+
+    Segments are normalized, so '45 / 30 / 25' and '45% / 30% / 25%' both work. Each
+    arc is one dash on the same circle, offset by the running total — no paths, no
+    trig, nothing to desync at render time."""
+    nums = [n for n in _series(shares) if n > 0][:4]
+    if len(nums) < 2:
+        return ""
+    total = sum(nums)
+    segs, acc = [], 0.0
+    for i, v in enumerate(nums):
+        frac = v / total
+        dash = round(frac * _C, 2)
+        segs.append(
+            f'<circle class="dn-{i + 1}" cx="50" cy="50" r="42" fill="none" stroke-width="13" '
+            f'stroke-dasharray="{dash} {round(_C - dash, 2)}" stroke-dashoffset="{round(-acc * _C, 2)}" '
+            'transform="rotate(-90 50 50)"/>'
+        )
+        acc += frac
+    return ('<svg class="donut" viewBox="0 0 100 100" aria-hidden="true">'
+            f'<circle class="dn-track" cx="50" cy="50" r="42" fill="none" stroke-width="13"/>'
+            f'{"".join(segs)}</svg>')
+
+
+_DELTA_SIGN = re.compile(r"^\s*([+\-−])\s*(\d)")
+# the number plus whatever unit glyph hugs it: 30% / 3.4 pp / 12 个点 / 2 倍 / 1.5 亿
+_DELTA_NUM = re.compile(r"(\d+(?:\.\d+)?)\s*(%|％|pp|个百分点|个点|倍|万|亿|k|K|M|B)?")
+_UP_WORDS = ("增长", "上涨", "提升", "提高", "增加", "上升", "翻倍", "环比增", "同比增", "grew", "growth", "up ")
+_DOWN_WORDS = ("下降", "下滑", "减少", "降低", "回落", "下跌", "缩水", "decline", "fell", "down ")
+
+
+def delta(text: object) -> dict | None:
+    """Classify a change statement into {dir, sign, num, suffix} for an arrow chip.
+
+    Reads a leading +3 / -12% first, then Chinese/English growth words. Returns None
+    when the text carries no direction — the caller then renders the plain number,
+    which is honest; an invented arrow is not."""
+    if text is None:
+        return None
+    s = str(text).strip()
+    if not s:
+        return None
+    m = _DELTA_SIGN.match(s)
+    neg = None
+    if m:
+        neg = m.group(1) in "-−"
+    else:
+        low = s.lower()
+        up = any(k in low for k in _UP_WORDS)
+        down = any(k in low for k in _DOWN_WORDS)
+        if up == down:
+            return None
+        neg = down
+    n = _DELTA_NUM.search(s)
+    if not n:
+        return None
+    return {"dir": "down" if neg else "up", "sign": "−" if neg else "+",
+            "num": n.group(1), "suffix": (n.group(2) or "").strip()}

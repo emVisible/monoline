@@ -515,6 +515,54 @@ def test_graphic_kit_layers_render_v31b():
     assert "background-size: 26px 26px" in html and "url(http" not in html   # still offline
 
 
+def test_viz_kit_sparkline_donut_delta():
+    """V31c: the three new primitives refuse to draw when the data isn't there."""
+    import re
+    from monoline.compose.viz import delta, donut, sparkline
+
+    # a slot can hold "1.2 / 1.9 / 2.4" as one string — splitting it is the whole
+    # point; reading it char-by-char drew a jagged lie in the first snapshot.
+    s = sparkline("1.2 / 1.9 / 2.4 / 3.1 / 4.8")
+    pts = [tuple(map(float, p.split(","))) for p in re.search(r'points="([^"]+)"', s).group(1).split(" ")]
+    assert len(pts) == 5 and pts[0][0] < pts[-1][0]
+    assert pts[0][1] > pts[-1][1]                                   # rising values → rising line (y flips)
+    assert sparkline(["1.2", "1.9", "2.4", "3.1", "4.8"]) == s      # same markup either way
+    assert sparkline(["营收", "利润"]) == ""                          # no numbers, no chart
+    assert sparkline(["42"]) == "" and sparkline([]) == ""
+    assert sparkline("5 / 5 / 5").count("48.0") >= 3                 # flat series sits mid-box, no div-by-0
+
+    d = donut("45 / 30 / 15 / 10")
+    assert d.count("<circle") == 5                                   # track + 4 segments
+    assert donut("45 / 30 / 15 / 10 / 5").count("<circle") == 5      # capped at four tones
+    assert donut("45") == "" and donut("a / b") == ""
+
+    assert delta("+12%") == {"dir": "up", "sign": "+", "num": "12", "suffix": "%"}
+    assert delta("−3.4")["dir"] == "down"
+    assert delta("环比下降 5 个点") == {"dir": "down", "sign": "−", "num": "5", "suffix": "个点"}
+    assert delta("效率提升 3 倍")["suffix"] == "倍"
+    assert delta("营收 3.2 亿") is None                              # a level, not a change
+    assert delta("") is None and delta(None) is None
+
+
+def test_stat_scene_renders_delta_and_spark():
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    t = Timings.from_durations(["营收 4.8 亿"], [4.0])
+    plan = ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "stat", "slots": {
+        "value": "4.8", "unit": "亿", "label": "营收", "delta": "-12%", "trend": "1.2 / 1.9 / 2.4 / 4.8"}}])
+    html = render_composition(t, plan)
+    assert 'class="delta down"' in html and "−12%</span>" in html
+    assert 'class="spark"' in html and "sl-dot" in html
+    plain = render_composition(t, ScenePlan(theme=theme, scenes=[
+        {"i": 0, "kind": "stat", "slots": {"value": "4.8", "label": "营收"}}]))
+    assert "class=\"delta" not in plain and 'class="spark"' not in plain
+
+
 def test_count_up_parsing_contract():
     import json
     from pathlib import Path
