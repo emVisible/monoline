@@ -13,10 +13,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 SCHEMA = "sceneplan/v1"
 
-# Full M2 kind registry (12 kinds, all topic-agnostic). Each kind = one Jinja
-# partial + a slot spec in kinds.json. `statement` is the safe default.
+# Full M2 kind registry. Each kind = one Jinja partial + a slot spec in kinds.json.
+# `statement` is the safe default. V27 adds the diagram kinds (`flow` / `radial` /
+# `steps`) built from the shared `.node` graphic atom — content that renders as a
+# picture (nodes + connectors) instead of a line of text.
 KINDS = ["title", "statement", "section", "definition", "stat", "table",
-         "cards", "compare", "quote", "list", "note", "summary", "image"]
+         "cards", "compare", "quote", "list", "note", "summary", "image",
+         "flow", "radial", "steps"]
+# Kinds whose whole payload is already drawn as graphics on the slide — the caption
+# would just repeat the node labels, so the planner marks them verbatim.
+DIAGRAM_KINDS = {"flow", "radial", "steps"}
 KINDS_M1 = set(KINDS)  # validate_against accepts the full set as of M2
 Tone = Literal["ink", "muted", "accent"]
 

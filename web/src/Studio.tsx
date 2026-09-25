@@ -8,7 +8,7 @@ type Artifact = { kind: string; size_bytes: number; state: string };
 type Job = { id: string; slug: string; title: string; status: string; total_duration: number | null; config_json?: string | null; canvas_json?: string | null; error: string | null };
 type Hydration = { job: Job; stages: Stage[]; segments: Seg[]; artifacts: Artifact[]; plan: { scenes: Scene[] } | null; events: any[] };
 
-const KINDS = ["title", "statement", "section", "definition", "stat", "table", "cards", "compare", "quote", "list", "note", "summary", "image"];
+const KINDS = ["title", "statement", "section", "definition", "stat", "table", "cards", "compare", "quote", "list", "note", "summary", "image", "flow", "radial", "steps"];
 const STAGE_ORDER = ["script", "tts", "assemble", "plan", "fonts", "compose", "gate", "render", "deliver"];
 const STAGE_LABEL: Record<string, string> = {
   script: "切分", tts: "语音合成", assemble: "拼接旁白", plan: "分镜规划", fonts: "字体子集",
@@ -19,8 +19,11 @@ const SCALAR_SLOTS: Record<string, string[]> = {
   title: ["eyebrow", "headline", "sub"], statement: ["eyebrow", "headline", "sub"], summary: ["eyebrow", "headline"],
   section: ["index", "title"], definition: ["term", "gloss"], stat: ["value", "unit", "label"],
   table: ["title"], cards: ["title", "tagline"], quote: ["q", "attr"], list: ["title"], note: ["marker", "body"],
-  compare: ["pivot"], image: ["headline"],
+  compare: ["pivot"], image: ["headline"], flow: ["title"], steps: ["title"], radial: ["hub"],
 };
+// kind → the string-array slot its editor exposes (list items / diagram nodes / timeline steps)
+const LIST_SLOT: Record<string, string> = { list: "items", flow: "nodes", radial: "nodes", steps: "steps" };
+const LIST_LABEL: Record<string, string> = { list: "列表项", flow: "流程节点", radial: "分支节点", steps: "步骤" };
 
 function Player({ src, w, h, registerRef }: { src: string; w: number; h: number; registerRef?: (el: HTMLElement | null) => void }) {
   const ref = useRef<HTMLElement | null>(null);
@@ -206,7 +209,6 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
 
   const setSlot = (key: string, val: any) => draft && saveScene({ ...draft, slots: { ...draft.slots, [key]: val } });
   const setRows = (rows: { k: string; v: string }[]) => draft && saveScene({ ...draft, slots: { ...draft.slots, rows } });
-  const setItems = (items: string[]) => draft && saveScene({ ...draft, slots: { ...draft.slots, items } });
   const setCompare = (side: "a" | "b", key: string, val: string) =>
     draft && saveScene({ ...draft, slots: { ...draft.slots, [side]: { ...(draft.slots[side] || {}), [key]: val } } });
 
@@ -217,6 +219,8 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
     const slots = { ...draft.slots };
     if ((kind === "table" || kind === "cards") && !Array.isArray(slots.rows)) slots.rows = [{ k: "", v: "" }, { k: "", v: "" }];
     if (kind === "list" && !Array.isArray(slots.items)) slots.items = ["", "", ""];
+    if ((kind === "flow" || kind === "radial") && !Array.isArray(slots.nodes)) slots.nodes = ["", "", ""];
+    if (kind === "steps" && !Array.isArray(slots.steps)) slots.steps = ["", "", ""];
     if (kind === "compare") { if (!slots.a) slots.a = { h: "", d: "" }; if (!slots.b) slots.b = { h: "", d: "" }; }
     saveScene({ ...draft, kind, slots });
   };
@@ -503,12 +507,14 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                 </div>
               )}
 
-              {d.slots.items && (
+              {LIST_SLOT[d.kind] && Array.isArray(d.slots[LIST_SLOT[d.kind]]) && (
                 <div className="rows-edit">
-                  <label className="fld-lbl">列表项</label>
-                  {d.slots.items.map((it: string, ii: number) => (
-                    <input key={ii} className="fld" value={it} onChange={(e) => { const items = [...d.slots.items]; items[ii] = e.target.value; setItems(items); }} />
-                  ))}
+                  <label className="fld-lbl">{LIST_LABEL[d.kind]}</label>
+                  {(d.slots[LIST_SLOT[d.kind]] as string[]).map((it: string, ii: number) => {
+                    const key = LIST_SLOT[d.kind];
+                    return <input key={ii} className="fld" value={it}
+                      onChange={(e) => { const arr = [...(d.slots[key] as string[])]; arr[ii] = e.target.value; setSlot(key, arr); }} />;
+                  })}
                 </div>
               )}
 

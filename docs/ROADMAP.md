@@ -86,6 +86,16 @@
 - ✅ V23 markdown 行内语法清理：粘贴自文档/LLM 的 `**粗**`/`[文字](链接)`/`` `代码` ``/`*斜*` 会把标记漏进画面与 TTS。段分器按行去标记只留可见文字（`2 * 3` 这种夹空格的星号不误判为斜体、裸 URL 保留交给 V22 渲染）。实测 + 单测；后端 38 测试全过、warmup 绿。
 - ✅ V24 前端拍数估算与后端切分对齐：NewView 的「N beats」此前只数换行，单行多句（"深海会发光。这不是…。"）显示 1 但实际渲染 3 拍，误导。改为按句末标点（CJK 。！？ + 拉丁 `.` 后跟空白，`3.14` 安全）估算，与段分器一致；副标题改「one sentence = one beat」。浏览器实测：3 句输入现显示 3 beats；tsc/build 干净。
 - ✅ V25 品牌 Logo（功能克展）：`Brand.logo` 新字段（默认空、向后兼容），`POST/DELETE /jobs/{id}/logo` 冻结图片到 composition/assets 并 retheme→recompose，`#brand` 锁定处渲染 `<img class="brand-logo">`（40px、与文字并排），Studio 外观面板加上传/移除。实测：上传 favicon 作 logo → 标题页左上角正确显示、与站点图标统一；后端 39 测试全过、warmup 绿、tsc/build 干净。
+- ✅ V26 时长估算校准：NewView 的「≈Ns」按 6s/拍估算，实测中文约 3s/拍（25 字句 ≈4s），翻倍误差误导选段。改为 3s/拍；浏览器实测 3 句输入显示 ≈9s。
+- ✅ V27 基础图元层：画面从「文字组合」进入「可渲染成图的剪接模式」（用户直接要求拓展基础组件）：
+  - 原子 `.node`（胶囊按钮：可选序号/图标 + 标签，surface 底 + 描边 + 投影）是三种新 kind 共用的唯一图元。
+  - `flow` 流程图：箭头链（`→ ⇒ ➜ -> =>`）拆成节点，中间用 SVG 箭头连接，超宽自动折行。
+  - `radial` 导图：中心 hub（accent 实心）+ 双侧分支，连线是 compose 期算好的归一化 viewBox 坐标（绝不在 tween 期读 DOM）；竖屏改为顶部 hub 向下扇形展开，避免 9:16 溢出。
+  - `steps` 步骤时间线：序号胶囊 + 左侧轨道，轨道 `scaleY` 自上而下填充。
+  - 动效：kind 专属编排——标题落下 → 胶囊 `back.out` 逐个弹出（stagger 0.16）→ 连线/分支随后显影；三 kind 不再走通用整块淡入，也不画图标（图本身就是图）。转场并入「数据类」push。
+  - 判定范围同步扩大：planner 新增 `rules:arrow-chain` / `rules:hub-enumeration`（「X 分为/包括/涵盖 A、B、C」）/ `rules:ordinal-chain`（①②③ / 第 N 步）三条抽取规则；段分器把「引导句：箭头链」拆成两拍（引导句是句子、链是图，1 拍 1 镜时不拆就丢图），k:v 行与 、枚举仍保持整拍。
+  - 版式 preset 与画幅联动：editorial 左对齐、bold 加粗描边/加粗标题；竖屏图元字号 38px、导图高度 900px。
+  - 实测：贴一段含链/分层/序号的中文段落 → 自动出 flow + radial + steps 三镜并成功出片（作业 succeeded，18.2s），抽帧确认三种图均正确成图、无溢出；后端 44 测试全过（+5）、warmup 绿、tsc/build 干净。
 - 附 UI：NewView 音色选择器折叠化，主流程回到一屏（收起态 + aria-expanded + 展开 25 音色，浏览器点按核验）。
 - 成功判据：抽帧对比明显「非文字流」✅；`make warmup` 绿 ✅；后端测试不回归（29）✅；每切片有渲染证据 ✅。
 
@@ -97,9 +107,12 @@
 ## 当前状态（as-of 2026-09-24，自主迭代收口点）
 - ✅ 已完成：V1（LLM 写稿）· V2（主题/品牌/presets）· V3（图标/数据可视化/图片）· V4（拖拽重排/键盘/预览 seek/kind 槽位补齐）· V5（SRT/VTT/封面/History 画廊）· V7a（warmup 冷启动自检/文档/护栏测试）· V7b（focus-visible/reduced-motion/aria-live/键盘重排）· V8（自定义音色：注册表/试听/创建后改音色重合成）。
 - ✅ 端到端审计中修复的真实缺陷（8 个）：终态卡 running、分号拆碎 k:v 行、distill 弱标题（连接词/引导从句/时间从句）、list 模板 slots.items 崩溃、note 双图标、note/quote 字幕重复、预览写死 16:9、小数十进制误判环、emoji 整单失败、Setup 健康检查误报。
-- ✅ 全 13 个场景 kind 均经渲染帧确认；四域内容（科普/营销/技术/叙事）分类与标题合理；`make warmup` 绿；后端 29 测试全过；`/api/health` 7 项全绿。
+- ✅ 全 16 个场景 kind 均经渲染帧确认（V27 起含 flow/radial/steps 三种成图组件）；四域内容（科普/营销/技术/叙事）分类与标题合理；`make warmup` 绿；后端 44 测试全过；`/api/health` 7 项全绿。
 - ⏳ 未完成 / 下一步：
   1. V6 逐词字幕 —— 依赖返回词级时间戳的云 TTS（HeyGen/ElevenLabs，需 key），本地 Kokoro 只给整句时长，故句级字幕是当前的诚实上限；接云 TTS 后加 karaoke 高亮。
   2. V7c 前端逻辑单测（Vitest）—— 需新增 dev 依赖，按约定应先征得同意。
-  3. 可选视觉：视频内进度条已加；进一步可做分 kind 的入场动效差异（需能看动效的核验手段）。
+  3. 可选视觉：视频内进度条已加；进一步可做分 kind 的入场动效差异（V27 已给三种图元单独编排，其余 kind 仍可细分）。
+  4. 图元层继续扩：`matrix`（四象限）、`arch`（分层堆叠图）、`cycle`（环形闭环）、`funnel`（漏斗）——都复用 `.node` 原子，只差布局算子与判定规则。
+  5. 解锁多拍成图：`1 拍 = 1 镜` 不变式让粘贴的 markdown 表格/编号列表被拆成碎拍。放开为「一镜可跨 N 拍」（旁白/字幕仍按拍，画面按镜）后，才能把 6 行表格、4 条列表渲染成一张完整图表。这是图元层的下一个容量瓶颈。
+  6. 判定精度：规则规划器已覆盖链/分层/序号；再接 `LLMPlanner`（协议槽已留，走同一 validator，需 `MONOLINE_LLM_API_KEY`）把「无标记但语义成图」的内容也判出来，规则兜底离线可用。
 - 交接：仓库非 git（未擅自 `git init`）；`make start` 起服务（:8787，sidecar :8790）；`make warmup` 自检；数据在 `~/Library/Application Support/Monoline/`。

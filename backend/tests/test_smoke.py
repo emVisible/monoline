@@ -466,3 +466,100 @@ def test_row_stagger_for_nested_table_cards():
     t2 = Timings.from_durations(["陈述。"], [3.0])
     plan2 = ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "statement", "slots": {"headline": "陈述"}}])
     assert '.row", { opacity: 0, x: -24' not in render_composition(t2, plan2)
+
+
+# ── V27: diagram kinds — content that renders as graphics, not as a line of text ──
+
+def _scene_slice(html: str, i: int) -> str:
+    """One scene's MARKUP only — stop at the next section, or at </section> so the
+    trailing <style>/<script> (which repeats every selector) can't inflate counts."""
+    a = html.index(f'<section id="scene-{i}"')
+    b = html.find(f'<section id="scene-{i + 1}"', a)
+    return html[a:b if b > -1 else html.index("</section>", a)]
+
+
+def _theme():
+    import json
+    from pathlib import Path
+    from monoline.ir.sceneplan import Theme
+    return Theme(id="mono-ink", tokens=json.loads(Path("../design/tokens/mono-ink.json").read_text())["tokens"])
+
+
+def test_every_registered_kind_ships_a_template():
+    """KINDS is the contract the planner and Studio both draw from — a kind with no
+    partial raises inside Jinja at compose time and fails the whole job."""
+    from monoline.compose.engine import _TEMPLATES
+    from monoline.ir.sceneplan import KINDS
+    for k in KINDS:
+        assert (_TEMPLATES / "kinds" / f"{k}.html.j2").exists(), k
+
+
+def test_planner_extracts_diagrams_from_prose():
+    from monoline.pipeline.planner import plan_scenes
+    beats = ["开场。",
+             "交付链路：需求→设计→开发→测试→上线",
+             "这套架构分为网关、计算、存储三层",
+             "落地分三步：①盘点存量 ②试点双周 ③全员推广",
+             "效率提升 3 倍→周期砍半→成本降三成",
+             "从 0→1 的过程",
+             "这个模型包括注意力机制",
+             "收尾。"]
+    kinds = [s["kind"] for s in plan_scenes(beats)]
+    assert kinds[1] == "flow" and kinds[2] == "radial" and kinds[3] == "steps"
+    # an arrow chain outranks the single-number stat it would otherwise collapse into
+    assert kinds[4] == "flow"
+    # …and a bare 0→1 range / a "包括" with nothing enumerated stays prose
+    assert kinds[5] == "statement" and kinds[6] in ("note", "statement")
+    sc = plan_scenes(beats)
+    assert sc[1]["slots"]["title"] == "交付链路"
+    assert sc[1]["slots"]["nodes"] == ["需求", "设计", "开发", "测试", "上线"]
+    assert sc[2]["slots"]["hub"] == "这套架构" and len(sc[2]["slots"]["nodes"]) == 3
+    assert sc[3]["slots"]["steps"] == ["盘点存量", "试点双周", "全员推广"]
+
+
+def test_diagram_scenes_render_nodes_and_suppress_the_caption():
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan
+    from monoline.compose.engine import render_composition
+    t = Timings.from_durations(["流程。", "架构。", "步骤。"], [4.0, 4.0, 4.0])
+    plan = ScenePlan(theme=_theme(), scenes=[
+        {"i": 0, "kind": "flow", "slots": {"title": "链路", "nodes": ["A", "B", "C"], "verbatim": True}},
+        {"i": 1, "kind": "radial", "slots": {"hub": "平台", "nodes": ["网关", "计算", "存储"], "verbatim": True}},
+        {"i": 2, "kind": "steps", "slots": {"title": "节奏", "steps": ["盘存量", "试双周", "全推广"], "verbatim": True}}])
+    html = render_composition(t, plan)
+    s0, s1, s2 = (_scene_slice(html, i) for i in range(3))
+    assert s0.count('class="node') == 3 and s0.count('class="link"') == 2      # nodes + arrows
+    assert s1.count('class="node') == 4 and s1.count('class="spoke"') == 3     # hub + branches + spokes
+    assert s2.count('class="node') == 3 and s2.count("rail-fill") == 1         # pills + progress rail
+    # the node labels ARE the sentence, so no caption box on top of them
+    assert '<div class="cap">' not in s0 + s1 + s2
+    # diagrams get their own assembly choreography instead of the generic block entrance
+    assert "#scene-0 .node" in html and "#scene-1 .node" in html
+    assert "#scene-0 .inner > *:not(" not in html
+    # branch anchors come from compose-time math, not from the DOM
+    assert 'left:18%; top:32.0%' in s1 and 'left:82%; top:50.0%' in s1
+
+
+def test_segmenter_frees_a_colon_introduced_arrow_chain():
+    from monoline.pipeline.planner import plan_scenes
+    from monoline.pipeline.segment import segment_text
+    fused = "现代团队做产品，靠的是一条清晰的链路：需求→设计→开发→测试→上线。"
+    assert segment_text(fused) == ["现代团队做产品，靠的是一条清晰的链路", "需求→设计→开发→测试→上线。"]
+    # …and the freed tail is readable as a flow, which the fused beat could never be
+    assert plan_scenes(["开场。", "需求→设计→开发→测试→上线", "收尾。"])[1]["kind"] == "flow"
+    # k:v lines must NOT split — the table planner reads them as one beat
+    assert segment_text("命中：68%；覆盖：42%") == ["命中：68%；覆盖：42%"]
+
+
+def test_radial_reflows_for_portrait_without_overflow():
+    from monoline.ir.sceneplan import Canvas
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan
+    from monoline.compose.engine import render_composition
+    plan = ScenePlan(theme=_theme(), canvas=Canvas(width=1080, height=1920), scenes=[
+        {"i": 0, "kind": "radial", "slots": {"hub": "平台", "nodes": ["网关", "计算", "存储"], "verbatim": True}}])
+    html = render_composition(Timings.from_durations(["架构。"], [4.0]), plan)
+    assert 'data-aspect="portrait"' in html
+    # two side columns don't fit 9:16 — the branches fan down the page instead
+    assert 'left:18%' not in html and 'left:50%; top:13%' in html
+    assert 'left:66%' in html and 'left:34%' in html

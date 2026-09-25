@@ -148,12 +148,60 @@
         color: var(--accent); font-size: 76px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
       .k-note .body { font-size: 48px; line-height: 1.5; color: var(--ink); }
 
+      /* ── V27 base component: .node — the "button" atom every diagram is built from.
+         flow / radial / steps are all this same pill, wired together differently. ── */
+      .node { display: inline-flex; align-items: center; gap: 18px; padding: 22px 40px;
+        border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface);
+        font-size: 44px; font-weight: 700; line-height: 1.15; color: var(--ink); white-space: nowrap;
+        box-shadow: 0 22px 44px -30px color-mix(in oklab, var(--ink) 55%, transparent); }
+      .node.lead { border-color: color-mix(in oklab, var(--accent) 55%, var(--hairline)); }
+      .node.hub { padding: 28px 48px; font-size: 50px; font-weight: 800; color: var(--accent-ink);
+        background: var(--accent); border-color: transparent; }
+      .node .n-i { display: flex; align-items: center; justify-content: center; flex: none;
+        width: 58px; height: 58px; border-radius: 999px; font-size: 30px; font-weight: 800;
+        color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, transparent);
+        font-variant-numeric: tabular-nums; }
+      .d-title { font-size: 52px; font-weight: 700; color: var(--ink); }
+      /* kind: flow — nodes joined by drawn arrows, wraps to a second row when long */
+      .k-flow { width: 100%; }
+      .k-flow .d-title { margin-bottom: 36px; text-align: center; }
+      .k-flow .chain { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 26px 0; }
+      .k-flow .link { width: 46px; height: 16px; flex: none; margin: 0 12px; overflow: visible; }
+      .k-flow .lk-shaft { fill: none; stroke: var(--ink-muted); stroke-width: 2.5; stroke-linecap: round; }
+      .k-flow .lk-head { fill: var(--ink-muted); }
+      /* kind: radial — hub in the middle, branches on pre-computed anchors, spokes behind.
+         .k-radial needs a definite width: every child is absolutely positioned, so a
+         shrink-to-fit box collapses to 0 and all the left/top percentages land on one spot. */
+      .k-radial { width: 1360px; }
+      .k-radial .hubmap { position: relative; width: 100%; height: var(--map-h, 600px); }
+      .k-radial .spokes { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+      .k-radial .spoke { fill: none; stroke: color-mix(in oklab, var(--ink) 34%, transparent);
+        stroke-width: 2.5; stroke-linecap: round; }
+      .k-radial .pos { position: absolute; transform: translate(-50%, -50%); }
+      /* kind: steps — numbered pills on a rail that fills top→bottom */
+      .k-steps { width: 820px; }
+      .k-steps .d-title { margin-bottom: 34px; }
+      .k-steps .steplist { display: flex; align-items: stretch; gap: 36px; }
+      .k-steps .rail { position: relative; flex: none; width: 4px; margin: 22px 0 22px 27px;
+        border-radius: 2px; background: var(--hairline); }
+      .k-steps .rail-fill { position: absolute; inset: 0; display: block; border-radius: 2px;
+        background: var(--accent); transform-origin: top center; }
+      .k-steps .steps { list-style: none; display: flex; flex-direction: column; align-items: stretch; gap: 24px; width: 100%; }
+      .k-steps .step .node { width: 100%; }
+
       /* aspect-aware: fill the tall/narrow frame instead of letterboxing a 16:9 slide */
       body[data-aspect="portrait"] { --scene-scale: 1.24; }
       body[data-aspect="square"] { --scene-scale: 1.12; }
       body[data-aspect="portrait"] #brand { top: 60px; left: calc(var(--gutter-x) * 0.8); font-size: 30px; }
       body[data-aspect="portrait"] .cap > .inner { font-size: 44px; max-width: 88%; padding: 16px 30px; }
       body[data-aspect="square"] .cap > .inner { font-size: 40px; max-width: 90%; }
+      /* diagrams are the widest scenes we build — scale the atom down with the frame */
+      body[data-aspect="portrait"] .node { font-size: 38px; padding: 18px 28px; gap: 14px; }
+      body[data-aspect="portrait"] .node.hub { font-size: 42px; padding: 22px 34px; }
+      body[data-aspect="portrait"] .node .n-i { width: 50px; height: 50px; font-size: 26px; }
+      body[data-aspect="portrait"] .d-title { font-size: 46px; }
+      body[data-aspect="portrait"] .k-radial .hubmap { --map-h: 900px; }
+      body[data-aspect="portrait"] .k-flow .link { width: 34px; margin: 0 6px; }
 
       /* ── V11 layout presets — whole-deck composition style ── */
       /* editorial: magazine-style left-aligned column (breaks the centered "text-flow" feel) */
@@ -184,6 +232,15 @@
       body[data-layout="bold"] .cap > .inner { font-weight: 700; border: none;
         border-left: 8px solid var(--accent); border-radius: 4px;
         background: color-mix(in oklab, var(--paper) 88%, transparent); }
+      /* V27 diagrams inherit the deck's layout preset */
+      body[data-layout="editorial"] .k-flow .d-title,
+      body[data-layout="editorial"] .k-steps .d-title { text-align: left; }
+      body[data-layout="editorial"] .k-flow .chain { justify-content: flex-start; }
+      body[data-layout="bold"] .node { border-width: 2px; font-weight: 800; }
+      body[data-layout="bold"] .d-title { font-size: 62px; font-weight: 900; }
+      body[data-layout="bold"] .k-radial .spoke { stroke: color-mix(in oklab, var(--ink) 55%, transparent); }
+      body[data-layout="bold"] .k-flow .lk-shaft { stroke: var(--ink-muted); stroke-width: 3.5; }
+      body[data-layout="bold"] .k-flow .lk-head { fill: var(--ink-muted); }
     </style>
   </head>
   <body data-aspect="{{ aspect }}" data-layout="{{ layout }}">
@@ -203,7 +260,7 @@
       {# visibility so adjacent scenes can cross-dissolve (overlap) at each boundary. #}
       <section id="scene-{{ seg.i }}" class="scene" style="z-index:{{ seg.i + 1 }}; opacity:{{ 1 if seg.i == 0 else 0 }};">
         <div class="frame"><div class="sbody{{ ' sbody--ed' if scene.kind in ['statement', 'section'] }}">
-          {%- if scene.slots.get("icon") %}<div class="scene-icon">{{ icon_svg(scene.slots.get("icon")) | safe }}</div>{% endif %}
+          {%- if scene.slots.get("icon") and scene.kind not in ['flow', 'radial', 'steps'] %}<div class="scene-icon">{{ icon_svg(scene.slots.get("icon")) | safe }}</div>{% endif %}
           {%- if scene.kind != "image" and scene.slots.get("image") %}<div class="scene-media"><img src="{{ scene.slots.get('image') }}" alt="">{% if scene.slots.get("image_caption") %}<span class="mcap">{{ scene.slots.get("image_caption") }}</span>{% endif %}</div>{% endif %}
           {% include "kinds/" + scene.kind + ".html.j2" %}
           {%- if scene.kind in ["title", "statement", "summary", "section", "definition", "quote", "note"] %}<span class="accent-rule"></span>{% endif %}
@@ -230,9 +287,23 @@
          Data kinds slide in from the left (x) to match their horizontal push transition;
          narrative kinds rise (y). Steady state is identical either way (both end at 0). #}
       {%- set data_kind = scene.kind in ['stat','list','table','cards','compare'] %}
+      {%- set diagram = scene.kind in ['flow','radial','steps'] %}
+      {%- if diagram %}
+      {#- V27 diagrams assemble themselves: title drops, then pills pop in reading order
+          while their connectors surface one beat behind the node they lead to. -#}
+      tl.fromTo("#scene-{{ seg.i }} .d-title", { opacity: 0, y: -20 },
+        { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}" }, {{ seg.start }});
+      tl.fromTo("#scene-{{ seg.i }} .node", { opacity: 0, scale: 0.82 },
+        { opacity: 1, scale: 1, duration: 0.52, ease: "back.out(1.6)", stagger: 0.16 }, {{ (seg.start + 0.12)|round(3) }});
+      tl.fromTo("#scene-{{ seg.i }} .link, #scene-{{ seg.i }} .spoke", { opacity: 0 },
+        { opacity: 1, duration: 0.34, ease: "power1.out", stagger: 0.16 }, {{ (seg.start + 0.26)|round(3) }});
+      tl.fromTo("#scene-{{ seg.i }} .rail-fill", { scaleY: 0 },
+        { scaleY: 1, duration: {{ (0.16 * (scene.slots.steps | length) + 0.42) | round(3) if scene.slots.steps else 0.6 }}, ease: "power1.inOut", transformOrigin: "top center" }, {{ (seg.start + 0.2)|round(3) }});
+      {%- else %}
       tl.fromTo("#scene-{{ seg.i }} .scene-icon, #scene-{{ seg.i }} .scene-media, #scene-{{ seg.i }} .inner > *:not(.headline,.s-title,.term,.q,.rows)",
         { opacity: 0, {% if data_kind %}x: -30{% else %}y: 24{% endif %} },
         { opacity: 1, {% if data_kind %}x: 0{% else %}y: 0{% endif %}, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.09 }, {{ seg.start }});
+      {%- endif %}
       {# V16 row-by-row reveal for table/cards (their rows are nested in .rows, so the block
          entrance above excludes .rows and each row staggers in from the left instead). #}
       {%- if scene.kind in ['table','cards'] %}
@@ -267,7 +338,7 @@
       tl.to("#scene-{{ seg.i - 1 }}", { filter: "blur(18px)", opacity: 0, duration: 0.7, ease: "sine.inOut" }, {{ T }});
       tl.fromTo("#scene-{{ seg.i }}", { filter: "blur(18px)", opacity: 0 },
         { filter: "blur(0px)", opacity: 1, duration: 0.7, ease: "sine.inOut" }, {{ T }});
-      {%- elif scene.kind in ['stat', 'list', 'table', 'cards', 'compare'] %}
+      {%- elif scene.kind in ['stat', 'list', 'table', 'cards', 'compare', 'flow', 'radial', 'steps'] %}
       {#- data/structured → directional push (parallax slide + fade), distinct from the narrative blur #}
       tl.to("#scene-{{ seg.i - 1 }}", { xPercent: -16, opacity: 0, duration: {{ tdur }}, ease: "power2.inOut" }, {{ T }});
       tl.fromTo("#scene-{{ seg.i }}", { xPercent: 16, opacity: 0 },

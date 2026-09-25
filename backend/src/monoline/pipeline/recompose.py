@@ -14,7 +14,7 @@ from ..compose.engine import render_composition
 from ..db.repo import Repo
 from ..fonts.subset import collect_glyphs, subset_font
 from ..hf.cli import HF
-from ..ir.sceneplan import ScenePlan
+from ..ir.sceneplan import DIAGRAM_KINDS, ScenePlan
 from ..ir.timings import Timings
 from ..settings import Settings
 from ..voices import DEFAULT_VOICE
@@ -280,8 +280,12 @@ async def resynth_segment(repo: Repo, settings: Settings, job_id: str, i: int, n
             # the slot the template actually reads for this kind's main text
             key = {"section": "title", "note": "body", "definition": "gloss",
                    "quote": "q", "stat": "label"}.get(kind, "headline")
-            slots[key] = kw
-            slots["verbatim"] = (not clean)
+            # Diagram kinds render extracted nodes, not a headline: re-distilling the
+            # narration would write a slot nothing reads and re-add a caption that
+            # just repeats the node labels.
+            if kind not in DIAGRAM_KINDS:
+                slots[key] = kw
+                slots["verbatim"] = (not clean)
             scenes[i]["slots"] = slots
             scenes[i]["source"] = "rules:resynth"
         ver = await repo.save_plan(job_id, json.dumps(plan, ensure_ascii=False), "manual", [])

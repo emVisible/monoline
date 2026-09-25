@@ -25,6 +25,19 @@ _ENUM = re.compile(r"、")  # true enumeration uses 、 (not the general ，)
 _SECTION_MARK = re.compile(r"^(首先|其次|然后|接着|最后|第一|第二|第三|下面|接下来|先看|再看)")
 _NOTE_MARK = re.compile(r"(但|需要注意|注意|提醒|以官方为准|口径不一|存疑)")
 
+# ── V27: content that should render as a diagram (nodes + connectors), not as text ──
+# Longest arrow spellings first so "-->" can't be re-split by "->".
+_ARROW = re.compile(r"→|⇒|➜|➦|--+>|=>|->")
+# "X 分为 A、B、C" / "X 包括以下三个模块：A、B、C" — a head term that owns a list.
+_RADIAL = re.compile(
+    r"^(.{2,14}?)(?:主要|大致|一共)?(分为|包括|涵盖|包含|划分为|由|分别是|涉及|覆盖)"
+    r"(?:以下|如下|这)?[一二三四五六七八九十\d]{0,3}"
+    r"(?:个|项|类|种|部分|方面|环节|步骤|维度|模块)?\s*[:：]?\s*(.+)$"
+)
+_STEP_MARK = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]|第\s*[一二三四五六七八九十1-9]\s*[步次阶段期]")
+# A "标题：" lead-in that names the diagram rather than being one of its parts.
+_LEAD_LABEL = re.compile(r"^([^，,。；;]{2,10}?)\s*[:：]\s*(.+)$")
+
 
 class ScenePlanner(Protocol):
     def plan(self, beats: list[str], *, brand: str = "Monoline", date_eyebrow: str = "") -> list[dict]: ...
@@ -77,6 +90,53 @@ def _strip_number(sentence: str) -> str:
     s = _NUM.sub("", sentence)
     s = re.sub(r"[，,、：:\s]+$", "", s).strip("，,、：: ")
     return s
+
+
+def _flow_nodes(s: str) -> tuple[str, list[str]]:
+    """'流程：A→B→C' → ('流程', [A,B,C]). Empty unless it's a real chain of ≥3 short,
+    self-contained nodes — a bare "0→1" range or a numeric span isn't a diagram."""
+    parts = [p.strip(" \t") for p in _ARROW.split(s)]
+    if len(parts) < 3:
+        return "", []
+    title = ""
+    lead = _LEAD_LABEL.match(parts[0])
+    if lead:
+        title, parts[0] = lead.group(1).strip(), lead.group(2).strip()
+    nodes = [p for p in parts if p]
+    if len(nodes) < 3 or any(len(x) > 14 or re.search(r"[、，,。；;]", x) for x in nodes):
+        return "", []
+    return title, nodes[:6]
+
+
+def _radial(s: str) -> tuple[str, list[str]]:
+    """'系统分为感知、决策、执行三层' → ('系统', [感知,决策,执行三层]). A head term that
+    owns an enumeration is the hub; the enumeration items are its branches."""
+    m = _RADIAL.match(s)
+    if not m:
+        return "", []
+    term, tail = m.group(1).strip(), m.group(3)
+    items = [x.strip(" \t") for x in (re.split(r"、", tail) if "、" in tail else re.split(r"[，,]", tail))]
+    items = [x for x in items if 2 <= len(x) <= 10]
+    if len(items) < 3:
+        return "", []
+    return term, items[:5]
+
+
+def _steps(s: str) -> tuple[str, list[str]]:
+    """'节奏：①调研 ②试点 ③推广' / '第一步…第二步…' → a numbered timeline."""
+    marks = list(_STEP_MARK.finditer(s))
+    if len(marks) < 2:
+        return "", []
+    head = re.sub(r"\s*[:：]\s*$", "", s[:marks[0].start()].strip(" ，,。"))
+    title = head if 2 <= len(head) <= 14 else ""
+    out: list[str] = []
+    for idx, m in enumerate(marks):
+        end = marks[idx + 1].start() if idx + 1 < len(marks) else len(s)
+        body = s[m.end():end].strip(" ，,、：:；;")
+        if not body or len(body) > 18 or "。" in body:
+            return "", []
+        out.append(body)
+    return title, out[:5]
 
 
 class RulePlanner:
@@ -139,6 +199,13 @@ class RulePlanner:
             return {"i": i, "kind": "table", "source": "rules:kv-pairs",
                     "slots": {"title": "", "rows": [{"k": k.strip(), "v": v.strip()} for k, v in pairs[:6]]}}
 
+        # V27 flow: an arrow chain renders as connected nodes, not as a sentence.
+        # Ahead of `stat` so "效率翻3倍→周期砍半→成本降三成" isn't reduced to one number.
+        ft, fnodes = _flow_nodes(s)
+        if fnodes:
+            return {"i": i, "kind": "flow", "source": "rules:arrow-chain",
+                    "slots": {"title": ft, "nodes": fnodes, "verbatim": True}}
+
         # stat: a dominant number/percent/price token
         nums = [x.strip() for x in _NUM.findall(s) if any(c.isdigit() for c in x)]
         if len(nums) == 1 and len(s) <= 44:
@@ -151,6 +218,18 @@ class RulePlanner:
         if dm and len(dm.group(1)) >= 2 and not _DEF_BAD_TERM.search(dm.group(1)) and len(dm.group(2)) >= 4:
             return {"i": i, "kind": "definition", "source": "rules:definition",
                     "slots": {"term": dm.group(1), "gloss": self._clean(dm.group(2))}}
+
+        # V27 radial: a hub term owning an enumeration → mind-map (center + branches).
+        rt, rnodes = _radial(s)
+        if rnodes:
+            return {"i": i, "kind": "radial", "source": "rules:hub-enumeration",
+                    "slots": {"hub": rt, "nodes": rnodes, "verbatim": True}}
+
+        # V27 steps: inline ordinals (①②③ / 第一步…) → numbered timeline
+        st, ssteps = _steps(s)
+        if ssteps:
+            return {"i": i, "kind": "steps", "source": "rules:ordinal-chain",
+                    "slots": {"title": st, "steps": ssteps, "verbatim": True}}
 
         # list: true 、-enumeration of 3+ short parallel items
         if "、" in s:

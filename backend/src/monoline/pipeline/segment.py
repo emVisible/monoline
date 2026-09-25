@@ -32,6 +32,13 @@ _MD_STRONG = re.compile(r"\*\*(.+?)\*\*|__(.+?)__")
 _MD_EM = re.compile(r"(?<![*\w])\*([^*\n]+?)\*(?![*\w])")
 _MD_CODE = re.compile(r"`([^`]+)`")
 
+# A colon that introduces an arrow chain is a SLIDE boundary: the lead-in is a sentence and
+# the tail is a diagram. Left fused, the planner can only ever see one of them (1 beat = 1
+# scene), so the diagram gets thrown away as a headline. k:v lines and 、-enumerations are
+# deliberately NOT split — the planner reads those whole (table / radial).
+_ARROWISH = re.compile(r"→|⇒|➜|➦|--+>|=>|->")
+_COLON = re.compile(r"^(.{4,}?)\s*[:：]\s*(.+)$", re.S)
+
 
 def _strip_md(s: str) -> str:
     s = _MD_LINK.sub(r"\1", s)
@@ -79,6 +86,17 @@ class SentenceSegmenter:
         # any single clause still too long stays (rare)
         return out
 
+    def _split_structured(self, s: str) -> list[str]:
+        m = _COLON.match(s.strip())
+        if not m:
+            return [s]
+        head, tail = m.group(1).rstrip("，,、"), m.group(2).strip()
+        if len(_ARROWISH.findall(tail)) < 2:
+            return [s]  # k:v lines and 、-enumerations are read whole by the planner (table / radial)
+        if self._len(head) < self.min_chars or self._len(tail) > self.max_chars:
+            return [s]
+        return [head, tail]
+
     def segment(self, text: str) -> list[str]:
         raw: list[tuple[str, bool]] = []
         for line in text.splitlines():
@@ -94,7 +112,8 @@ class SentenceSegmenter:
                 continue
             sentences = [s.strip() for s in _SENT_SPLIT.split(line) if s and s.strip()]
             for sent in sentences:
-                raw.extend((b, protected) for b in self._split_long(sent))
+                for part in self._split_structured(sent):
+                    raw.extend((b, protected) for b in self._split_long(part))
         beats = self._merge_tiny(raw)
         if len(beats) > self.max_beats:
             raise ValueError(f"{len(beats)} beats exceeds cap {self.max_beats}; split the script into shorter pieces")
