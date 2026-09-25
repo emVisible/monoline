@@ -26,6 +26,11 @@
         --caption-bottom: {{ theme.space.caption_bottom }}px;
         --caption-max-w: {{ theme.space.caption_max_w }}px;
         --scene-scale: 1;
+        {#- the wash is accent-tinted: on a dark paper that reads as light, on a light
+            paper the same alpha reads as a grey smudge, so the strength follows mode -#}
+        --wash-1: color-mix(in oklab, var(--accent) {{ "16%" if theme.mode == "dark" else "6%" }}, transparent);
+        --wash-2: color-mix(in oklab, var(--accent) {{ "13%" if theme.mode == "dark" else "5%" }}, transparent);
+        --wash-3: color-mix(in oklab, var(--ink) {{ "9%" if theme.mode == "dark" else "4%" }}, transparent);
       }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { width: {{ canvas.width }}px; height: {{ canvas.height }}px; overflow: hidden; background: var(--paper); }
@@ -93,6 +98,13 @@
       #progress-fill { display: block; height: 100%; width: 100%; background: var(--accent);
         transform: scaleX(0); transform-origin: left center; }
       .scene { position: absolute; inset: 0; }
+      .scene .wash { position: absolute; inset: 0; pointer-events: none; }
+      .scene .wash.w1 { background: radial-gradient(58% 46% at 84% 12%,
+        var(--wash-1), transparent 62%); }
+      .scene .wash.w2 { background: radial-gradient(64% 52% at 8% 94%,
+        var(--wash-2), transparent 64%); }
+      .scene .wash.w3 { background: radial-gradient(56% 56% at 50% 46%,
+        var(--wash-3), transparent 70%); }
       .frame { position: absolute; inset: 0; display: flex;
         align-items: center; justify-content: center; transform: scale(var(--scene-scale)); transform-origin: center;
         padding: var(--gutter-y) var(--gutter-x) calc(var(--caption-bottom) + 80px); }
@@ -468,6 +480,10 @@
       {# scenes are plain (non-clip) divs; the ROOT is the only timed clip. GSAP drives #}
       {# visibility so adjacent scenes can cross-dissolve (overlap) at each boundary. #}
       <section id="scene-{{ seg.i }}" class="scene" style="z-index:{{ seg.i + 1 }}; opacity:{{ 1 if seg.i == 0 else 0 }};">
+        {#- V32: per-scene light. One fixed global glow made every slide carry an
+            identical background, so a run of text beats read as the same frame; the
+            wash cycles by scene index and drifts across the cross-dissolve. -#}
+        <span class="wash w{{ (seg.i % 3) + 1 }}" aria-hidden="true"></span>
         <div class="frame"><div class="sbody{{ ' sbody--ed' if scene.kind in ['statement', 'section'] }}">
           {%- if scene.slots.get("icon") and scene.kind not in ['flow', 'radial', 'steps', 'arch', 'cycle', 'funnel'] %}<div class="scene-icon">{{ icon_svg(scene.slots.get("icon")) | safe }}</div>{% endif %}
           {%- if scene.kind != "image" and scene.slots.get("image") %}<div class="scene-media"><img src="{{ scene.slots.get('image') }}" alt="">{% if scene.slots.get("image_caption") %}<span class="mcap">{{ scene.slots.get("image_caption") }}</span>{% endif %}</div>{% endif %}

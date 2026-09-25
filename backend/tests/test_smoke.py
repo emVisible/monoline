@@ -776,6 +776,55 @@ def test_text_scenes_get_a_skeleton_rail():
     assert ".k-list::before" not in html                                    # data kinds keep their own frame
 
 
+def test_scene_light_wash_cycles_v32():
+    """V32: one global glow meant every slide carried a pixel-identical background, so a
+    run of text beats read as the same frame. The wash cycles by scene index."""
+    import re
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["一。", "二。", "三。", "四。"], [3.0, 3.0, 3.0, 3.0])
+    scenes = [{"i": i, "kind": "statement", "slots": {"headline": f"第{i}句"}} for i in range(4)]
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=scenes))
+    washes = re.findall(r'class="wash w(\d)"', html)
+    assert washes == ["1", "2", "3", "1"]                     # deterministic cycle, drifts on dissolve
+    assert html.count('class="wash') == 4
+    for tone in ("w1", "w2", "w3"):
+        assert f".scene .wash.{tone}" in html
+    # static decoration: the timeline must never touch it (it rides the scene opacity)
+    assert "wash" not in html.split("<script>")[1]
+
+
+def test_composed_css_stays_balanced():
+    """A single unbalanced paren inside a declaration makes the browser swallow the
+    NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`
+    and collapsed every scene to the top-left, invisible to lint and to unit tests.
+    Cheap structural guard for every theme × layout combination."""
+    import json
+    import re
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    tim = Timings.from_durations(["拍。"], [3.0])
+    scenes = [{"i": 0, "kind": "statement", "slots": {"headline": "拍"}}]
+    for tid in ("mono-ink", "mono-paper", "mono-noir", "mono-slate"):
+        tokens = json.loads((Path("../design/tokens") / f"{tid}.json").read_text())["tokens"]
+        theme = Theme(id=tid, tokens=tokens)
+        for layout in ("minimal", "editorial", "bold"):
+            html = render_composition(tim, ScenePlan(theme=theme, scenes=scenes), layout=layout)
+            css = html.split("<style>")[1].split("</style>")[0]
+            assert css.count("{") == css.count("}"), (tid, layout)
+            # every declaration's parens balance too (that is what actually broke)
+            for decl in re.findall(r"[;{]\s*([a-z-]+\s*:[^{}]+)", css):
+                assert decl.count("(") == decl.count(")"), (tid, layout, decl[:70])
+
+
 def test_count_up_parsing_contract():
     import json
     from pathlib import Path
