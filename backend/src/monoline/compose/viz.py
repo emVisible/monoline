@@ -125,26 +125,28 @@ def _series(values: object) -> list[float]:
     return [float(m.group(0)) for m in (_NUM_ONLY.search(str(v)) for v in (values or [])) if m]
 
 
+def _points(nums: list[float], w: int, h: int, pad: float = 10.0) -> list[tuple[float, float]]:
+    """Series coordinates in the chart's own viewBox, scaled to its own min/max.
+
+    Shared by the line and its annotation so a callout can never drift off the point
+    it is pointing at. Rounded to 2dp — identical input always yields identical markup."""
+    lo, hi = min(nums), max(nums)
+    span = hi - lo
+    n = len(nums)
+    return [(round(i / (n - 1) * (w - pad * 2) + pad, 2),
+             round(h / 2, 2) if span == 0 else round(h - pad - (v - lo) / span * (h - pad * 2), 2))
+            for i, v in enumerate(nums)]
+
+
 def sparkline(values: list, *, w: int = 320, h: int = 96) -> str:
     """A trend line for a short numeric series, scaled to its own min/max.
 
     Returns '' unless at least two entries actually carry a number — a line through
-    one point is a lie, and a flat line through 「营收」「利润」 would be worse. Geometry
-    is rounded to 2dp so identical input always yields identical markup (determinism
-    gate)."""
+    one point is a lie, and a flat line through 「营收」「利润」 would be worse."""
     nums = _series(values)
     if len(nums) < 2:
         return ""
-    pad = 10.0
-    lo, hi = min(nums), max(nums)
-    span = hi - lo
-    n = len(nums)
-    pts = []
-    for i, v in enumerate(nums):
-        x = round(i / (n - 1) * (w - pad * 2) + pad, 2)
-        # a flat series has no span to divide by — sit it mid-box instead of NaN-ing
-        y = round(h / 2, 2) if span == 0 else round(h - pad - (v - lo) / span * (h - pad * 2), 2)
-        pts.append(f"{x},{y}")
+    pts = [f"{x},{y}" for x, y in _points(nums, w, h)]
     lx, ly = pts[-1].split(",")
     return (
         f'<svg class="spark" viewBox="0 0 {w} {h}" aria-hidden="true">'
@@ -152,6 +154,24 @@ def sparkline(values: list, *, w: int = 320, h: int = 96) -> str:
         'stroke-linecap="round" stroke-linejoin="round"/>'
         f'<circle class="sl-dot" cx="{lx}" cy="{ly}" r="5"/></svg>'
     )
+
+
+def peak_marker(values: list, *, w: int = 320, h: int = 96) -> dict | None:
+    """The series' high point as {x, y, value, index} — the annotation a designed slide
+    makes and a generated one omits.
+
+    None when fewer than three numbers exist (two points are a comparison, not a shape
+    to read a peak off) and when the peak IS the last point: the hero figure already
+    shows that value, so a callout would only repeat it. Ties resolve to the earliest
+    index, which keeps the markup deterministic."""
+    nums = _series(values)
+    if len(nums) < 3:
+        return None
+    i = max(range(len(nums)), key=lambda k: (nums[k], -k))
+    if i == len(nums) - 1:
+        return None
+    x, y = _points(nums, w, h)[i]
+    return {"x": x, "y": y, "value": str(values[i]).strip(), "index": i}
 
 
 def donut(shares: list) -> str:

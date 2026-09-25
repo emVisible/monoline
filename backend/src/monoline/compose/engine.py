@@ -50,8 +50,8 @@ def _env() -> Environment:
     env.globals["count_up"] = count_up
     from .icons import svg as _icon_svg
     from .viz import (delta as _delta, donut as _donut, funnel_widths as _funnel_w, pct as _pct,
-                      polar as _polar, ring as _ring, row_bars as _row_bars, sparkline as _spark,
-                      stack_widths as _stack_w)
+                      peak_marker as _peak, polar as _polar, ring as _ring, row_bars as _row_bars,
+                      sparkline as _spark, stack_widths as _stack_w)
     env.globals["icon_svg"] = _icon_svg
     env.globals["pct"] = _pct
     env.globals["ring"] = _ring
@@ -60,6 +60,7 @@ def _env() -> Environment:
     env.globals["funnel_widths"] = _funnel_w
     env.globals["stack_widths"] = _stack_w
     env.globals["sparkline"] = _spark
+    env.globals["peak_marker"] = _peak
     env.globals["donut"] = _donut
     env.globals["delta"] = _delta
     return env
