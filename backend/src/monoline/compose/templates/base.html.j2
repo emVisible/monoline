@@ -190,6 +190,25 @@
       .k-summary .eyebrow { font-size: 30px; letter-spacing: 0.4em; color: var(--ink-muted); text-transform: uppercase; }
       .k-summary .headline { font-size: 130px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin-top: 16px; }
 
+      /* kind: poster — a quoted document card. The tab names the artefact, the <mark>
+         stroke is the highlighter, and the em-dash line carries attribution: three
+         affordances a plain quote slide does not have. */
+      .k-poster { width: 1240px; max-width: 100%; }
+      .k-poster .p-card { position: relative; padding: 58px 64px 48px; border-radius: 6px;
+        background: var(--surface); border: 1px solid var(--hairline);
+        box-shadow: 0 30px 60px -34px rgb(0 0 0 / .62); }
+      .k-poster .p-tab { position: absolute; top: -23px; left: 46px; padding: 9px 24px;
+        font-size: 21px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase;
+        color: var(--accent-ink); background: var(--accent); border-radius: 3px; }
+      .k-poster .p-body { font-size: 58px; line-height: 1.6; font-weight: 700; color: var(--ink);
+        text-wrap: balance; }
+      .k-poster .p-body mark { color: inherit; padding: 0 6px;
+        background: linear-gradient(transparent 56%,
+          color-mix(in oklab, var(--accent) 42%, transparent) 56%); }
+      .k-poster .p-by { display: flex; align-items: center; gap: 18px; margin-top: 40px;
+        font-size: 27px; color: var(--ink-muted); }
+      .k-poster .p-dash { width: 58px; height: 2px; flex: none; background: var(--ink-faint); }
+
       /* kind: stat */
       .k-stat .value { font-size: 260px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--accent); }
       .k-stat .ring-wrap { position: relative; width: 400px; height: 400px; }

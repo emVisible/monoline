@@ -911,9 +911,11 @@ def test_real_job_defects_v35():
     html = render_composition(tim, ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "title", "slots": {"headline": "标题"}}]))
     css = html.split("<style>")[1].split("</style>")[0]
     rules = [ln for ln in css.splitlines() if "text-wrap: balance" in ln]
-    assert len(rules) == 1
+    # the V35 rule itself must list every display-text selector (later kinds may add their own)
+    v35 = [ln for ln in rules if ".headline," in ln and ".cap > .inner" in ln]
+    assert len(v35) == 1
     for sel in (".headline", ".s-title", ".term", ".q", ".d-title", ".cap > .inner"):
-        assert sel in rules[0]
+        assert sel in v35[0]
 
 
 def test_peak_marker_v36():
@@ -1098,6 +1100,33 @@ def test_source_boilerplate_never_becomes_a_headline_v42():
              "更神奇的是，顺着溪水往上找，最后往往不是找到一个大水潭，",
              "它在 DeepSWE 基准上拿到 68.8%。"]
     assert [t for t in legit if p._classify(0, t)["source"] == "rules:source-junk"] == []
+
+
+def test_poster_kind_v43():
+    """V43: a quoted document card with a highlighter stroke (modeled on real explainer
+    channels), plus the escape discipline the <mark> injection surface demands."""
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme, KINDS
+    from monoline.compose.engine import render_composition
+    from monoline.compose.viz import highlight
+
+    assert "poster" in KINDS
+    assert highlight("今天的苦果是我们因循怠惰所致", ["因循怠惰"]) == \
+        "今天的苦果是我们<mark>因循怠惰</mark>所致"
+    assert highlight("没有命中的一句", ["不存在"]) == "没有命中的一句"
+    # escape-then-match: a phrase carrying markup can never inject an element
+    assert "<script>" not in highlight("正文 <script>alert(1)</script>", ["<script>alert(1)</script>"])
+    assert highlight("a<b", ["a<b"]).count("<mark>") == 1
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["引语。"], [5.0])
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "poster", "slots": {
+        "tab": "CONCEPT NOTE / ARCHIVE", "body": "今天的苦果，是我们过去几年因循怠惰所致。",
+        "hl": ["因循怠惰"], "by": "某集团老板", "verbatim": True}}]))
+    assert 'class="p-tab"' in html and "<mark>因循怠惰</mark>" in html
+    assert 'class="p-by"' in html and ".k-poster .p-body mark" in html
 
 
 def test_composed_css_stays_balanced():

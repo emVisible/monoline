@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import re
+from html import escape
 
 _C = 263.894  # circumference of r=42 in a 0..100 viewBox (2*pi*42)
 
@@ -256,6 +257,21 @@ def max_drop(values: list) -> int | None:
         if d > best:
             best, at = d, i + 1
     return at if best >= 0.2 else None
+
+
+def highlight(text: object, phrases: object = None) -> str:
+    """Mark up a quote so a highlighter stroke can sit under the spoken clause.
+
+    Escapes first and matches the escaped form against escaped phrases, so a phrase
+    containing markup can never inject anything — it simply won't match. Phrases that
+    aren't in the text are skipped rather than guessed at."""
+    out = escape(str(text or ""))
+    items = phrases if isinstance(phrases, list) else ([phrases] if phrases else [])
+    for p in items:
+        needle = escape(str(p).strip())
+        if needle and needle in out and f"<mark>{needle}</mark>" not in out:
+            out = out.replace(needle, f"<mark>{needle}</mark>")
+    return out
 
 
 _DELTA_SIGN = re.compile(r"^\s*([+\-−])\s*(\d)")
