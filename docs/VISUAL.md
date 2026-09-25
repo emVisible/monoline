@@ -43,8 +43,8 @@ donut 四段用 ink 的四个透明度档位，而不是四种颜色。加颜色
 
 ## 3. 还缺什么（下一批）
 
-1. **trend / matrix 两个 kind**。V31c 的 `sparkline` / `donut` 已就位，但目前只有
-   `stat` 场景通过 `trend` 槽位用得上 sparkline，donut 还没有自动入口。
+1. **matrix（2×2 象限）**。份额环、时间轴、条形、KPI 卡都已经能被自动识别，四象限
+   还不行：「既快又省 / 高客单低频次」这类表达目前只能落回一句白字。
 2. **多拍归组**：现在 1 拍 ↔ 1 段 ↔ 1 场景是硬约束，所以一段 markdown 表格会被切碎。
 3. **词级字幕**：需要云 TTS 的 word timestamp，本地 Kokoro 拿不到。
 4. **动效密度自适应**：长旁白场景元素一次全进，短场景也是，缺「按停留时长摊开」的
@@ -61,3 +61,5 @@ donut 四段用 ink 的四个透明度档位，而不是四种颜色。加颜色
 | `9f47dec` | 新 kind bars + 修掉漏斗死分支与误判 | 分类用例 6/6；16:9 抽帧 |
 | `bb09234` | 新 kind kpi + timeline | 16:9 与 9:16 各两帧；竖屏 KPI 三列并排 |
 | `ef3a58a` | KPI 单位排版 | 端到端 8 拍作业分镜：title/kpi/timeline/bars/funnel/arch/cycle/stat |
+| `7a9f7ff` | 新 kind share + trend（donut / sparkline 的自动入口） | 10 例分类全过；16:9 与 9:16 各两帧；Studio 24 个 kind 实测可选可编辑 |
+| `40850c9` | 形状 kind 集合改为派生 | 末拍 timeline 不再被 summary 吞掉（端到端复跑确认） |
