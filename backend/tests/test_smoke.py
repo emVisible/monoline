@@ -789,3 +789,13 @@ def test_last_beat_keeps_its_shape():
     assert last["kind"] == "funnel"
     plain = plan_scenes(["开场一句。", "中间一句普通的话。", "所以慢就是快，快就是慢。"])[-1]
     assert plain["kind"] == "summary" and plain["source"] == "rules:position"
+
+
+def test_a_funnel_only_draws_when_things_shrink():
+    """A funnel encodes loss. An increasing enumeration ("2019 100 万、2020 300 万…") is
+    growth, and flat-lining it into a funnel would be a lie on screen."""
+    from monoline.pipeline.planner import plan_scenes
+    growing = plan_scenes(["开场。", "营收：2019 年 100 万、2020 年 300 万、2021 年 900 万", "收尾。"])[1]
+    assert growing["kind"] != "funnel"
+    shrinking = plan_scenes(["开场。", "漏斗：曝光 12000 人、点击 3400 人、下单 520 人", "收尾。"])[1]
+    assert shrinking["kind"] == "funnel"

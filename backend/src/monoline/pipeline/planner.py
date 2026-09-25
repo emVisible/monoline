@@ -276,7 +276,9 @@ class RulePlanner:
                     "slots": {"title": "", "rows": [{"k": k.strip(), "v": v.strip()} for k, v in pairs[:6]]}}
 
         # funnel: ≥3 numeric pairs (k:v or "词 数字") is a conversion ladder, not a table
-        if len(pairs) >= 3 and all(_numeric(v) for _k, v in pairs):
+        pv = [_num_of(v) for _k, v in pairs]
+        if len(pairs) >= 3 and all(_numeric(v) for _k, v in pairs) \
+                and all(x is not None for x in pv) and all(b <= a for a, b in zip(pv, pv[1:])):
             ft = _LEAD_LABEL.match(s)
             return {"i": i, "kind": "funnel", "source": "rules:numeric-ladder",
                     "slots": {"title": (ft.group(1).strip() if ft else ""),
@@ -364,4 +366,20 @@ def _ladder_stages(s: str) -> tuple[str, list[dict]]:
             stages.append({"k": m.group(1).strip(" ：:"), "v": m.group(2).strip()})
     if len(stages) < 3 or (lead and len(lead.group(1)) > 10):
         return "", []
+    # A funnel means LOSS. An enumeration that grows ("2019 年、2020 年、2021 年") is a
+    # timeline, and drawing it as a funnel would flat-line into a misleading block.
+    vals = [_num_of(s["v"]) for s in stages]
+    if any(v is None for v in vals) or any(b > a for a, b in zip(vals, vals[1:])):
+        return "", []
     return (lead.group(1).strip() if lead else ""), stages[:5]
+
+
+def _num_of(v: str) -> float | None:
+    """The leading number of a value like "3,400 人" (unit ignored), or None."""
+    m = re.match(r"^([-+]?[\d.,]+)", (v or "").strip())
+    if not m:
+        return None
+    try:
+        return float(m.group(1).replace(",", ""))
+    except ValueError:
+        return None
