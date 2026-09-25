@@ -139,6 +139,27 @@ def _steps(s: str) -> tuple[str, list[str]]:
     return title, out[:5]
 
 
+def apply_icons(scenes: list[dict], beats: list[str]) -> None:
+    """Give every scene an icon (kind default, else picked from its beat). In-place, and
+    re-run after an LLM upgrade so a promoted beat doesn't keep the old kind's icon."""
+    from ..compose.icons import KIND_ICON, pick_icon
+    for sc in scenes:
+        icon = KIND_ICON.get(sc["kind"], "")
+        if not icon:  # sparse kinds (statement/note): pick a contextual icon from the beat text
+            idx = sc["i"]
+            icon = pick_icon(beats[idx] if 0 <= idx < len(beats) else "")
+        sc["slots"]["icon"] = icon
+
+
+def number_sections(scenes: list[dict]) -> None:
+    """V9-6: number section beats so chapter breaks read as "01 / 02 …"."""
+    sec = 0
+    for sc in scenes:
+        if sc["kind"] == "section":
+            sec += 1
+            sc["slots"]["index"] = f"{sec:02d}"
+
+
 class RulePlanner:
     def plan(self, beats: list[str], *, brand: str = "Monoline", date_eyebrow: str = "") -> list[dict]:
         n = len(beats)
@@ -152,19 +173,8 @@ class RulePlanner:
                                "slots": {"eyebrow": "In short", "headline": ts["headline"], "verbatim": ts["verbatim"]}})
             else:
                 scenes.append(self._classify(i, b))
-        from ..compose.icons import KIND_ICON, pick_icon
-        for sc in scenes:
-            icon = KIND_ICON.get(sc["kind"], "")
-            if not icon:  # sparse kinds (statement/note): pick a contextual icon from the beat text
-                idx = sc["i"]
-                icon = pick_icon(beats[idx] if 0 <= idx < len(beats) else "")
-            sc["slots"].setdefault("icon", icon)
-        # V9-6: number section beats so chapter breaks read as "01 / 02 …"
-        sec = 0
-        for sc in scenes:
-            if sc["kind"] == "section":
-                sec += 1
-                sc["slots"]["index"] = f"{sec:02d}"
+        apply_icons(scenes, beats)
+        number_sections(scenes)
         return scenes
 
     def _clean(self, s: str) -> str:

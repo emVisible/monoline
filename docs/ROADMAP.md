@@ -97,6 +97,12 @@
   - 版式 preset 与画幅联动：editorial 左对齐、bold 加粗描边/加粗标题；竖屏图元字号 38px、导图高度 900px。
   - 实测：贴一段含链/分层/序号的中文段落 → 自动出 flow + radial + steps 三镜并成功出片（作业 succeeded，18.2s），抽帧确认三种图均正确成图、无溢出；后端 44 测试全过（+5）、warmup 绿、tsc/build 干净。
 - 附 UI：NewView 音色选择器折叠化，主流程回到一屏（收起态 + aria-expanded + 展开 25 音色，浏览器点按核验）。
+- ✅ V29 接上本地 Ollama（用户起了 `batiai/gemma4-e4b:q4`，要求「联通 + 界面提示是否连通」）：
+  - **目标解析**：`llm/client.py::detect()` — 显式 `MONOLINE_LLM_*` 优先，否则探活本地 Ollama（`/api/tags`）并选模型；结果缓存 15s，探活延迟回给前端。`/api/script/status` 从「读配置」改成「真探活」（旧实现只判 env，永远显示未配置=假提示）。
+  - **界面提示**：NewView 顶部状态胶囊 `● 模型已连通 · batiai/gemma4-e4b:q4 · 本地 Ollama · 50ms` / `○ 模型未连通 · <真实错误>` + 「重试」（`?refresh=1`）；未连通时「模型加判」自动禁用并回落「纯规则」。Setup/`/api/health` 新增 `llm` 与 `zh_tones` 两项（软检查，不阻塞出片）。
+  - **分镜判断接入形态（按实测证据定的）**：规则打底 + 模型只重判规则判成 `statement` 的弱拍。原因：让 7.5B 全量出分镜实测 83s、6 拍只回 5 项（破坏 1拍=1镜）、`stat` 槽位形状不守，还把箭头链/「分为四层」判成 `list`（规则现在出的是真图）。逐拍校验：kind 必须注册、槽位形状必须对、每个字必须来自该拍（防编造）、结尾不能是「是/的/了…」这类截断词；不合格就保留规则结果，拍数永远不变。
+  - 实测：同一份 6 拍稿 `asked 4 / upgraded 3 / rejected 1`，三句纯文字变成 `stat 三个小时`、`stat 两分钟`、`definition 确定性渲染`，抽帧确认画面正确；断网态（指向关闭端口）胶囊显示真实错误、按钮禁用、提示给出 `ollama serve` 指引。踩到两个坑：`response_format: json_object` 下要求「裸数组」会让 Ollama 只回一个对象就停（改成 `{"scenes":[…]}`）；Python 不热重载，改完提示词必须重启才生效。
+  - `make warmup` 显式 `llm_plan:false`：自检只证自己的工具链，不依赖可选模型服务（带上会从 18.6s 涨到 50.7s）。后端 47 测试全过（+4）、tsc/build 干净。
 - ✅ V28 中文声调修复（用户报「所有中文都是一个方言味，我要普通话」）——根因不是音色：kokoro-onnx 用 espeak-ng 做中文 G2P，espeak 把声调写成数字（1/2/3/4/5），而 Kokoro 词表只有 114 个符号、**不含任何数字**，`Tokenizer.phonemize` 又会把词表外字符**静默丢掉**。实测：`妈/马/骂` 过滤后音素完全相同、`师/诗/史/市` 全塌成一个 `s.ˈi.`，且丢失发生在 speaker embedding 之前 → 换任何音色都没救。
   - 修法：新增 `monoline/tts_zh.py`，中文改走 misaki 的 `ZHG2P`（声调映射成模型训练时真正见过的箭头 → ↗ ↓ ↘，全部在词表内），再用 kokoro-onnx 的 `is_phonemes=True` 直送；拉丁词交回 espeak `en-us`（misaki 会原样透传、而大部分 ASCII 字母不在词表）。顺带：cn2an 把「3倍/92%」读成中文、流程图旁白里的 `→` 变成停顿而不是被念出来。
   - 路由点选在 `HF.tts()`（4 个调用点一次覆盖：TTS 阶段/改音色/改旁白重合成/试听）；模型未下载或 misaki 缺失时**自动回退**旧 CLI 路径，绝不因缺依赖整单失败。试听 wav 缓存文件名加 `.r2` 版本位，防止旧的无声调样本继续被端出去。

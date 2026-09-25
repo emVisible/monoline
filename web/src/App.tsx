@@ -77,7 +77,10 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   const [topic, setTopic] = useState("");
   const [tone, setTone] = useState("neutral");
   const [len, setLen] = useState("medium");
-  const [aiReady, setAiReady] = useState(false);
+  const [llm, setLlm] = useState<{ ready: boolean; source: string; model: string | null; detail: string; latency_ms: number | null }>(
+    { ready: false, source: "none", model: null, detail: "", latency_ms: null });
+  const [llmBusy, setLlmBusy] = useState(false);
+  const [llmPlan, setLlmPlan] = useState(true);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiErr, setAiErr] = useState<string | null>(null);
   const { voices, default: defaultVoice } = useVoices();
@@ -89,9 +92,18 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   const lines = script.split(/[\n。！？!?…]+/).flatMap((p) => p.split(/\.(?=\s)/)).map((l) => l.trim()).filter(Boolean);
   const chars = script.replace(/\s/g, "").length;
 
-  useEffect(() => {
-    fetch("/api/script/status").then((r) => r.json()).then((d) => setAiReady(!!d.ready)).catch(() => setAiReady(false));
-  }, []);
+  const loadLlm = (refresh = false) => {
+    setLlmBusy(true);
+    fetch("/api/script/status" + (refresh ? "?refresh=1" : ""))
+      .then((r) => r.json())
+      .then((d) => setLlm({
+        ready: !!d.ready, source: d.source || "none", model: d.model || null,
+        detail: d.detail || "", latency_ms: typeof d.latency_ms === "number" ? d.latency_ms : null,
+      }))
+      .catch(() => setLlm({ ready: false, source: "none", model: null, detail: "无法连接后端", latency_ms: null }))
+      .finally(() => setLlmBusy(false));
+  };
+  useEffect(() => { loadLlm(false); }, []);
   useEffect(() => { if (defaultVoice && !voice) setVoice(defaultVoice); }, [defaultVoice, voice]);
 
   const genScript = async () => {
@@ -118,7 +130,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       const r = await fetch("/api/jobs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ script, ratio, layout, quality, fps, format, voice }),
+        body: JSON.stringify({ script, ratio, layout, quality, fps, format, voice, llm_plan: llmPlan && llm.ready }),
       });
       const d = await r.json();
       if (d.job_id) onCreate(d.job_id);
@@ -130,8 +142,18 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   return (
     <div className="intake">
       <p className="eyebrow">Paste script · one sentence = one beat</p>
+      <div className="ai-row llm-row">
+        <span className={"llm-chip" + (llm.ready ? " on" : "")} role="status">
+          <i className="llm-dot" aria-hidden="true" />
+          {llm.ready
+            ? <>模型已连通 · <code>{llm.model}</code>{llm.source === "ollama" ? " · 本地 Ollama" : ""}{llm.latency_ms !== null ? ` · ${llm.latency_ms}ms` : ""}</>
+            : <>模型未连通 · {llm.detail || "未检测到可用端点"}</>}
+          <button className="llm-retry" onClick={() => loadLlm(true)} disabled={llmBusy}
+            aria-label="重新检测模型连通">{llmBusy ? "检测中…" : "重试"}</button>
+        </span>
+      </div>
       <div className="ai-row">
-        {aiReady ? (
+        {llm.ready ? (
           <>
             <input className="fld ai-topic" placeholder="给 AI 一个主题，自动生成旁白…" value={topic}
               onChange={(e) => setTopic(e.target.value)} onKeyDown={(e) => e.key === "Enter" && genScript()} />
@@ -145,7 +167,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
             <button className="ghost" onClick={genScript} disabled={!topic.trim() || aiBusy}>{aiBusy ? "生成中…" : "✨ 生成"}</button>
           </>
         ) : (
-          <span className="ai-hint">✦ AI 写稿未启用 — 设置 <code>MONOLINE_LLM_API_KEY</code>（或指向本地 Ollama）后可从主题自动生成，或直接粘贴文本。</span>
+          <span className="ai-hint">✦ AI 写稿未启用 — 启动 <code>ollama serve</code> 并拉取一个模型后点上面「重试」；或设 <code>MONOLINE_LLM_BASE_URL</code> / <code>MODEL</code> / <code>API_KEY</code> 指向任意 OpenAI 兼容端点。也可直接粘贴文本。</span>
         )}
       </div>
       {aiErr && <p className="ai-err">{aiErr}</p>}
@@ -165,6 +187,16 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
             {["landscape", "portrait", "square"].map((r) => (
               <button key={r} className={ratio === r ? "chip on" : "chip"} aria-pressed={ratio === r} onClick={() => setRatio(r)}>{r}</button>
             ))}
+          </div>
+        </div>
+        <div className="opt-group" role="group" aria-label="分镜判定">
+          <span className="opt-lbl">分镜</span>
+          <div className="chips">
+            <button className={llmPlan && llm.ready ? "chip on" : "chip"} aria-pressed={llmPlan && llm.ready}
+              disabled={!llm.ready} title={llm.ready ? "规则打底，模型只重判规则判成纯文字的拍" : "需要模型连通"}
+              onClick={() => setLlmPlan(true)}>模型加判</button>
+            <button className={!llmPlan ? "chip on" : "chip"} aria-pressed={!llmPlan}
+              onClick={() => setLlmPlan(false)}>纯规则</button>
           </div>
         </div>
         <div className="opt-group" role="group" aria-label="版式">

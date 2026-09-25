@@ -27,6 +27,7 @@ class CreateJob(BaseModel):
     theme: str = "mono-ink"
     accent: str = ""
     brand: str = "Monoline"
+    llm_plan: bool = True   # let a connected model re-judge the beats the rules call plain text
 
 
 _RATIOS = {"landscape": (1920, 1080), "portrait": (1080, 1920), "square": (1080, 1080)}
@@ -56,7 +57,7 @@ async def create_job(body: CreateJob, request: Request) -> dict:
     # lang is derived from the voice so the phonemizer can never drift from it
     config = {"voice": body.voice, "lang": voice_lang(body.voice), "speed": body.speed,
               "quality": quality, "brand": body.brand, "format": fmt, "layout": layout,
-              "theme": body.theme, "accent": body.accent.strip()}
+              "theme": body.theme, "accent": body.accent.strip(), "llm_plan": bool(body.llm_plan)}
     jid = await m.create_job(script=body.script, config=config, canvas={"width": w, "height": h, "fps": body.fps})
     return {"job_id": jid}
 

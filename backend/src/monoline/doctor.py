@@ -87,6 +87,18 @@ def _chrome_ok(settings: Settings) -> dict:
             "fix": "auto — HyperFrames fetches it on first render; or `npx hyperframes browser ensure`"}
 
 
+def _llm_ok(settings: Settings) -> dict:
+    """Optional enhancement layer: a connected model writes scripts and re-judges weak
+    beats. Soft by design — everything works without it, so this never blocks a render."""
+    from .llm.client import detect
+
+    t = detect(settings)
+    return {"name": "llm", "state": "ok" if t.ok else "warn",
+            "found": f"{t.source} · {t.model}" if t.ok else t.detail,
+            "expected": "本地 Ollama 在线，或 MONOLINE_LLM_* 指向 OpenAI 兼容端点",
+            "fix": "ollama serve && ollama pull <model>  ·  或设 MONOLINE_LLM_BASE_URL/MODEL/API_KEY"}
+
+
 def _zh_tones_ok() -> dict:
     """Mandarin needs a G2P that can carry lexical tones. kokoro-onnx's espeak path writes
     them as digits, which are outside Kokoro's vocabulary and get dropped — so without
@@ -139,6 +151,7 @@ def run_doctor(settings: Settings | None = None, *, probe_sidecar: bool = True) 
         _chrome_ok(settings),
         _hf_doctor(settings),
         _zh_tones_ok(),
+        _llm_ok(settings),
     ]
     if probe_sidecar:
         checks.append(_sidecar_ok(settings))

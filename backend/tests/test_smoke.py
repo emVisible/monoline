@@ -221,10 +221,15 @@ def test_llm_prompt_build_and_clean():
     assert cleaned.splitlines() == ["第一拍", "第二拍", "第三拍"]
 
 
-def test_llm_not_configured_raises():
+def test_llm_not_configured_raises(monkeypatch):
     import asyncio
     from monoline.settings import Settings
-    from monoline.llm.client import generate_script, LLMNotConfigured
+    from monoline.llm import client as llm_client
+    from monoline.llm.client import LLMNotConfigured, Target, generate_script
+
+    # Nothing reachable: neither MONOLINE_LLM_* nor a local Ollama. (detect() would
+    # otherwise find the developer's running Ollama and really call it.)
+    monkeypatch.setattr(llm_client, "detect", lambda *a, **k: Target(source="none", detail="no where to go"))
 
     async def run():
         s = Settings()
@@ -586,3 +591,84 @@ def test_zh_phonemizer_carries_lexical_tones():
     assert "pei" in tts_zh.phonemize("提升3倍")                           # digits read in Chinese
     assert "," in tts_zh.phonemize("需求→设计→开发")                       # diagram glyph = pause
     assert "P" not in tts_zh.phonemize("API")                             # Latin via en-us
+
+
+# ── V29: connected model — target detection + weak-beat storyboard upgrade ──────
+
+def _fake_httpx(monkeypatch, payload_for):
+    import httpx
+    from monoline.llm import client as llm_client
+
+    class _Resp:
+        def __init__(self, data, code=200):
+            self._d, self.status_code = data, code
+
+        def json(self):
+            return self._d
+
+        def raise_for_status(self):
+            return None
+
+        @property
+        def text(self):
+            return str(self._d)
+
+    def _get(url, **kw):
+        return _Resp(payload_for("get", url))
+
+    monkeypatch.setattr(llm_client.httpx, "get", _get)
+    monkeypatch.setattr(httpx, "get", _get)
+    monkeypatch.setattr(llm_client, "_CACHE", None)
+
+
+def test_llm_target_auto_detects_local_ollama(monkeypatch):
+    from monoline.llm import client as llm_client
+    from monoline.settings import Settings
+    _fake_httpx(monkeypatch, lambda kind, url: {"models": [{"model": "batiai/gemma4-e4b:q4"}]})
+    s = Settings()
+    s.llm_api_key, s.llm_base_url, s.llm_model = "", "https://api.openai.com/v1", "gpt-4o-mini"
+    t = llm_client.detect(s, force=True)
+    assert t.ok and t.source == "ollama" and t.model == "batiai/gemma4-e4b:q4"
+    assert t.base_url.endswith("/v1")
+    # unreachable Ollama → not ready, with a reason the UI can show (never an exception)
+    _fake_httpx(monkeypatch, lambda kind, url: (_ for _ in ()).throw(OSError("connection refused")))
+    monkeypatch.setattr(llm_client, "_CACHE", None)
+    t2 = llm_client.detect(s, force=True)
+    assert not t2.ok and t2.source == "none" and "connection refused" in t2.detail
+
+
+def test_llm_upgrade_keeps_rules_where_the_model_is_wrong():
+    from monoline.ir.sceneplan import KINDS
+    from monoline.llm.planner import ALLOWED, merge
+    # every kind we let the model pick must have a registered template
+    assert set(ALLOWED) <= set(KINDS), set(ALLOWED) - set(KINDS)
+    beats = ["开场白一句。", "需求→设计→开发→测试→上线", "这套平台分为网关、计算、存储三层", "慢就是快。"]
+    scenes = [{"i": 0, "kind": "title", "source": "rules:first-line", "slots": {"headline": "开场白"}},
+              {"i": 1, "kind": "statement", "source": "rules:default", "slots": {"headline": "需求"}},
+              {"i": 2, "kind": "statement", "source": "rules:default", "slots": {"headline": "平台"}},
+              {"i": 3, "kind": "summary", "source": "rules:position", "slots": {"headline": "慢就是快"}}]
+    payload = {"storyboard": [                      # models wrap arrays in an object shell
+        {"i": 1, "kind": "flow", "slots": {"nodes": ["需求", "设计", "开发", "测试", "上线"]}},
+        {"i": 2, "kind": "radial", "slots": {"hub": "这套平台", "nodes": ["网关", "计算", "存储"]}},
+    ]}
+    out, stats = merge(beats, scenes, payload)
+    assert len(out) == len(beats)                    # the invariant survives a bad model reply
+    assert [s["kind"] for s in out] == ["title", "flow", "radial", "summary"]
+    assert out[1]["source"] == "llm:upgrade" and out[1]["slots"]["nodes"][0] == "需求"
+    assert stats == {"asked": 2, "upgraded": 2, "rejected": 0}
+    # invented copy, illegal kind, and a dropped beat are all refused, beat by beat
+    bad = [{"i": 1, "kind": "flow", "slots": {"nodes": ["需求", "融资", "上线"]}},      # 融资 not in beat
+           {"i": 2, "kind": "mindmap", "slots": {"hub": "平台", "nodes": ["网关", "计算"]}}]  # no such kind
+    out2, st2 = merge(beats, scenes, bad)
+    assert [s["kind"] for s in out2] == ["title", "statement", "statement", "summary"]
+    assert st2 == {"asked": 2, "upgraded": 0, "rejected": 2}
+    # a short-but-not-grounded value ("3倍" vs "3 倍") still counts as grounded after punctuation folds
+    ok = [{"i": 1, "kind": "stat", "slots": {"value": "3倍", "label": "需求"}}]
+    out3, st3 = merge(["开场。", "需求 3 倍完成"], [{"i": 0, "kind": "title", "slots": {}},
+                                                   {"i": 1, "kind": "statement", "slots": {}}], ok)
+    assert out3[1]["kind"] == "stat" and st3["upgraded"] == 1
+    # grounded but cut mid-sentence ("…的核心是") is a truncation bug on screen → refuse it
+    tail = [{"i": 1, "kind": "definition", "slots": {"term": "确定性渲染", "gloss": "这个工具的核心是"}}]
+    out4, st4 = merge(["开场。", "这个工具的核心是确定性渲染。"],
+                      [{"i": 0, "kind": "title", "slots": {}}, {"i": 1, "kind": "statement", "slots": {}}], tail)
+    assert out4[1]["kind"] == "statement" and st4["rejected"] == 1

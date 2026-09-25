@@ -17,11 +17,18 @@ class ScriptRequest(BaseModel):
 
 
 @router.get("/status")
-async def script_status(request: Request) -> dict:
+async def script_status(request: Request, refresh: bool = False) -> dict:
+    """Live connectivity report — what the UI's "通没通" chip reads.
+
+    It asks the endpoint instead of reading config, because "MONOLINE_LLM_* is set"
+    and "a model will answer" are different facts. ?refresh=1 skips the probe cache.
+    """
+    import asyncio
+
+    from ..llm.client import detect
     from ..settings import get_settings
-    s = get_settings()
-    return {"ready": s.llm_ready, "model": s.llm_model if s.llm_ready else None,
-            "base_url": s.llm_base_url if s.llm_ready else None}
+    target = await asyncio.to_thread(detect, get_settings(), force=refresh)
+    return target.as_dict()
 
 
 @router.post("")

@@ -187,21 +187,34 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
 
     # 4 plan -------------------------------------------------------------------
     async def s_plan():
-        from .planner import RulePlanner
+        from .planner import RulePlanner, apply_icons, number_sections
         from ..themes import resolve as resolve_theme
         segs = await repo.get_segments(job_id)
         theme = resolve_theme(settings, config)
         beats = [s["text"] for s in segs]
         scenes = RulePlanner().plan(beats, brand=config.get("brand", "Monoline"))
+        source, llm = "rules", {}
+        if config.get("llm_plan", True):
+            from ..llm.client import detect
+            from ..llm.planner import upgrade
+
+            target = await asyncio.to_thread(detect, settings)
+            if target.ok:
+                await log("plan", f"分镜判定：{target.model}")
+                scenes, llm = await upgrade(settings, beats, scenes, target=target)
+                apply_icons(scenes, beats)      # promoted beats need the new kind's icon
+                number_sections(scenes)
+                source = "llm" if llm.get("upgraded") else "rules"
         plan = ScenePlan(job_id=job_id, canvas=Canvas(**canvas), theme=theme,
                          brand=Brand(label=config.get("brand", "Monoline"), logo=config.get("logo", "")), scenes=scenes)
         warnings = plan.validate_against(len(beats))
         (ws.ir / "scene_plan.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
-        ver = await repo.save_plan(job_id, plan.model_dump_json(), "rules", warnings)
+        ver = await repo.save_plan(job_id, plan.model_dump_json(), source, warnings)
         kinds = {}
         for sc in scenes:
             kinds[sc["kind"]] = kinds.get(sc["kind"], 0) + 1
-        return {"scenes": len(beats), "plan_version": ver, "kinds": kinds, "warnings": warnings}
+        return {"scenes": len(beats), "plan_version": ver, "kinds": kinds, "warnings": warnings,
+                "source": source, "llm": llm}
 
     # 5 fonts ------------------------------------------------------------------
     async def s_fonts():

@@ -136,7 +136,10 @@ def warmup(
         try:
             jid = await repo.create_job(
                 script_text=fixture,
-                config={"quality": quality, "voice": DEFAULT_VOICE, "lang": "zh", "speed": 1.0},
+                # llm_plan off: the self-check proves OUR toolchain, and must not pay
+                # (or depend on) an optional model server that may be slow or absent.
+                config={"quality": quality, "voice": DEFAULT_VOICE, "lang": "zh", "speed": 1.0,
+                        "llm_plan": False},
                 canvas={"width": 1920, "height": 1080, "fps": 24}, title="", slug="")
             t0 = time.time()
 
