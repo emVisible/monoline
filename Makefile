@@ -4,7 +4,7 @@
 .DEFAULT_GOAL := help
 NODE22 := $(HOME)/.nvm/versions/node/v22.14.0/bin
 
-.PHONY: help bootstrap backend web sidecar start serve dev doctor warmup fonts clean
+.PHONY: help bootstrap backend web sidecar start serve dev doctor test warmup fonts clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "};{printf "  \033[36m%-12s\033[0m %s\n",$$1,$$2}'
@@ -41,6 +41,9 @@ dev: ## Backend + Vite dev server (two processes; open http://localhost:5173)
 
 doctor: ## Show resolved environment truth (node/ffmpeg/chrome/fonts/sidecar)
 	uv run --directory backend monoline doctor
+
+test: ## The whole backend suite (tests/ — not one file; run this, not an ad-hoc pytest)
+	@uv run --directory backend pytest tests/ -q
 
 warmup: ## Render a 2s synthetic fixture end-to-end to prove the toolchain
 	uv run --directory backend monoline warmup

@@ -17,8 +17,11 @@ def test_meta_endpoints():
     with TestClient(app) as c:
         themes = c.get("/api/themes").json()["themes"]
         assert any(t["id"] == "mono-ink" for t in themes)
+        # V31a: /api/icons serves {name, body} so Studio can draw previews, not bare strings
         icons = c.get("/api/icons").json()["icons"]
-        assert {"chart", "bolt", "sparkles"} <= set(icons)
+        assert {"chart", "bolt", "sparkles"} <= {i["name"] for i in icons}
+        assert all(i["body"].startswith("<") for i in icons)
+        assert len(icons) >= 100
 
 
 def test_script_status_shape():
