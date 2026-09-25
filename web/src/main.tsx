@@ -9,8 +9,6 @@ applyHtmlLang(lang());
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <LangRoot>
-      <App />
-    </LangRoot>
+    <LangRoot>{() => <App />}</LangRoot>
   </StrictMode>
 );

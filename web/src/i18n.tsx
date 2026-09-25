@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { EN } from "./strings";
 
@@ -7,8 +7,8 @@ const KEY = "monoline.lang";
 
 // Language is module state, not React state, so `t()` is a plain function: it can be called
 // from render bodies, helpers and object lookups without threading a hook through every
-// component. Correct because switching language remounts the tree (LangRoot keys a fragment),
-// so a reader that never subscribed still re-evaluates.
+// component. Correct because LangRoot re-renders the whole tree on a language change, so a
+// reader that never subscribed still re-evaluates.
 let current: Lang = readStored();
 let reroot: (() => void) | null = null;
 
@@ -38,11 +38,15 @@ export function applyHtmlLang(l: Lang) {
   document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
 }
 
-export function LangRoot({ children }: { children: ReactNode }) {
-  const [v, bump] = useState(0);
+export function LangRoot({ children }: { children: () => ReactNode }) {
+  const [, bump] = useState(0);
   useEffect(() => {
     reroot = () => bump((n) => n + 1);
     return () => { reroot = null; };
   }, []);
-  return <Fragment key={v}>{children}</Fragment>;
+  // children is called, not embedded, so a language change produces fresh elements for the
+  // whole tree and every component re-reads t(). Keying a fragment achieved the same repaint
+  // by REMOUNTING, and that destroyed state: measured, switching language wiped a 958-char
+  // script already typed into the compose box.
+  return <>{children()}</>;
 }
