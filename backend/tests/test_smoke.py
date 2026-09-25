@@ -751,6 +751,31 @@ def test_matrix_kind_v31f():
     # substring test would pass even when no axis is rendered.
 
 
+def test_text_scenes_get_a_skeleton_rail():
+    """V31g: measured on 212 real beats, 57% of slides are a plain statement and the
+    headline median is 10 chars with a number in only 2% of them — there is nothing to
+    hang emphasis on, so the text kinds share one structural rail instead."""
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["说一句。", "第二章节", "收个尾", "列四项"], [3.0, 3.0, 3.0, 3.0])
+    plan = ScenePlan(theme=theme, scenes=[
+        {"i": 0, "kind": "statement", "slots": {"headline": "说一句"}},
+        {"i": 1, "kind": "section", "slots": {"title": "第二章节", "index": "02"}},
+        {"i": 2, "kind": "summary", "slots": {"headline": "收个尾"}},
+        {"i": 3, "kind": "list", "slots": {"title": "列四项", "items": ["甲", "乙", "丙", "丁"]}}])
+    html = render_composition(tim, plan)
+    rail = '.k-statement, .k-section, .k-summary { position: relative; padding-left: 44px; }'
+    assert rail in html
+    assert html.count("linear-gradient(180deg, var(--accent),") >= 1        # the rail itself
+    assert ".k-section::before" in html and ".k-summary::before" in html
+    assert ".k-list::before" not in html                                    # data kinds keep their own frame
+
+
 def test_count_up_parsing_contract():
     import json
     from pathlib import Path

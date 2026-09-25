@@ -129,6 +129,17 @@
       .k-statement .headline { font-size: 120px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
       .k-statement .headline .accent { color: var(--accent); }
       .k-statement .sub { font-size: 40px; color: var(--ink-muted); margin-top: 20px; }
+      /* V31g: 57% of real beats land as a plain statement, and the headline is short
+         (median 10 chars) with no number or quote to hang emphasis on — so the slide
+         needs a skeleton, not decoration. One accent rail frames every text scene,
+         the same way the crop marks frame the canvas. */
+      .k-statement, .k-section, .k-summary { position: relative; padding-left: 44px; }
+      .k-statement::before, .k-section::before, .k-summary::before {
+        content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 5px;
+        border-radius: 3px; background: linear-gradient(180deg, var(--accent),
+          color-mix(in oklab, var(--accent) 30%, transparent)); transform-origin: top center; }
+      body[data-aspect="portrait"] .k-statement, body[data-aspect="portrait"] .k-section,
+      body[data-aspect="portrait"] .k-summary { padding-left: 34px; }
       /* kind: summary */
       .k-summary .eyebrow { font-size: 30px; letter-spacing: 0.4em; color: var(--ink-muted); text-transform: uppercase; }
       .k-summary .headline { font-size: 130px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin-top: 16px; }
