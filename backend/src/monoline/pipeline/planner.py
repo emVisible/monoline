@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from typing import Protocol
 
+from ..ir.sceneplan import DIAGRAM_KINDS
 from .segment import SentenceSegmenter  # noqa: F401  (re-export for callers)
 
 # Number + unit / arrow tokens that deserve a `stat` treatment.
@@ -37,6 +38,10 @@ _RADIAL = re.compile(
 _STEP_MARK = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]|第\s*[一二三四五六七八九十1-9]\s*[步次阶段期]")
 # A "标题：" lead-in that names the diagram rather than being one of its parts.
 _LEAD_LABEL = re.compile(r"^([^，,。；;]{2,10}?)\s*[:：]\s*(.+)$")
+
+
+# Kinds that carry their own picture — they outrank the positional summary rule.
+_SHAPE_KINDS = DIAGRAM_KINDS | {"stat", "table", "cards", "compare"}
 
 
 class ScenePlanner(Protocol):
@@ -222,9 +227,16 @@ class RulePlanner:
             if i == 0:
                 scenes.append(self._title(b, brand, date_eyebrow))
             elif i == n - 1 and n > 2:
-                ts = self._text_slots(b)
-                scenes.append({"i": i, "kind": "summary", "source": "rules:position",
-                               "slots": {"eyebrow": "In short", "headline": ts["headline"], "verbatim": ts["verbatim"]}})
+                # A closing line is usually a takeaway, so it becomes the summary card —
+                # unless the sentence has a real shape to draw. Position must not eat a
+                # funnel/stat/diagram that happens to land last.
+                shaped = self._classify(i, b)
+                if shaped["kind"] in _SHAPE_KINDS:
+                    scenes.append(shaped)
+                else:
+                    ts = self._text_slots(b)
+                    scenes.append({"i": i, "kind": "summary", "source": "rules:position",
+                                   "slots": {"eyebrow": "In short", "headline": ts["headline"], "verbatim": ts["verbatim"]}})
             else:
                 scenes.append(self._classify(i, b))
         apply_icons(scenes, beats)

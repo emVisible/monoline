@@ -779,3 +779,13 @@ def test_funnel_geometry_is_monotone_and_readable():
     assert all(a >= b for a, b in zip(funnel_widths(["9", "80", "7"]), funnel_widths(["9", "80", "7"])[1:]))
     assert polar(50, 50, 33, -90) == (50.0, 17.0) and polar(50, 50, 33, 0) == (83.0, 50.0)
     assert stack_widths(3) == [60.0, 79.0, 98.0]
+
+
+def test_last_beat_keeps_its_shape():
+    """Position used to win: a funnel that happened to close the script became a summary
+    card and the diagram was thrown away."""
+    from monoline.pipeline.planner import plan_scenes
+    last = plan_scenes(["开场一句。", "中间一句普通的话。", "漏斗：曝光 12000 人、点击 3400 人、下单 520 人。"])[-1]
+    assert last["kind"] == "funnel"
+    plain = plan_scenes(["开场一句。", "中间一句普通的话。", "所以慢就是快，快就是慢。"])[-1]
+    assert plain["kind"] == "summary" and plain["source"] == "rules:position"
