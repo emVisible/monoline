@@ -398,7 +398,7 @@ def test_voice_lookup_helpers():
 
 def test_pick_icon_semantic():
     from monoline.compose.icons import _ICONS, pick_icon
-    assert pick_icon("营收增长了 30%") == "chart"
+    assert pick_icon("营收增长了 30%") == "arrow_up"      # growth beats a generic chart glyph
     assert pick_icon("速度提升到毫秒级") == "bolt"
     assert pick_icon("这是一个模型架构") == "cpu"
     assert pick_icon("需要注意口径") == "info"
@@ -407,6 +407,56 @@ def test_pick_icon_semantic():
     from monoline.compose.icons import _ICON_KEYWORDS
     for icon, _ in _ICON_KEYWORDS:
         assert icon in _ICONS, icon
+
+
+def test_icon_library_vendored_scale_and_uniqueness():
+    """V31: the Lucide-backed table is big, provenance-tagged, and has no two
+    keys drawing the same glyph (that made grid/grid2 identical in the picker)."""
+    import collections
+    import json
+    import subprocess
+    import sys
+
+    from monoline.compose.icons import _ICONS, names
+
+    assert len(_ICONS) >= 100
+    raw = json.loads((pathlib.Path(__file__).resolve().parents[1]
+                      / "src/monoline/compose/data/icons.json").read_text(encoding="utf-8"))
+    assert "lucide" in raw["_source"].lower()
+    dupes = {k: v for k, v in collections.Counter(_ICONS.values()).items() if v > 1}
+    assert not dupes, f"identical geometry under different keys: {dupes}"
+    assert names() == sorted(_ICONS)
+    # data/icons.json must match what the vendored sprite yields today
+    r = subprocess.run([sys.executable, "scripts/build_icons.py", "--check"],
+                       capture_output=True, text=True, cwd=pathlib.Path(__file__).resolve().parents[1])
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_icon_keywords_are_specific_enough():
+    """V31: substring matching means a short keyword is a false-positive machine.
+
+    Measured on 223 real beats from the local job DB: '位'→binary fired on 「单位」,
+    'rain'→droplet on 「training」, 'ai'→brain_circuit on 「said」. Coverage cost
+    32.7%→25.6%, and every dropped hit was noise.
+    """
+    from monoline.compose.icons import _ICON_KEYWORDS, pick_icon
+
+    def is_ascii(s):
+        return all(ord(c) < 128 for c in s)
+
+    for icon, kws in _ICON_KEYWORDS:
+        for kw in kws:
+            assert kw == kw.lower(), (icon, kw)
+            if is_ascii(kw):
+                assert len(kw) >= 4, (icon, kw)
+            else:
+                assert len(kw.strip()) >= 2, (icon, kw)
+
+    assert pick_icon("这个单位很高") != "binary"
+    assert pick_icon("the training data was clean") != "droplet"
+    assert pick_icon("he said it was fine") != "brain_circuit"
+    assert pick_icon("点击开始播放") == "play"
+    assert pick_icon("效率之高几乎不产生热量") == "bolt"
 
 
 def test_layout_presets_render_distinct_and_validate():
