@@ -43,10 +43,21 @@ donut 四段用 ink 的四个透明度档位，而不是四种颜色。加颜色
 
 ## 3. 还缺什么（下一批）
 
-1. **KPI / bars / trend / timeline / matrix 五个 kind**（任务 #104）。V31c 的图元已经
-   就位，缺的是 planner 识别 + 模板 + Studio 槽位 + 抽帧核验。这是把「套件」变成
-   「能被自动用上」的最后一步。
+1. **trend / matrix 两个 kind**。V31c 的 `sparkline` / `donut` 已就位，但目前只有
+   `stat` 场景通过 `trend` 槽位用得上 sparkline，donut 还没有自动入口。
 2. **多拍归组**：现在 1 拍 ↔ 1 段 ↔ 1 场景是硬约束，所以一段 markdown 表格会被切碎。
 3. **词级字幕**：需要云 TTS 的 word timestamp，本地 Kokoro 拿不到。
 4. **动效密度自适应**：长旁白场景元素一次全进，短场景也是，缺「按停留时长摊开」的
    stagger 计算。
+
+## 4. V31 落地记录（可核对）
+
+| 提交 | 内容 | 实测 |
+|------|------|------|
+| `e4f382a` | 图标库 18→158（Lucide ISC 入仓）+ 语义映射收紧 | 223 条真实节拍命中 13.9%→25.6%；误判规则进测试 |
+| `f818aa0` | Studio 图标选择器改可视检索 | 浏览器实测：11 列网格，输入 f 从 158 收窄到 14，选后写回 plan 读回确认 |
+| `8680138` | 图形库：点阵层 + 裁切线 + 页码 + 图标底板 + 徽标条 | mono-paper / mono-ink 双主题抽帧；gate lint 空 |
+| `b9d81bf` | delta 胶囊 + sparkline + donut | 纯函数测试 + stat 场景抽帧 |
+| `9f47dec` | 新 kind bars + 修掉漏斗死分支与误判 | 分类用例 6/6；16:9 抽帧 |
+| `bb09234` | 新 kind kpi + timeline | 16:9 与 9:16 各两帧；竖屏 KPI 三列并排 |
+| `ef3a58a` | KPI 单位排版 | 端到端 8 拍作业分镜：title/kpi/timeline/bars/funnel/arch/cycle/stat |
