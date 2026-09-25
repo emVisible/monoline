@@ -5,6 +5,7 @@ no randomness → safe for HyperFrames). Colors come from CSS classes (theme var
 """
 from __future__ import annotations
 
+import math
 import re
 
 _C = 263.894  # circumference of r=42 in a 0..100 viewBox (2*pi*42)
@@ -72,28 +73,30 @@ def row_bars(values: list) -> list[float | None]:
 def polar(cx: float, cy: float, r: float, deg: float) -> tuple[float, float]:
     """A point on a circle, in 0-100 view units. Jinja has no trig and the renderer must
     never measure the DOM, so ring/cycle geometry is computed here."""
-    import math
-
     a = math.radians(deg)
     return round(cx + r * math.cos(a), 2), round(cy + r * math.sin(a), 2)
 
 
 def funnel_widths(values: list) -> list[float]:
-    """Bar widths (0-100) for a funnel: normalized to the largest value, floored so the
-    last stage is still readable, and monotonically non-increasing so it looks like a
-    funnel even when the numbers do not perfectly shrink."""
+    """Bar widths (0-100) for a funnel: linear in the stage's share of the largest stage,
+    floored at a sliver so a near-empty stage is still visible, and monotonically
+    non-increasing so it reads as a funnel even when the numbers wobble.
+
+    Linear on purpose. The old 26% floor existed because the stage label was painted
+    inside the bar; once the label moved to its own column, a steep chain (12万 → 9800 →
+    2100) collapsed onto the floor and four stages rendered the same width. Half a share
+    now looks like half a bar."""
     nums: list[float] = []
     for v in values:
         p = pct(v)
         if p is not None:
             nums.append(p)
             continue
-        m = _NUM_ONLY.search(str(v))
-        nums.append(float(m.group(0)) if m else 0.0)
+        nums.append(_value(v) or 0.0)
     if not nums:
         return []
     mx = max(nums) or 1.0
-    out = [max(26.0, round(n / mx * 100.0, 1)) for n in nums]
+    out = [max(4.0, round(n / mx * 100.0, 1)) for n in nums]
     for i in range(1, len(out)):
         out[i] = min(out[i], out[i - 1])
     return out
@@ -116,13 +119,36 @@ def _nums(values: list) -> list[float]:
     return out
 
 
+_SCALE = {"万": 1e4, "亿": 1e8, "k": 1e3, "K": 1e3, "M": 1e6, "G": 1e9, "B": 1e9}
+
+
+def _value(raw: object) -> float | None:
+    """The magnitude a chunk carries, with its 万/亿/k prefix applied.
+
+    Reading 「12万」 as 12 next to 「9800」 ranks them backwards, and every chart that
+    normalizes to a max inherits that inversion — a funnel whose widest stage rendered
+    as the narrowest was this bug."""
+    m = _NUM_ONLY.search(str(raw))
+    if not m:
+        return None
+    try:
+        v = float(m.group(0))
+    except ValueError:
+        return None
+    tail = str(raw)[m.end():].strip()
+    for u, k in _SCALE.items():
+        if tail.startswith(u):
+            return v * k
+    return v
+
+
 def _series(values: object) -> list[float]:
     """Numbers in order, from whatever a slot holds. A list comes through as-is; a
     string is split on separators first, because 「1.2 / 1.9 / 2.4」 as one string
     would otherwise be read digit by digit into a jagged lie."""
     if isinstance(values, str):
         values = re.split(r"[/,;、|→\s]+", values.strip())
-    return [float(m.group(0)) for m in (_NUM_ONLY.search(str(v)) for v in (values or [])) if m]
+    return [v for v in (_value(x) for x in (values or [])) if v is not None]
 
 
 def _points(nums: list[float], w: int, h: int, pad: float = 10.0) -> list[tuple[float, float]]:
@@ -197,6 +223,39 @@ def donut(shares: list) -> str:
     return ('<svg class="donut" viewBox="0 0 100 100" aria-hidden="true">'
             f'<circle class="dn-track" cx="50" cy="50" r="42" fill="none" stroke-width="13"/>'
             f'{"".join(segs)}</svg>')
+
+
+def argmax(values: list) -> int | None:
+    """Index of the strictly largest value, or None when nothing is unambiguously largest.
+
+    Bar widths are normalized to their own max, so the accent-filled row IS the claim
+    "this one wins". Pointing that at row 0 just because it comes first states something
+    the data doesn't support, and a tie states it twice."""
+    nums = _series(values)
+    if len(nums) < 2:
+        return None
+    hi = max(nums)
+    idx = [i for i, v in enumerate(nums) if v == hi]
+    return idx[0] if len(idx) == 1 else None
+
+
+def max_drop(values: list) -> int | None:
+    """Index of the funnel stage where the biggest proportional loss arrives.
+
+    Absolute deltas just reward the widest top stage; the reader's question is where the
+    share collapsed. None unless the drop is at least a fifth of what entered it — a
+    2% wobble doesn't earn a label."""
+    nums = _series(values)
+    if len(nums) < 3:
+        return None
+    best, at = 0.0, None
+    for i in range(len(nums) - 1):
+        if nums[i] <= 0:
+            return None
+        d = (nums[i] - nums[i + 1]) / nums[i]
+        if d > best:
+            best, at = d, i + 1
+    return at if best >= 0.2 else None
 
 
 _DELTA_SIGN = re.compile(r"^\s*([+\-−])\s*(\d)")

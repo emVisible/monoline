@@ -327,15 +327,20 @@
       .k-cycle .pos { position: absolute; transform: translate(-50%, -50%); }
       .k-cycle .node { font-size: 38px; padding: 18px 30px; }
       /* kind: funnel — bars shrink stage by stage, the entry stage is the accent one */
-      .k-funnel { width: 1160px; }
-      .k-funnel .fbody { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-      .k-funnel .frow { display: flex; align-items: center; justify-content: center; gap: 24px; width: 100%; }
-      .k-funnel .fbar { display: flex; align-items: center; justify-content: center; min-width: 200px;
-        height: 88px; padding: 0 26px; border-radius: 12px; font-size: 38px; font-weight: 700; color: var(--ink);
-        background: color-mix(in oklab, var(--accent) 13%, var(--surface));
-        border: 1px solid color-mix(in oklab, var(--accent) 32%, var(--hairline)); }
-      .k-funnel .frow:first-child .fbar { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
-      .k-funnel .fv { font-size: 34px; color: var(--ink-muted); min-width: 200px; font-variant-numeric: tabular-nums; }
+      .k-funnel { width: 1160px; max-width: 100%; }
+      .k-funnel .fbody { display: flex; flex-direction: column; gap: 18px; }
+      /* V37: label, track, value in their own columns. The stage name used to be painted
+         inside the bar, which forced a 200px min-width and a 26% floor — a steep chain
+         rendered as four identical bars. Widths are now the stage's real share. */
+      .k-funnel .frow { display: grid; grid-template-columns: 190px 1fr 250px;
+        align-items: center; gap: 22px; width: 100%; }
+      .k-funnel .fk { font-size: 34px; font-weight: 600; text-align: right; color: var(--ink); }
+      .k-funnel .ftrack { display: block; height: 64px; border-radius: 10px; overflow: hidden;
+        background: color-mix(in oklab, var(--ink) 8%, transparent); }
+      .k-funnel .fbar { display: block; height: 100%; border-radius: 10px;
+        background: color-mix(in oklab, var(--accent) 38%, transparent); }
+      .k-funnel .frow:first-child .fbar { background: var(--accent); }
+      .k-funnel .fv { font-size: 32px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
       /* kind: bars — unrelated metrics compared by length; the leader carries the accent */
       .k-bars { width: 1240px; max-width: 100%; }
       .k-bars .d-title { margin-bottom: 42px; text-align: left; }
@@ -348,7 +353,12 @@
         background: color-mix(in oklab, var(--ink) 42%, transparent); }
       .k-bars .bfill.top { background: var(--accent); }
       .k-bars .bv { font-size: 40px; font-weight: 700; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-      .k-bars .brow:first-child .bv { color: var(--ink); }
+      .k-bars .brow.is-top .bv { color: var(--ink); }
+      /* V37: one shared chip for "the number worth naming" — the same device as the
+         trend callout, on the charts that have no line to hang a dot on. */
+      .vtag { display: inline-block; margin-left: 12px; padding: 2px 12px; border-radius: 999px;
+        font-size: 20px; font-weight: 600; letter-spacing: 0.12em; vertical-align: 0.14em;
+        color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); }
       /* kind: kpi — metrics that don't share a scale get separate cards */
       .k-kpi { width: 1280px; max-width: 100%; }
       .k-kpi .d-title { margin-bottom: 44px; text-align: center; }
@@ -577,7 +587,7 @@
         { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: { amount: {{ sd }}, from: "end" } }, {{ (seg.start + 0.1)|round(3) }});
       {%- elif scene.kind == 'funnel' %}
       tl.fromTo("#scene-{{ seg.i }} .fbar", { opacity: 0, scaleX: 0 },
-        { opacity: 1, scaleX: 1, duration: 0.5, ease: "power2.out", transformOrigin: "center", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.12)|round(3) }});
+        { opacity: 1, scaleX: 1, duration: 0.5, ease: "power2.out", transformOrigin: "left center", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.12)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .fv", { opacity: 0, x: -14 },
         { opacity: 1, x: 0, duration: 0.34, ease: "power2.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.34)|round(3) }});
       {%- elif scene.kind == 'cycle' %}

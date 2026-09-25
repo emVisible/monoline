@@ -595,7 +595,7 @@ def test_bars_kind_v31d():
     html = render_composition(t, plan)
     widths = [float(w) for w in re.findall(r'class="bfill[^"]*"\s+style="width:([\d.]+)%"', html)]
     assert widths == [100.0, 37.5, 25.0]                    # normalized to the max
-    assert html.count('class="brow"') == 3
+    assert html.count('<span class="bk">') == 3              # rows (the leader now carries a class too)
     assert 'class="bfill top"' in html                      # the leader carries the accent
     assert "bfill" in html and 'class="btrack"' in html
 
@@ -962,6 +962,62 @@ def test_peak_annotation_and_dense_list_v36():
     assert "font-size: var(--li-fs, 46px)" in html
 
 
+def test_annotation_layer_extends_v37():
+    """V37: the same device on the charts that have no line to hang a dot on — and the
+    bars' accent row used to be whichever row came first, asserting a winner freely."""
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+    from monoline.compose.viz import argmax, max_drop
+
+    assert argmax(["12%", "48%", "30%"]) == 1
+    assert argmax(["12%", "48%", "48%"]) is None            # a tie names no winner
+    assert argmax(["甲", "乙"]) is None
+    assert max_drop(["1000", "800", "300", "260"]) == 2     # the 800 → 300 collapse
+    assert max_drop(["100", "95", "90"]) is None            # nothing worth labelling
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["一。", "二。", "三。"], [6.0, 6.0, 6.0])
+    scenes = [
+        {"i": 0, "kind": "bars", "slots": {"title": "渠道", "rows": [
+            {"k": "自营", "v": "12%"}, {"k": "分销", "v": "48%"}, {"k": "KA", "v": "30%"}]}},
+        {"i": 1, "kind": "funnel", "slots": {"title": "链路", "stages": [
+            {"k": "曝光", "v": "1000"}, {"k": "点击", "v": "800"}, {"k": "成交", "v": "300"}]}},
+        {"i": 2, "kind": "kpi", "slots": {"title": "指标", "rows": [
+            {"k": "日活", "v": "120万"}, {"k": "留存", "v": "45%"}]}},
+    ]
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=scenes))
+    s0, s1, s2 = (html.split('id="scene-%d"' % i)[1].split('id="scene-')[0] for i in (0, 1, 2))
+
+    segs = s0.split('<span class="bk">')          # one segment per row, in authored order
+    assert len(segs) == 4
+    assert [i for i, g in enumerate(segs[1:]) if "vtag" in g] == [1]
+    assert 'class="brow is-top"' in s0 and s0.count("is-top") == 1
+    assert 'class="bfill top"' in s0
+    assert "最高" in s0 and "流失最大" in s1
+    assert "vtag" not in s2          # 120万 and 45% are not comparable → no ranking claim
+
+
+def test_magnitude_parsing_v37():
+    """「12万」 read as 12 ranked a funnel's widest stage as its narrowest, and the four
+    bars all collapsed onto the readability floor — a funnel wearing a funnel's clothes."""
+    from monoline.compose.viz import _value, argmax, funnel_widths, max_drop
+
+    assert _value("12万") == 120000
+    assert _value("3.4亿") == 340000000
+    assert _value("1.2M") == 1200000
+    assert _value("42%") == 42.0                  # a share is not a magnitude
+    assert _value("9800") == 9800.0
+    assert _value("没有数字") is None
+
+    w = funnel_widths(["12万", "9800", "2100", "1900"])
+    assert w == [100.0, 8.2, 4.0, 4.0]           # real shares, not four bars on the floor
+    assert max_drop(["12万", "9800", "2100", "1900"]) == 1     # the real 92% collapse
+    assert argmax(["12万", "9800", "2100"]) == 0
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`
@@ -1323,14 +1379,16 @@ def test_new_diagram_kinds_render_their_shapes():
     s0, s1, s2 = (_scene_slice(html, i) for i in range(3))
     assert s0.count('class="layer') == 3 and "width:98.0%" in s0 and "width:60.0%" in s0   # widest at the bottom
     assert s1.count('class="node') == 3 and s1.count('class="arc"') == 3
-    assert s2.count('class="fbar') == 3 and "width:100.0%" in s2 and "width:26.0%" in s2   # monotone funnel
+    # 520/12000 really is 4.3%; the old 26% floor drew it six times too wide
+    assert s2.count('class="fbar') == 3 and "width:100.0%" in s2 and "width:28.3%" in s2 and "width:4.3%" in s2
     assert '<div class="cap">' not in s0 + s1 + s2
     assert "#scene-0 .layer" in html and "#scene-1 .arc" in html and "#scene-2 .fbar" in html
 
 
 def test_funnel_geometry_is_monotone_and_readable():
     from monoline.compose.viz import funnel_widths, polar, stack_widths
-    assert funnel_widths(["100%", "50%", "10%"]) == [100.0, 50.0, 26.0]     # floored, never invisible
+    assert funnel_widths(["100%", "50%", "10%"]) == [100.0, 50.0, 10.0]   # linear: half a share, half a bar
+    assert funnel_widths(["100%", "50%", "0.1%"]) == [100.0, 50.0, 4.0]   # floored at a visible sliver
     assert all(a >= b for a, b in zip(funnel_widths(["9", "80", "7"]), funnel_widths(["9", "80", "7"])[1:]))
     assert polar(50, 50, 33, -90) == (50.0, 17.0) and polar(50, 50, 33, 0) == (83.0, 50.0)
     assert stack_widths(3) == [60.0, 79.0, 98.0]
