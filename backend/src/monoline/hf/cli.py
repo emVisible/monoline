@@ -79,6 +79,22 @@ class HF:
 
     async def tts(self, text_file: str, out_wav: str, *, voice: str, lang: str, speed: float = 1.0) -> dict:
         """Synthesize one line; return the parsed --json payload (durationSeconds etc.)."""
+        if lang == "zh":
+            # espeak-ng (what `hyperframes tts` uses) cannot carry Mandarin tones into
+            # Kokoro's vocabulary — see monoline/tts_zh.py. Fall back to the CLI only if
+            # the tone path is unavailable or fails; a toneless line beats a failed job.
+            from .. import tts_zh
+
+            if tts_zh.available():
+                try:
+                    dur = await asyncio.to_thread(
+                        tts_zh.synthesize_file, text_file, out_wav, voice=voice, speed=speed
+                    )
+                    return {"durationSeconds": dur, "engine": "kokoro+misaki"}
+                except Exception as exc:  # noqa: BLE001
+                    import sys
+
+                    print(f"zh tone path failed ({exc}); falling back to hyperframes tts", file=sys.stderr)
         args = ["tts", text_file, "--voice", voice, "--lang", lang, "-o", out_wav, "--json"]
         if speed != 1.0:
             args += ["--speed", str(speed)]

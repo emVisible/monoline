@@ -87,6 +87,19 @@ def _chrome_ok(settings: Settings) -> dict:
             "fix": "auto — HyperFrames fetches it on first render; or `npx hyperframes browser ensure`"}
 
 
+def _zh_tones_ok() -> dict:
+    """Mandarin needs a G2P that can carry lexical tones. kokoro-onnx's espeak path writes
+    them as digits, which are outside Kokoro's vocabulary and get dropped — so without
+    misaki, zh narration is intelligible but toneless ("sounds like a dialect"). Soft."""
+    from . import tts_zh
+
+    st = tts_zh.status()
+    return {"name": "zh_tones", "state": {"ok": "ok", "will_download": "will_download"}.get(st, "warn"),
+            "found": "misaki G2P + cached Kokoro model" if st == "ok" else st,
+            "expected": "普通话声调能进模型（misaki[zh] + kokoro 模型已缓存）",
+            "fix": "cd backend && uv sync --extra tts  ·  跑一次中文作业会自动下载模型"}
+
+
 def _fonts_ok(settings: Settings) -> dict:
     fdir = settings.vendor_dir / "fonts"
     otf = list(fdir.glob("*.otf")) + list(fdir.glob("*.ttf"))
@@ -125,6 +138,7 @@ def run_doctor(settings: Settings | None = None, *, probe_sidecar: bool = True) 
         _fonts_ok(settings),
         _chrome_ok(settings),
         _hf_doctor(settings),
+        _zh_tones_ok(),
     ]
     if probe_sidecar:
         checks.append(_sidecar_ok(settings))

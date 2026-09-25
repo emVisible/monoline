@@ -19,7 +19,9 @@ dependencies = [
 
 [project.optional-dependencies]
 # Lands in the SAME pinned 3.11 venv → this venv doubles as HYPERFRAMES_PYTHON.
-tts = ["kokoro-onnx>=0.6", "onnxruntime>=1.20", "soundfile>=0.12"]
+# misaki[zh] is not optional for Chinese: it is the only G2P here that carries lexical
+# tones into Kokoro's vocabulary (kokoro-onnx's espeak path drops them — see monoline/tts_zh.py).
+tts = ["kokoro-onnx>=0.6", "onnxruntime>=1.20", "soundfile>=0.12", "misaki[zh]>=0.9"]
 dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.8"]
 
 [project.scripts]

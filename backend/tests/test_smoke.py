@@ -563,3 +563,26 @@ def test_radial_reflows_for_portrait_without_overflow():
     # two side columns don't fit 9:16 — the branches fan down the page instead
     assert 'left:18%' not in html and 'left:50%; top:13%' in html
     assert 'left:66%' in html and 'left:34%' in html
+
+
+# ── V28: Mandarin tones ─────────────────────────────────────────────────────────
+
+def test_zh_phonemizer_carries_lexical_tones():
+    """The bug this locks out: kokoro-onnx phonemizes zh with espeak, which writes tones
+    as digits; Kokoro's 114-symbol vocab has no digits and drops them silently, so
+    妈/马/骂 reached the model as one identical string and every zh voice sounded
+    toneless ("dialect"). Tone contours must survive to the model."""
+    import pytest
+    from monoline import tts_zh
+    pytest.importorskip("misaki")
+    from kokoro_onnx.config import DEFAULT_VOCAB
+
+    tones = [tts_zh.phonemize(s) for s in "妈麻马骂"]
+    assert len(set(tones)) == 4, tones
+    assert all(any(a in t for a in "→↗↓↘") for t in tones), tones
+    assert not [c for t in tones for c in t if c not in DEFAULT_VOCAB]   # nothing dropped
+    assert tts_zh.phonemize("师") == tts_zh.phonemize("诗")               # real homophones
+    assert "ʂ" in tts_zh.phonemize("诗")                                 # retroflex initial kept
+    assert "pei" in tts_zh.phonemize("提升3倍")                           # digits read in Chinese
+    assert "," in tts_zh.phonemize("需求→设计→开发")                       # diagram glyph = pause
+    assert "P" not in tts_zh.phonemize("API")                             # Latin via en-us

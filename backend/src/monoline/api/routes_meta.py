@@ -45,7 +45,10 @@ async def voice_sample(vid: str, request: Request):
     s = get_settings()
     cache = s.cache_dir / "voices"
     cache.mkdir(parents=True, exist_ok=True)
-    wav = cache / f"{vid}.wav"
+    # r2 = synthesized with a tone-carrying G2P. The revision is in the filename so an
+    # r1 audition wav (recorded before Mandarin tones reached the model) can never be
+    # served from cache after the fix.
+    wav = cache / f"{vid}.r2.wav"
     if not wav.exists():
         textf = cache / f"{vid}.sample.txt"
         textf.write_text(sample_text(vid), encoding="utf-8")

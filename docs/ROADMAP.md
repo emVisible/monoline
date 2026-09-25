@@ -97,6 +97,11 @@
   - 版式 preset 与画幅联动：editorial 左对齐、bold 加粗描边/加粗标题；竖屏图元字号 38px、导图高度 900px。
   - 实测：贴一段含链/分层/序号的中文段落 → 自动出 flow + radial + steps 三镜并成功出片（作业 succeeded，18.2s），抽帧确认三种图均正确成图、无溢出；后端 44 测试全过（+5）、warmup 绿、tsc/build 干净。
 - 附 UI：NewView 音色选择器折叠化，主流程回到一屏（收起态 + aria-expanded + 展开 25 音色，浏览器点按核验）。
+- ✅ V28 中文声调修复（用户报「所有中文都是一个方言味，我要普通话」）——根因不是音色：kokoro-onnx 用 espeak-ng 做中文 G2P，espeak 把声调写成数字（1/2/3/4/5），而 Kokoro 词表只有 114 个符号、**不含任何数字**，`Tokenizer.phonemize` 又会把词表外字符**静默丢掉**。实测：`妈/马/骂` 过滤后音素完全相同、`师/诗/史/市` 全塌成一个 `s.ˈi.`，且丢失发生在 speaker embedding 之前 → 换任何音色都没救。
+  - 修法：新增 `monoline/tts_zh.py`，中文改走 misaki 的 `ZHG2P`（声调映射成模型训练时真正见过的箭头 → ↗ ↓ ↘，全部在词表内），再用 kokoro-onnx 的 `is_phonemes=True` 直送；拉丁词交回 espeak `en-us`（misaki 会原样透传、而大部分 ASCII 字母不在词表）。顺带：cn2an 把「3倍/92%」读成中文、流程图旁白里的 `→` 变成停顿而不是被念出来。
+  - 路由点选在 `HF.tts()`（4 个调用点一次覆盖：TTS 阶段/改音色/改旁白重合成/试听）；模型未下载或 misaki 缺失时**自动回退**旧 CLI 路径，绝不因缺依赖整单失败。试听 wav 缓存文件名加 `.r2` 版本位，防止旧的无声调样本继续被端出去。
+  - 证据：`妈麻马骂` → `ma→ ma↗ ma↓ ma↘`（4 个不同、0 丢字），`师/诗` 仍同音（正确）、`ʂ` 声母回来了；真实作业服务端 wav 与本地声调路径**逐比特相同**（max|diff|=0.000000），试听端点同样一致；`/api/health` 新增 `zh_tones` 检查项（ok/will_download/warn）。后端 45 测试全过（+2）、warmup 绿。
+  - 依赖：`misaki[zh]`（纯 Python：pypinyin/jieba/cn2an 等）进 `tts` extra + uv.lock；已征得同意后才装。
 - 成功判据：抽帧对比明显「非文字流」✅；`make warmup` 绿 ✅；后端测试不回归（29）✅；每切片有渲染证据 ✅。
 
 ## 执行原则
