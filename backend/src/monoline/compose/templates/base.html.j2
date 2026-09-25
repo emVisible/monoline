@@ -189,6 +189,38 @@
       .k-steps .steps { list-style: none; display: flex; flex-direction: column; align-items: stretch; gap: 24px; width: 100%; }
       .k-steps .step .node { width: 100%; }
 
+      /* kind: arch — a stack, widest at the foundation, top layer carries the accent */
+      .k-arch { width: 1000px; }
+      .k-arch .stack { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      .k-arch .layer { display: flex; align-items: center; justify-content: space-between; gap: 24px;
+        padding: 24px 34px; border: 1px solid var(--hairline); border-radius: 14px; background: var(--surface);
+        font-size: 44px; font-weight: 700; color: var(--ink);
+        box-shadow: 0 22px 44px -30px color-mix(in oklab, var(--ink) 55%, transparent); }
+      .k-arch .layer.top { border-color: color-mix(in oklab, var(--accent) 55%, var(--hairline)); }
+      .k-arch .l-tag { font-size: 24px; font-weight: 700; letter-spacing: 0.08em; color: var(--ink-faint); }
+      .k-arch .layer.top .l-tag { color: var(--accent); }
+      /* kind: cycle — nodes on a ring, arcs between them, count ghosted in the middle */
+      .k-cycle { width: 1040px; }
+      .k-cycle .ringmap { position: relative; width: 100%; height: var(--ring-h, 700px); }
+      .k-cycle .arcs { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+      .k-cycle .arc { fill: none; stroke: color-mix(in oklab, var(--ink) 34%, transparent);
+        stroke-width: 2.5; stroke-linecap: round; }
+      .k-cycle .arc-tip { fill: var(--accent); }
+      .k-cycle .hub-mark { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        font-size: 130px; font-weight: 800; color: color-mix(in oklab, var(--ink) 13%, transparent);
+        font-variant-numeric: tabular-nums; }
+      .k-cycle .pos { position: absolute; transform: translate(-50%, -50%); }
+      .k-cycle .node { font-size: 38px; padding: 18px 30px; }
+      /* kind: funnel — bars shrink stage by stage, the entry stage is the accent one */
+      .k-funnel { width: 1160px; }
+      .k-funnel .fbody { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+      .k-funnel .frow { display: flex; align-items: center; justify-content: center; gap: 24px; width: 100%; }
+      .k-funnel .fbar { display: flex; align-items: center; justify-content: center; min-width: 200px;
+        height: 88px; padding: 0 26px; border-radius: 12px; font-size: 38px; font-weight: 700; color: var(--ink);
+        background: color-mix(in oklab, var(--accent) 13%, var(--surface));
+        border: 1px solid color-mix(in oklab, var(--accent) 32%, var(--hairline)); }
+      .k-funnel .frow:first-child .fbar { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+      .k-funnel .fv { font-size: 34px; color: var(--ink-muted); min-width: 200px; font-variant-numeric: tabular-nums; }
       /* aspect-aware: fill the tall/narrow frame instead of letterboxing a 16:9 slide */
       body[data-aspect="portrait"] { --scene-scale: 1.24; }
       body[data-aspect="square"] { --scene-scale: 1.12; }
@@ -260,7 +292,7 @@
       {# visibility so adjacent scenes can cross-dissolve (overlap) at each boundary. #}
       <section id="scene-{{ seg.i }}" class="scene" style="z-index:{{ seg.i + 1 }}; opacity:{{ 1 if seg.i == 0 else 0 }};">
         <div class="frame"><div class="sbody{{ ' sbody--ed' if scene.kind in ['statement', 'section'] }}">
-          {%- if scene.slots.get("icon") and scene.kind not in ['flow', 'radial', 'steps'] %}<div class="scene-icon">{{ icon_svg(scene.slots.get("icon")) | safe }}</div>{% endif %}
+          {%- if scene.slots.get("icon") and scene.kind not in ['flow', 'radial', 'steps', 'arch', 'cycle', 'funnel'] %}<div class="scene-icon">{{ icon_svg(scene.slots.get("icon")) | safe }}</div>{% endif %}
           {%- if scene.kind != "image" and scene.slots.get("image") %}<div class="scene-media"><img src="{{ scene.slots.get('image') }}" alt="">{% if scene.slots.get("image_caption") %}<span class="mcap">{{ scene.slots.get("image_caption") }}</span>{% endif %}</div>{% endif %}
           {% include "kinds/" + scene.kind + ".html.j2" %}
           {%- if scene.kind in ["title", "statement", "summary", "section", "definition", "quote", "note"] %}<span class="accent-rule"></span>{% endif %}
@@ -287,7 +319,7 @@
          Data kinds slide in from the left (x) to match their horizontal push transition;
          narrative kinds rise (y). Steady state is identical either way (both end at 0). #}
       {%- set data_kind = scene.kind in ['stat','list','table','cards','compare'] %}
-      {%- set diagram = scene.kind in ['flow','radial','steps'] %}
+      {%- set diagram = scene.kind in ['flow','radial','steps','arch','cycle','funnel'] %}
       {%- if diagram %}
       {#- V27 diagrams assemble themselves: title drops, then pills pop in reading order
           while their connectors surface one beat behind the node they lead to. -#}
@@ -297,6 +329,21 @@
         { opacity: 1, scale: 1, duration: 0.52, ease: "back.out(1.6)", stagger: 0.16 }, {{ (seg.start + 0.12)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .link, #scene-{{ seg.i }} .spoke", { opacity: 0 },
         { opacity: 1, duration: 0.34, ease: "power1.out", stagger: 0.16 }, {{ (seg.start + 0.26)|round(3) }});
+      {%- if scene.kind == 'arch' %}
+      {#- bottom-up: the foundation arrives first, the accent layer last -#}
+      tl.fromTo("#scene-{{ seg.i }} .layer", { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: { amount: 0.62, from: "end" } }, {{ (seg.start + 0.1)|round(3) }});
+      {%- elif scene.kind == 'funnel' %}
+      tl.fromTo("#scene-{{ seg.i }} .fbar", { opacity: 0, scaleX: 0 },
+        { opacity: 1, scaleX: 1, duration: 0.5, ease: "power2.out", transformOrigin: "center", stagger: 0.15 }, {{ (seg.start + 0.12)|round(3) }});
+      tl.fromTo("#scene-{{ seg.i }} .fv", { opacity: 0, x: -14 },
+        { opacity: 1, x: 0, duration: 0.34, ease: "power2.out", stagger: 0.15 }, {{ (seg.start + 0.34)|round(3) }});
+      {%- elif scene.kind == 'cycle' %}
+      tl.fromTo("#scene-{{ seg.i }} .hub-mark", { opacity: 0, scale: 0.7 },
+        { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.5)" }, {{ (seg.start + 0.06)|round(3) }});
+      tl.fromTo("#scene-{{ seg.i }} .arc, #scene-{{ seg.i }} .arc-tip", { opacity: 0 },
+        { opacity: 1, duration: 0.4, ease: "power1.out", stagger: 0.12 }, {{ (seg.start + 0.55)|round(3) }});
+      {%- endif %}
       tl.fromTo("#scene-{{ seg.i }} .rail-fill", { scaleY: 0 },
         { scaleY: 1, duration: {{ (0.16 * (scene.slots.steps | length) + 0.42) | round(3) if scene.slots.steps else 0.6 }}, ease: "power1.inOut", transformOrigin: "top center" }, {{ (seg.start + 0.2)|round(3) }});
       {%- else %}
@@ -338,7 +385,7 @@
       tl.to("#scene-{{ seg.i - 1 }}", { filter: "blur(18px)", opacity: 0, duration: 0.7, ease: "sine.inOut" }, {{ T }});
       tl.fromTo("#scene-{{ seg.i }}", { filter: "blur(18px)", opacity: 0 },
         { filter: "blur(0px)", opacity: 1, duration: 0.7, ease: "sine.inOut" }, {{ T }});
-      {%- elif scene.kind in ['stat', 'list', 'table', 'cards', 'compare', 'flow', 'radial', 'steps'] %}
+      {%- elif scene.kind in ['stat', 'list', 'table', 'cards', 'compare', 'flow', 'radial', 'steps', 'arch', 'cycle', 'funnel'] %}
       {#- data/structured → directional push (parallax slide + fade), distinct from the narrative blur #}
       tl.to("#scene-{{ seg.i - 1 }}", { xPercent: -16, opacity: 0, duration: {{ tdur }}, ease: "power2.inOut" }, {{ T }});
       tl.fromTo("#scene-{{ seg.i }}", { xPercent: 16, opacity: 0 },

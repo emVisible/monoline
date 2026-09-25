@@ -1,0 +1,13 @@
+<div class="inner k-funnel">
+  {%- if scene.slots.title %}<div class="d-title">{{ scene.slots.title }}</div>{% endif %}
+  {%- set rows = scene.slots.stages[:5] %}
+  {%- set ws = funnel_widths(rows | map(attribute='v') | list) %}
+  <div class="fbody">
+    {%- for r in rows %}
+    <div class="frow">
+      <span class="fbar" style="width:{{ ws[loop.index0] }}%"><span class="fk">{{ r.k }}</span></span>
+      <span class="fv">{{ r.v }}</span>
+    </div>
+    {%- endfor %}
+  </div>
+</div>

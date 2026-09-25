@@ -8,7 +8,7 @@ type Artifact = { kind: string; size_bytes: number; state: string };
 type Job = { id: string; slug: string; title: string; status: string; total_duration: number | null; config_json?: string | null; canvas_json?: string | null; error: string | null };
 type Hydration = { job: Job; stages: Stage[]; segments: Seg[]; artifacts: Artifact[]; plan: { scenes: Scene[] } | null; events: any[] };
 
-const KINDS = ["title", "statement", "section", "definition", "stat", "table", "cards", "compare", "quote", "list", "note", "summary", "image", "flow", "radial", "steps"];
+const KINDS = ["title", "statement", "section", "definition", "stat", "table", "cards", "compare", "quote", "list", "note", "summary", "image", "flow", "radial", "steps", "arch", "cycle", "funnel"];
 const STAGE_ORDER = ["script", "tts", "assemble", "plan", "fonts", "compose", "gate", "render", "deliver"];
 const STAGE_LABEL: Record<string, string> = {
   script: "切分", tts: "语音合成", assemble: "拼接旁白", plan: "分镜规划", fonts: "字体子集",
@@ -19,11 +19,11 @@ const SCALAR_SLOTS: Record<string, string[]> = {
   title: ["eyebrow", "headline", "sub"], statement: ["eyebrow", "headline", "sub"], summary: ["eyebrow", "headline"],
   section: ["index", "title"], definition: ["term", "gloss"], stat: ["value", "unit", "label"],
   table: ["title"], cards: ["title", "tagline"], quote: ["q", "attr"], list: ["title"], note: ["marker", "body"],
-  compare: ["pivot"], image: ["headline"], flow: ["title"], steps: ["title"], radial: ["hub"],
+  compare: ["pivot"], image: ["headline"], flow: ["title"], steps: ["title"], radial: ["hub"], arch: ["title"], cycle: ["title"], funnel: ["title"],
 };
 // kind → the string-array slot its editor exposes (list items / diagram nodes / timeline steps)
-const LIST_SLOT: Record<string, string> = { list: "items", flow: "nodes", radial: "nodes", steps: "steps" };
-const LIST_LABEL: Record<string, string> = { list: "列表项", flow: "流程节点", radial: "分支节点", steps: "步骤" };
+const LIST_SLOT: Record<string, string> = { list: "items", flow: "nodes", radial: "nodes", steps: "steps", arch: "layers", cycle: "nodes" };
+const LIST_LABEL: Record<string, string> = { list: "列表项", flow: "流程节点", radial: "分支节点", steps: "步骤", arch: "层（自上而下）", cycle: "环上节点" };
 
 function Player({ src, w, h, registerRef }: { src: string; w: number; h: number; registerRef?: (el: HTMLElement | null) => void }) {
   const ref = useRef<HTMLElement | null>(null);
@@ -224,6 +224,9 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
     if (kind === "list" && !Array.isArray(slots.items)) slots.items = ["", "", ""];
     if ((kind === "flow" || kind === "radial") && !Array.isArray(slots.nodes)) slots.nodes = ["", "", ""];
     if (kind === "steps" && !Array.isArray(slots.steps)) slots.steps = ["", "", ""];
+    if (kind === "arch" && !Array.isArray(slots.layers)) slots.layers = ["", "", ""];
+    if (kind === "cycle" && !Array.isArray(slots.nodes)) slots.nodes = ["", "", ""];
+    if (kind === "funnel" && !Array.isArray(slots.stages)) slots.stages = [{ k: "", v: "" }, { k: "", v: "" }, { k: "", v: "" }];
     if (kind === "compare") { if (!slots.a) slots.a = { h: "", d: "" }; if (!slots.b) slots.b = { h: "", d: "" }; }
     saveScene({ ...draft, kind, slots });
   };

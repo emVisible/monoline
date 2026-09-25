@@ -19,10 +19,10 @@ SCHEMA = "sceneplan/v1"
 # picture (nodes + connectors) instead of a line of text.
 KINDS = ["title", "statement", "section", "definition", "stat", "table",
          "cards", "compare", "quote", "list", "note", "summary", "image",
-         "flow", "radial", "steps"]
+         "flow", "radial", "steps", "arch", "cycle", "funnel"]
 # Kinds whose whole payload is already drawn as graphics on the slide — the caption
 # would just repeat the node labels, so the planner marks them verbatim.
-DIAGRAM_KINDS = {"flow", "radial", "steps"}
+DIAGRAM_KINDS = {"flow", "radial", "steps", "arch", "cycle", "funnel"}
 KINDS_M1 = set(KINDS)  # validate_against accepts the full set as of M2
 Tone = Literal["ink", "muted", "accent"]
 

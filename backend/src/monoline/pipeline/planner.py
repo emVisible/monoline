@@ -116,6 +116,7 @@ def _radial(s: str) -> tuple[str, list[str]]:
         return "", []
     term, tail = m.group(1).strip(), m.group(3)
     items = [x.strip(" \t") for x in (re.split(r"、", tail) if "、" in tail else re.split(r"[，,]", tail))]
+    items = [_TAIL_COUNT.sub("", x).strip(" ，,、的") for x in items]
     items = [x for x in items if 2 <= len(x) <= 10]
     if len(items) < 3:
         return "", []
@@ -158,6 +159,59 @@ def number_sections(scenes: list[dict]) -> None:
         if sc["kind"] == "section":
             sec += 1
             sc["slots"]["index"] = f"{sec:02d}"
+
+
+
+# ── V30: numeric ladders, closed loops and layer stacks ─────────────────────────
+_NUMV = re.compile(r"^[-+]?[\d.,]+\s*(%|％|倍|万|亿|千|人|次|元|块|户|家|台|单|ms|s|秒|分钟|小时|天|周|月|年|[KMGB]|GB|Token|token)?$")
+_LOOP_MARK = re.compile(r"(循环|闭环|反馈环|周而复始|反复|回流|飞轮|雪球|正循环)")
+# "…监控四层" — the count belongs to the sentence, not to the last node's name.
+_TAIL_COUNT = re.compile(r"[一二三四五六七八九十\d]+(层|个|项|种|部分|方面|模块|环节|步骤|维度|级)$")
+_LAYER_MARK = re.compile(r"([一二三四五六七八九十\d]层|分层|堆叠|层次|底层|顶层|中层)")
+
+
+def _numeric(v: str) -> bool:
+    return bool(_NUMV.match((v or "").strip()))
+
+
+_STEP = re.compile(r"^(\S{1,6}?)\s*[：:]?\s*([-+]?[\d.,]+\s*\S{0,3})$")
+
+
+def _cycle_nodes(s: str) -> tuple[str, list[str]]:
+    """'A→B→C→A' (or a loop word + an arrow chain) → a ring. The repeated closing node
+    is dropped: the arc back to the start is drawn by the template, not listed twice."""
+    parts = [x.strip(" \t") for x in _ARROW.split(s)]
+    if len(parts) < 3:
+        return "", []
+    title = ""
+    lead = _LEAD_LABEL.match(parts[0])
+    if lead:
+        title, parts[0] = lead.group(1).strip(), lead.group(2).strip()
+    nodes = [x for x in parts if x and not re.search(r"[、，,。；;]", x)]
+    if len(nodes) < 3 or any(len(x) > 12 for x in nodes):
+        return "", []
+    head, tailn = _norm_node(nodes[0]), _norm_node(nodes[-1])
+    returns = head == tailn or (len(head) >= 2 and (head in tailn or tailn in head))
+    if not (returns or _LOOP_MARK.search(s)):
+        return "", []
+    if returns:
+        nodes = nodes[:-1]
+    return title, nodes[:6]
+
+
+def _norm_node(x: str) -> str:
+    return re.sub(r"[\s的]", "", x or "")
+
+
+def _layers(s: str) -> tuple[str, list[str]]:
+    """'平台分为接入、服务、存储三层' → a stack, not a mind map: the word 层 says the
+    items sit on top of each other."""
+    if not _LAYER_MARK.search(s):
+        return "", []
+    rt, rnodes = _radial(s)
+    if not rnodes:
+        return "", []
+    return rt, rnodes
 
 
 class RulePlanner:
@@ -208,6 +262,30 @@ class RulePlanner:
         if len(pairs) >= 2:
             return {"i": i, "kind": "table", "source": "rules:kv-pairs",
                     "slots": {"title": "", "rows": [{"k": k.strip(), "v": v.strip()} for k, v in pairs[:6]]}}
+
+        # funnel: ≥3 numeric pairs (k:v or "词 数字") is a conversion ladder, not a table
+        if len(pairs) >= 3 and all(_numeric(v) for _k, v in pairs):
+            ft = _LEAD_LABEL.match(s)
+            return {"i": i, "kind": "funnel", "source": "rules:numeric-ladder",
+                    "slots": {"title": (ft.group(1).strip() if ft else ""),
+                              "stages": [{"k": k.strip(), "v": v.strip()} for k, v in pairs[:5]],
+                              "verbatim": True}}
+        lt, lst = _ladder_stages(s)
+        if lst:
+            return {"i": i, "kind": "funnel", "source": "rules:numeric-ladder",
+                    "slots": {"title": lt, "stages": lst, "verbatim": True}}
+
+        # cycle: a closed arrow chain is a ring, not a line
+        ct, cnodes = _cycle_nodes(s)
+        if cnodes:
+            return {"i": i, "kind": "cycle", "source": "rules:closed-loop",
+                    "slots": {"title": ct, "nodes": cnodes, "verbatim": True}}
+
+        # arch: "…三层" is a stack; without the layer word it stays a mind map
+        at, alayers = _layers(s)
+        if alayers:
+            return {"i": i, "kind": "arch", "source": "rules:layer-stack",
+                    "slots": {"title": at, "layers": alayers, "verbatim": True}}
 
         # V27 flow: an arrow chain renders as connected nodes, not as a sentence.
         # Ahead of `stat` so "效率翻3倍→周期砍半→成本降三成" isn't reduced to one number.
@@ -261,3 +339,17 @@ class RulePlanner:
 
 def plan_scenes(beats: list[str], **kw: object) -> list[dict]:
     return RulePlanner().plan(beats, **kw)  # type: ignore[arg-type]
+
+
+def _ladder_stages(s: str) -> tuple[str, list[dict]]:
+    lead = _LEAD_LABEL.match(s)
+    body = lead.group(2) if lead else s
+    parts = [x.strip() for x in re.split(r"、|[，,]", body) if x.strip()]
+    stages: list[dict] = []
+    for x in parts:
+        m = _STEP.match(x)
+        if m:
+            stages.append({"k": m.group(1).strip(" ：:"), "v": m.group(2).strip()})
+    if len(stages) < 3 or (lead and len(lead.group(1)) > 10):
+        return "", []
+    return (lead.group(1).strip() if lead else ""), stages[:5]

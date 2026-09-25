@@ -67,3 +67,41 @@ def row_bars(values: list) -> list[float | None]:
             if mx and mx > 0:
                 return [round(float(n) / mx * 100.0, 1) for n in nums]  # type: ignore[arg-type]
     return [None] * len(vals)
+
+
+def polar(cx: float, cy: float, r: float, deg: float) -> tuple[float, float]:
+    """A point on a circle, in 0-100 view units. Jinja has no trig and the renderer must
+    never measure the DOM, so ring/cycle geometry is computed here."""
+    import math
+
+    a = math.radians(deg)
+    return round(cx + r * math.cos(a), 2), round(cy + r * math.sin(a), 2)
+
+
+def funnel_widths(values: list) -> list[float]:
+    """Bar widths (0-100) for a funnel: normalized to the largest value, floored so the
+    last stage is still readable, and monotonically non-increasing so it looks like a
+    funnel even when the numbers do not perfectly shrink."""
+    nums: list[float] = []
+    for v in values:
+        p = pct(v)
+        if p is not None:
+            nums.append(p)
+            continue
+        m = _NUM_ONLY.search(str(v))
+        nums.append(float(m.group(0)) if m else 0.0)
+    if not nums:
+        return []
+    mx = max(nums) or 1.0
+    out = [max(26.0, round(n / mx * 100.0, 1)) for n in nums]
+    for i in range(1, len(out)):
+        out[i] = min(out[i], out[i - 1])
+    return out
+
+
+def stack_widths(n: int) -> list[float]:
+    """Layer widths for a stack diagram: widest at the bottom (the foundation), so the
+    pile reads as architecture rather than as a list."""
+    if n <= 1:
+        return [86.0]
+    return [round(60.0 + i * (38.0 / (n - 1)), 1) for i in range(n)]

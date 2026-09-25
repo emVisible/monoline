@@ -503,7 +503,7 @@ def test_planner_extracts_diagrams_from_prose():
     from monoline.pipeline.planner import plan_scenes
     beats = ["开场。",
              "交付链路：需求→设计→开发→测试→上线",
-             "这套架构分为网关、计算、存储三层",
+             "这套架构分为网关、计算、存储、监控",
              "落地分三步：①盘点存量 ②试点双周 ③全员推广",
              "效率提升 3 倍→周期砍半→成本降三成",
              "从 0→1 的过程",
@@ -518,7 +518,7 @@ def test_planner_extracts_diagrams_from_prose():
     sc = plan_scenes(beats)
     assert sc[1]["slots"]["title"] == "交付链路"
     assert sc[1]["slots"]["nodes"] == ["需求", "设计", "开发", "测试", "上线"]
-    assert sc[2]["slots"]["hub"] == "这套架构" and len(sc[2]["slots"]["nodes"]) == 3
+    assert sc[2]["slots"]["hub"] == "这套架构" and len(sc[2]["slots"]["nodes"]) == 4
     assert sc[3]["slots"]["steps"] == ["盘点存量", "试点双周", "全员推广"]
 
 
@@ -730,3 +730,52 @@ def test_phrasing_splits_on_breaths():
     assert [k for _, k in parts] == ["clause", "clause", "sentence"]
     long_gap = tts_zh._phrasing("它更亮……也更容易被看见。")
     assert "long" in [k for _, k in long_gap]
+
+
+# ── V30f: arch / cycle / funnel ─────────────────────────────────────────────────
+
+def test_planner_sees_a_stack_a_ring_and_a_funnel():
+    from monoline.pipeline.planner import plan_scenes
+    def kind_of(b):
+        return plan_scenes(["开场。", b, "收尾。"])[1]
+    f = kind_of("漏斗：曝光 12000 人、点击 3400 人、下单 520 人、复购 90 人")
+    assert f["kind"] == "funnel" and f["slots"]["title"] == "漏斗"
+    assert f["slots"]["stages"][0] == {"k": "曝光", "v": "12000 人"}
+    c = kind_of("增长飞轮：内容→流量→信任→更多内容")
+    assert c["kind"] == "cycle" and c["slots"]["nodes"] == ["内容", "流量", "信任"]   # loop closes, dup dropped
+    a = kind_of("这套平台分为接入层、服务层、存储层三层")
+    assert a["kind"] == "arch" and a["slots"]["layers"] == ["接入层", "服务层", "存储层"]
+    # an open chain is still a line, and a non-monotone percent set is still a table
+    assert kind_of("需求→设计→开发→测试→上线")["kind"] == "flow"
+    assert kind_of("命中率：68%，覆盖率：42%，准确率：91%")["kind"] == "table"
+
+
+def test_new_diagram_kinds_render_their_shapes():
+    from monoline.ir.sceneplan import DIAGRAM_KINDS, KINDS, ScenePlan
+    from monoline.ir.timings import Timings
+    from monoline.compose.engine import render_composition
+    from monoline.compose.templates.kinds import __init__ as _  # noqa: F401
+    assert {"arch", "cycle", "funnel"} <= set(KINDS) <= set(DIAGRAM_KINDS | set(KINDS))
+    for k in ("arch", "cycle", "funnel"):
+        assert k in DIAGRAM_KINDS, k
+    t = Timings.from_durations(["层。", "环。", "漏斗。"], [4.0, 4.0, 4.0])
+    plan = ScenePlan(theme=_theme(), scenes=[
+        {"i": 0, "kind": "arch", "slots": {"title": "平台", "layers": ["接入层", "服务层", "存储层"], "verbatim": True}},
+        {"i": 1, "kind": "cycle", "slots": {"title": "增长", "nodes": ["内容", "流量", "信任"], "verbatim": True}},
+        {"i": 2, "kind": "funnel", "slots": {"title": "转化", "stages": [{"k": "曝光", "v": "12000"}, {"k": "点击", "v": "3400"}, {"k": "下单", "v": "520"}], "verbatim": True}},
+    ])
+    html = render_composition(t, plan)
+    s0, s1, s2 = (_scene_slice(html, i) for i in range(3))
+    assert s0.count('class="layer') == 3 and "width:98.0%" in s0 and "width:60.0%" in s0   # widest at the bottom
+    assert s1.count('class="node') == 3 and s1.count('class="arc"') == 3
+    assert s2.count('class="fbar') == 3 and "width:100.0%" in s2 and "width:26.0%" in s2   # monotone funnel
+    assert '<div class="cap">' not in s0 + s1 + s2
+    assert "#scene-0 .layer" in html and "#scene-1 .arc" in html and "#scene-2 .fbar" in html
+
+
+def test_funnel_geometry_is_monotone_and_readable():
+    from monoline.compose.viz import funnel_widths, polar, stack_widths
+    assert funnel_widths(["100%", "50%", "10%"]) == [100.0, 50.0, 26.0]     # floored, never invisible
+    assert all(a >= b for a, b in zip(funnel_widths(["9", "80", "7"]), funnel_widths(["9", "80", "7"])[1:]))
+    assert polar(50, 50, 33, -90) == (50.0, 17.0) and polar(50, 50, 33, 0) == (83.0, 50.0)
+    assert stack_widths(3) == [60.0, 79.0, 98.0]
