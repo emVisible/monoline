@@ -1,4 +1,4 @@
-<div class="inner k-statement">
+<div class="inner k-statement v-{{ scene.slots.variant or 'hero' }}">
   {%- set hl = scene.slots.headline or seg.text %}
   {%- if scene.slots.eyebrow %}<div class="eyebrow">{{ scene.slots.eyebrow }}</div>{% endif %}
   <span class="top-rule" aria-hidden="true"></span>

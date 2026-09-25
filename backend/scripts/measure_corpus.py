@@ -30,9 +30,15 @@ def get(path: str) -> dict:
         return json.loads(f.read())
 
 
-def longest_run(kinds: list[str]) -> int:
-    run = best = 1 if kinds else 0
-    for a, b in zip(kinds, kinds[1:]):
+def layouts(scenes: list[dict]) -> list[tuple]:
+    """A slide's visible identity is kind + treatment: two `statement`s with different
+    variants do not read as a repeat, so the run metric must count them separately."""
+    return [(x["kind"], (x.get("slots") or {}).get("variant")) for x in scenes]
+
+
+def longest_run(keys: list) -> int:
+    run = best = 1 if keys else 0
+    for a, b in zip(keys, keys[1:]):
         run = run + 1 if a == b else 1
         best = max(best, run)
     return best
@@ -92,7 +98,7 @@ def main() -> None:
         stored[0] += a
         stored[1] += b
         stored[2] += c
-        runs_stored = max(runs_stored, longest_run([x["kind"] for x in plan["scenes"]]))
+        runs_stored = max(runs_stored, longest_run(layouts(plan["scenes"])))
         if do_regen:
             # A/B on one variable: same beats, same rules, rotation pass off then on
             texts = [s["text"] for s in segs]
@@ -106,8 +112,7 @@ def main() -> None:
                 punct[tag] = punct[tag] + r
                 mid[tag] = mid[tag] + m
                 unb[tag] = unb[tag] + u
-                ks = [x["kind"] for x in scenes]
-                runs[tag] = max(runs[tag], longest_run(ks))
+                runs[tag] = max(runs[tag], longest_run(layouts(scenes)))
                 for x in scenes:
                     kinds_by[tag][x["kind"]] = kinds_by[tag].get(x["kind"], 0) + 1
         for s in plan["scenes"]:

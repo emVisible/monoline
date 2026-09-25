@@ -64,6 +64,25 @@ def _split(beat: str) -> dict | None:
 # most specific first: a quote card beats a card grid beats a two-column text slide
 _ALTERNATIVES = (_poster, _cards, _split)
 
+# Content-free variety: the same sentence, three different layouts. A deck that answers
+# every beat with one centred line reads as generated even when the words are right, and
+# the signals above can only re-shape ~1 beat in 6 — so the rest get a different setting.
+VARIANTS = ("hero", "flush", "frame")
+VARIANT_KINDS = {"statement", "summary", "quote"}
+
+
+def _assign_variants(scenes: list[dict]) -> None:
+    """variant = position within the beat's own run of the same kind, so two adjacent
+    slides never repeat a layout until the run wraps past the three settings."""
+    prev = None
+    run = 0
+    for sc in scenes:
+        kind = sc.get("kind")
+        run = run + 1 if kind == prev else 1
+        prev = kind
+        if kind in VARIANT_KINDS:
+            sc.setdefault("slots", {})["variant"] = VARIANTS[(run - 1) % len(VARIANTS)]
+
 
 def rebalance(scenes: list[dict], beats: list[str]) -> list[dict]:
     """Rewrite surplus beats inside a long text run. Keeps the scene count and the
@@ -94,4 +113,5 @@ def rebalance(scenes: list[dict], beats: list[str]) -> list[dict]:
                           "slots": alt["slots"]}
                 prev, run = alt["kind"], 0
                 break
+    _assign_variants(out)
     return out

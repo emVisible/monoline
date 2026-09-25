@@ -1450,6 +1450,65 @@ def test_rotation_breaks_long_text_runs_v49():
     assert ".k-split .sp-body" in html and "grid-template-columns" in html
 
 
+def test_statement_variants_v49b():
+    """V49b: rotation converts a surplus text beat only when its own words support another
+    shape — measured, that reaches ~1 beat in 6. The rest stay `statement`, so a deck of
+    identical sentences still repeated one layout 12 times. Hence a content-free treatment
+    axis: same kind, three settings, so the visible identity never repeats in a row."""
+    import json
+    import re
+    from pathlib import Path
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.ir.timings import Timings
+    from monoline.compose.engine import render_composition
+    from monoline.pipeline.planner import RulePlanner
+    from monoline.pipeline.rotation import rebalance, VARIANTS, VARIANT_KINDS
+
+    # no clause, no quote, no k:v -> every alternative declines, so only the treatment can vary
+    plain = "这一句没有任何可供改写的分隔信号"
+    out = rebalance([{"i": i, "kind": "statement", "slots": {}, "source": "rules:default"}
+                     for i in range(7)], [plain] * 7)
+    assert [s["kind"] for s in out] == ["statement"] * 7
+    assert [s["slots"]["variant"] for s in out] == \
+        ["hero", "flush", "frame", "hero", "flush", "frame", "hero"]
+
+    # the contract the metric depends on: adjacent slides never share kind AND treatment
+    key = lambda scenes: [(s["kind"], (s.get("slots") or {}).get("variant")) for s in scenes]
+    assert all(a != b for a, b in zip(key(out), key(out)[1:])), key(out)
+
+    # a variant is only real if the template carries it and the CSS sets it apart from hero.
+    # Match the element's class attribute, not the bare word: the shared stylesheet contains
+    # `.k-statement.v-flush`, so `'v-flush' in html` would pass with the class never rendered.
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations([plain], [5.0])
+    seen = {}
+    for v in VARIANTS:
+        html = render_composition(tim, ScenePlan(theme=theme, scenes=[
+            {"i": 0, "kind": "statement", "slots": {"headline": "没有任何信号", "variant": v}}]))
+        seen[v] = html
+        assert f'class="inner k-statement v-{v}"' in html, f"{v}: template dropped slots.variant"
+    # hero is the untouched centred layout; each other treatment needs the property that
+    # actually changes the geometry. flush releases the 1400px cap where it is set (.sbody),
+    # because lifting it on .inner alone measured a 44px move — not a different layout.
+    # Read the declaration block, don't grep the file: the comment above the rule names the
+    # same selectors.
+    def rule(html, sel):
+        m = re.search(re.escape(sel) + r"[^{]*\{([^}]*)\}", html)
+        assert m, f"no rule for {sel}"
+        return m.group(1)
+
+    assert 'class="sbody sbody--ed sbody--flush"' in seen["flush"]
+    assert "max-width: 100%" in rule(seen["flush"], ".sbody--flush")
+    assert "text-align: left" in rule(seen["flush"], ".k-statement.v-flush")
+    assert "border: 1px solid" in rule(seen["frame"], ".k-statement.v-frame")
+
+    # rebalance must survive the planner tail (tidy_slots runs after it and leaves `variant` be)
+    scenes = RulePlanner().plan([plain] * 6)
+    got = [(s["kind"], s["slots"].get("variant")) for s in scenes if s["kind"] in VARIANT_KINDS]
+    assert got and all(var in VARIANTS for _, var in got), got
+    assert all(a != b for a, b in zip(got, got[1:])), got
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`
