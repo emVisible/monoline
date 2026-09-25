@@ -24,13 +24,16 @@ def _env() -> Environment:
         lstrip_blocks=False,
     )
 
-    def headline_px(text: str, *, base: int, min_px: int, ref_chars: int) -> int:
-        """Deterministic fit: shrink a headline as it exceeds ref_chars, floor at min_px."""
+    def headline_px(text: str, *, base: int, min_px: int, ref_chars: int, max_lines: int = 1) -> int:
+        """Deterministic fit: shrink a headline as it exceeds ref_chars, floor at min_px.
+
+        `max_lines` is the real lever. Fitting to one line made a 24-char statement drop
+        to 67px — body-text size on a slide meant to carry a single thought. Allowing two
+        lines keeps it at display size and lets the frame's vertical space do the work."""
         n = max(1, len((text or "").strip()))
-        if n <= ref_chars:
-            return base
-        px = int(base * ref_chars / n)
-        return max(min_px, px)
+        per_line = -(-n // max(1, max_lines))          # ceil: chars per line when wrapped
+        px = int(base * ref_chars / max(per_line, 1))
+        return max(min_px, min(base, px))
 
     env.globals["headline_px"] = headline_px
 

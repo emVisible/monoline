@@ -1039,6 +1039,9 @@ def test_statement_frame_and_clean_headlines_v38():
               {"i": 1, "kind": "statement", "slots": {"headline": "Monoline 做的就是这件事：文本进，分镜出"}}]
     html = render_composition(tim, ScenePlan(theme=theme, scenes=scenes))
     assert html.count('class="top-rule"') == 2
+    # V40: fitting to one line dropped a 24-char statement to 67px — body-text size on a
+    # slide that should carry a single thought. Two lines keep it at display size.
+    assert "font-size:calc(116px * var(--hl-scale,1))" in html.split('id="scene-1"')[1]
     assert "#scene-0 .top-rule" in html and "#scene-1 .top-rule" in html
     assert ".k-statement .top-rule" in html.split("<script>")[0]
 
