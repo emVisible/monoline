@@ -102,9 +102,28 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   const [voice, setVoice] = useState("");
   const [voiceOpen, setVoiceOpen] = useState(false);
   const audition = useAudition();
-  // Estimate beats the way the backend segmenter does: split on newlines AND sentence-final
-  // punctuation (CJK 。！？ and a latin period only when followed by a space, so "3.14" is safe).
-  const lines = script.split(/[\n。！？!?…]+/).flatMap((p) => p.split(/\.(?=\s)/)).map((l) => l.trim()).filter(Boolean);
+  // V47: the beat count is the backend segmenter's answer (POST /api/script/preview), not a
+  // local regex. The previous estimate was a second, simpler implementation of segmentation
+  // in TypeScript and it disagreed with the real job on 30% of stored scripts — always low,
+  // because the clause split and tiny-beat merge only exist in Python (worst case: UI 6,
+  // job 17). Debounced; seq drops a response that was superseded while in flight.
+  const [count, setCount] = useState<{ beats: number; seconds: number; cap: number; over: boolean } | null>(null);
+  const seq = useRef(0);
+  useEffect(() => {
+    const mine = ++seq.current;
+    if (!script.trim()) { setCount(null); return; }
+    const id = window.setTimeout(() => {
+      fetch("/api/script/preview", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ script }),
+      })
+        .then((r) => r.json())
+        .then((d) => { if (seq.current === mine) setCount({ beats: d.beats, seconds: d.seconds, cap: d.cap, over: !!d.over_cap }); })
+        .catch(() => { if (seq.current === mine) setCount(null); });
+    }, 350);
+    return () => window.clearTimeout(id);
+  }, [script]);
+  const hasText = script.trim().length > 0;
   const chars = script.replace(/\s/g, "").length;
 
   const loadLlm = (refresh = false) => {
@@ -165,7 +184,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   const generate = async () => {
     // Every way this can fail must say so on screen — a dead primary button with no
     // reason reads as "nothing happened".
-    if (!lines.length) {
+    if (!hasText) {
       setGenErr(t("还没有内容 — 粘贴一段文字，或点上面 ✨ 让 AI 从主题写一段。"));
       taRef.current?.focus();
       return;
@@ -231,7 +250,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         placeholder={t("在漆黑的深海，超过九成的生物都能自己发光。\n这不是反射阳光，而是一场发生在体内的化学反应。")}
         onChange={(e) => setScript(e.target.value)}
         onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && lines.length) generate();
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && hasText) generate();
         }}
       />
       <div className="opts">
@@ -374,14 +393,20 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         )}
       </div>
       <div className="meta">
-        <span>{lines.length} beats</span>
-        <span>{chars} chars</span>
-        <span>≈ {Math.round(lines.length * 3)}s</span>
+        <span>{count ? count.beats : "…"}{t(" 拍")}</span>
+        <span>{chars}{t(" 字符")}</span>
+        <span>≈ {count ? count.seconds : "…"}{t(" 秒")}</span>
         <span className="spacer" />
         <button className="generate" disabled={busy} aria-busy={busy} onClick={generate}>
           {busy ? t("创建中…") : t("生成 ⌘↵")}
         </button>
       </div>
+      {count?.over && (
+        <p className="cap-warn" role="alert">
+          {t("这段会切成 ")}{count.beats}{t(" 拍，超过一个作业的 ")}{count.cap}{t(" 拍上限。")}
+          {t("请按章节拆成几个作业分别生成 — 单条这么长的片会在渲染阶段失败，而不是在这里。")}
+        </p>
+      )}
       {genErr && <p className="ai-err" role="alert">{genErr}</p>}
     </div>
   );

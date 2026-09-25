@@ -77,3 +77,41 @@ def test_change_voice_guards_missing_job_and_unknown_voice():
         assert c.post(f"/api/jobs/{BOGUS}/voice", json={"voice": "bogus"}).status_code == 422
         # a real voice on a nonexistent job → KeyError → 404
         assert c.post(f"/api/jobs/{BOGUS}/voice", json={"voice": "af_heart"}).status_code == 404
+
+
+# ---------- V47b: the beat count has one owner ----------
+
+LONG_CLAUSE_SENTENCE = (
+    "这项技术改变了整个行业，它降低了成本，也提升了速度，"
+    "同时让团队能够专注于创造而不是重复劳动，最终形成了一套完整的方法论。")
+# 1300 lines of ≥6-char sentences → 1300 beats, i.e. past the 1200 ceiling by 100.
+OVER_CAP_SCRIPT = "\n".join(f"第{i}条要点说明文字，包含两个从句。" for i in range(1300))
+
+
+def test_script_preview_agrees_with_the_segmenter():
+    """The UI shows this number as the length of the video about to be made. It used to be a
+    local regex that counted one beat here; the pipeline makes two, because only Python
+    splits an over-long sentence at its clauses."""
+    from monoline.pipeline.segment import HARD_CAP, SECONDS_PER_BEAT, segment_text
+
+    with TestClient(app) as c:
+        d = c.post("/api/script/preview", json={"script": LONG_CLAUSE_SENTENCE}).json()
+        assert d["beats"] == len(segment_text(LONG_CLAUSE_SENTENCE))
+        assert d["beats"] > 1, "preview must not regress to the old one-line-one-beat count"
+        assert d["seconds"] == round(d["beats"] * SECONDS_PER_BEAT)
+        assert d["cap"] == HARD_CAP and d["over_cap"] is False
+        # an over-cap paste is reported, not rejected: the number IS the warning
+        over = c.post("/api/script/preview", json={"script": OVER_CAP_SCRIPT}).json()
+        assert over["beats"] == 1300 and over["over_cap"] is True
+        assert c.post("/api/script/preview", json={"script": "   \n  "}).json()["beats"] == 0
+
+
+def test_create_job_refuses_an_over_cap_script_at_intake():
+    """Assemble raises the same ValueError minutes later, after the job exists and TTS has
+    synthesised every beat of a script that can never render. 422 here, before the queue."""
+    with TestClient(app) as c:
+        r = c.post("/api/jobs", json={"script": OVER_CAP_SCRIPT})
+        assert r.status_code == 422
+        assert "hard cap" in r.json()["detail"]
+        # a created job answers with an id; refusing means no row was ever written
+        assert "job_id" not in r.json()

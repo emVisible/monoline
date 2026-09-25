@@ -52,16 +52,33 @@ class Segmenter(Protocol):
     def segment(self, text: str) -> list[str]: ...
 
 
+# Beat-count ceiling for one job, and the narration rate the UI's ≈duration is derived from.
+# Both live here because /api/script/preview reports the same numbers the pipeline enforces
+# — a second copy in the route is how the old TypeScript estimate ended up 30% wrong.
+HARD_CAP = 1200
+SECONDS_PER_BEAT = 2.6
+
+
 class SentenceSegmenter:
     """min/target/max are in CJK-equivalent characters (latin runs count loosely).
 
     hard_cap is a "this is a book, not a script" guard, NOT a per-job length limit: a long
     paste is segmented line by line whatever its size, and the model side batches it
     (llm.planner.upgrade) so a small local model never receives the whole thing at once.
+
+    It has to sit above what a real article produces. Measured: a 6788-char paste came out
+    at 248 beats and hit the old 240 ceiling, i.e. the guard rejected the exact input this
+    tool exists for. 1200 beats ≈ 33k characters ≈ 52 minutes of narration — past that the
+    paste is a manuscript, and a job that long would fail in render (frame count, disk)
+    rather than here, which is the wrong place to discover it.
+
+    `hard_cap=None` removes the guard. The preview endpoint counts with it off: it has to
+    report the number a manuscript-sized paste *would* produce in order to warn about it,
+    and re-raising here would make the caller parse a message to recover that number.
     """
 
     def __init__(self, *, min_chars: int = 6, target_chars: int = 24, max_chars: int = 40,
-                 hard_cap: int = 240) -> None:
+                 hard_cap: int | None = HARD_CAP) -> None:
         self.min_chars = min_chars
         self.target_chars = target_chars
         self.max_chars = max_chars
@@ -120,10 +137,11 @@ class SentenceSegmenter:
                 for part in self._split_structured(sent):
                     raw.extend((b, protected) for b in self._split_long(part))
         beats = self._merge_tiny(raw)
-        if len(beats) > self.hard_cap:
+        if self.hard_cap is not None and len(beats) > self.hard_cap:
             raise ValueError(
                 f"{len(beats)} beats from {len(text)} chars exceeds the hard cap {self.hard_cap} "
-                f"(≈{len(beats) * 2.6 / 60:.1f} min of narration); split the script into separate jobs")
+                f"(≈{len(beats) * SECONDS_PER_BEAT / 60:.1f} min of narration); "
+                f"split the script into separate jobs")
         return beats
 
     def _join(self, a: str, b: str) -> str:

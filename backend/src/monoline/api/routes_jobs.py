@@ -48,11 +48,19 @@ def _manager(request: Request):
 
 @router.post("")
 async def create_job(body: CreateJob, request: Request) -> dict:
+    from ..pipeline.segment import segment_text
     from ..voices import is_known_voice, voice_lang
 
     m = _manager(request)
     if not is_known_voice(body.voice):
         raise HTTPException(422, f"unknown voice {body.voice!r}")
+    # V47: run the beat-count guard at intake. Assemble raises the same ValueError later, but
+    # by then the job exists, shows as running, and the user has watched TTS synthesise a
+    # script that could never render. Segmentation is CPU work → off the event loop.
+    try:
+        await asyncio.to_thread(segment_text, body.script)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
     w, h = _RATIOS.get(body.ratio, _RATIOS["landscape"])
     quality = body.quality if body.quality in _QUALITIES else "standard"
     fmt = body.format if body.format in _FORMATS else "mp4"

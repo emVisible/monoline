@@ -1310,13 +1310,18 @@ def test_long_script_segments_and_llm_batches_v47():
     import json
     from types import SimpleNamespace
 
-    from monoline.pipeline.segment import segment_text
+    from monoline.pipeline.segment import HARD_CAP, segment_text
     from monoline.llm import planner
 
     beats = segment_text("".join(f"这是第{i}个论点的说明句子，用来验证长文本。" for i in range(90)))
     assert len(beats) == 90, "the old 60-beat cap raised here instead of segmenting"
+    # Derived from the constant, not a literal count: this assertion went stale the day the
+    # cap moved, which is exactly how a guard test turns into a fake one.
+    over = "论点说明句子用来验证。" * (HARD_CAP + 100)
+    assert len(segment_text(over, hard_cap=None)) == HARD_CAP + 100, \
+        "counting past the ceiling has to work — that number is the warning"
     try:
-        segment_text("论点说明句子用来验证。" * 300)
+        segment_text(over)
         raise AssertionError("expected the hard cap to fire")
     except ValueError as e:
         assert "hard cap" in str(e)

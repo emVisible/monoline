@@ -261,4 +261,11 @@ export const EN: Record<string, string> = {
   " 类 · 共 ": " groups · ",
   " 种，分镜会自动挑，也可以随时手动换。":
     " modes in total — the storyboard picks one, and you can swap any of them.",
+  " 字符": " chars",
+  " 秒": "s",
+  "这段会切成 ": "This becomes ",
+  " 拍，超过一个作业的 ": " beats, over the per-job ceiling of ",
+  " 拍上限。": " beats.",
+  "请按章节拆成几个作业分别生成 — 单条这么长的片会在渲染阶段失败，而不是在这里。":
+    " Split it by chapter into separate jobs — a single clip this long fails at render, not here.",
 };
