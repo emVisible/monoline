@@ -1,3 +1,5 @@
+import { lang, setLang, t } from "./i18n";
+import type { Lang } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Studio } from "./Studio";
 import { ModesView } from "./modes";
@@ -10,6 +12,9 @@ type Job = { id: string; slug: string; title: string; status: string; total_dura
 type Ev = { id: number; stage: string | null; kind: string; level: string; message: string | null };
 type Hydration = { job: Job; stages: Stage[]; segments: any[]; artifacts: Artifact[]; plan: any | null; events: Ev[] };
 
+// A language name is never translated — the toggle shows the *other* language by its own
+// name, which is the whole point of a language switch.
+const LANG_NAME: Record<Lang, string> = { zh: "中", en: "EN" };
 const STAGE_ORDER = ["script", "tts", "assemble", "plan", "fonts", "compose", "gate", "render", "deliver"];
 
 const STAGE_LABEL: Record<string, string> = {
@@ -110,7 +115,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         ready: !!d.ready, source: d.source || "none", model: d.model || null,
         detail: d.detail || "", latency_ms: typeof d.latency_ms === "number" ? d.latency_ms : null,
       }))
-      .catch(() => setLlm({ ready: false, source: "none", model: null, detail: "无法连接后端", latency_ms: null }))
+      .catch(() => setLlm({ ready: false, source: "none", model: null, detail: t("无法连接后端"), latency_ms: null }))
       .finally(() => setLlmBusy(false));
   };
   useEffect(() => { loadLlm(false); }, []);
@@ -123,8 +128,8 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
     try {
       const r = await fetch("/api/brand", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const d = await r.json().catch(() => ({} as any));
-      if (r.ok) setBrand(d); else setGenErr(d.detail || "外观未保存");
-    } catch { setGenErr("无法保存外观 — 后端未响应"); } finally { setBrandBusy(false); }
+      if (r.ok) setBrand(d); else setGenErr(d.detail || t("外观未保存"));
+    } catch { setGenErr(t("无法保存外观 — 后端未响应")); } finally { setBrandBusy(false); }
   };
   const uploadLogo = async (f: File) => {
     setBrandBusy(true);
@@ -132,14 +137,14 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       const fd = new FormData(); fd.append("file", f);
       const r = await fetch("/api/brand/logo", { method: "POST", body: fd });
       const d = await r.json().catch(() => ({} as any));
-      if (r.ok) setBrand(d); else setGenErr(d.detail || "Logo 上传失败");
-    } catch { setGenErr("Logo 上传失败"); } finally { setBrandBusy(false); }
+      if (r.ok) setBrand(d); else setGenErr(d.detail || t("Logo 上传失败"));
+    } catch { setGenErr(t("Logo 上传失败")); } finally { setBrandBusy(false); }
   };
   useEffect(() => { if (defaultVoice && !voice) setVoice(defaultVoice); }, [defaultVoice, voice]);
 
   const genScript = async () => {
     if (!topic.trim()) {
-      setAiErr("先给 AI 一个主题 — 它按主题写整段口播稿。"); topicRef.current?.focus(); return;
+      setAiErr(t("先给 AI 一个主题 — 它按主题写整段口播稿。")); topicRef.current?.focus(); return;
     }
     setAiBusy(true); setAiErr(null);
     try {
@@ -148,10 +153,10 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         body: JSON.stringify({ topic, tone, length: len, lang: "zh" }),
       });
       const d = await r.json();
-      if (!r.ok) setAiErr(d.detail || "生成失败");
+      if (!r.ok) setAiErr(d.detail || t("生成失败"));
       else setScript(d.script);
     } catch {
-      setAiErr("无法连接后端");
+      setAiErr(t("无法连接后端"));
     } finally {
       setAiBusy(false);
     }
@@ -161,11 +166,11 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
     // Every way this can fail must say so on screen — a dead primary button with no
     // reason reads as "nothing happened".
     if (!lines.length) {
-      setGenErr("还没有内容 — 粘贴一段文字，或点上面 ✨ 让 AI 从主题写一段。");
+      setGenErr(t("还没有内容 — 粘贴一段文字，或点上面 ✨ 让 AI 从主题写一段。"));
       taRef.current?.focus();
       return;
     }
-    if (!voice) { setGenErr("还没选配音音色。"); return; }
+    if (!voice) { setGenErr(t("还没选配音音色。")); return; }
     setBusy(true); setGenErr(null);
     try {
       const r = await fetch("/api/jobs", {
@@ -182,7 +187,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       onCreate(d.job_id);   // stay busy: we are leaving for the Studio, not idle
       return;
     } catch {
-      setGenErr("无法连接后端 — 服务还在跑吗？");
+      setGenErr(t("无法连接后端 — 服务还在跑吗？"));
     }
     setBusy(false);
   };
@@ -194,28 +199,28 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         <span className={"llm-chip" + (llm.ready ? " on" : "")} role="status">
           <i className="llm-dot" aria-hidden="true" />
           {llm.ready
-            ? <>模型已连通 · <code>{llm.model}</code>{llm.source === "ollama" ? " · 本地 Ollama" : ""}{llm.latency_ms !== null ? ` · ${llm.latency_ms}ms` : ""}</>
-            : <>模型未连通 · {llm.detail || "未检测到可用端点"}</>}
+            ? <>{t("模型已连通 ·")} <code>{llm.model}</code>{llm.source === "ollama" ? t(" · 本地 Ollama") : ""}{llm.latency_ms !== null ? ` · ${llm.latency_ms}ms` : ""}</>
+            : <>模型未连通 · {llm.detail || t("未检测到可用端点")}</>}
           <button className="llm-retry" onClick={() => loadLlm(true)} disabled={llmBusy}
-            aria-label="重新检测模型连通">{llmBusy ? "检测中…" : "重试"}</button>
+            aria-label={t("重新检测模型连通")}>{llmBusy ? t("检测中…") : t("重试")}</button>
         </span>
       </div>
       <div className="ai-row">
         {llm.ready ? (
           <>
-            <input className="fld ai-topic" ref={topicRef} placeholder="给 AI 一个主题，自动生成旁白…" value={topic}
+            <input className="fld ai-topic" ref={topicRef} placeholder={t("给 AI 一个主题，自动生成旁白…")} value={topic}
               onChange={(e) => setTopic(e.target.value)} onKeyDown={(e) => e.key === "Enter" && genScript()} />
             <select className="fld ai-sel" value={tone} onChange={(e) => setTone(e.target.value)}>
-              <option value="neutral">克制</option><option value="warm">温暖</option>
-              <option value="punchy">有力</option><option value="witty">机智</option>
+              <option value="neutral">{t("克制")}</option><option value="warm">{t("温暖")}</option>
+              <option value="punchy">{t("有力")}</option><option value="witty">{t("机智")}</option>
             </select>
             <select className="fld ai-sel" value={len} onChange={(e) => setLen(e.target.value)}>
-              <option value="short">短</option><option value="medium">中</option><option value="long">长</option>
+              <option value="short">{t("短")}</option><option value="medium">{t("中")}</option><option value="long">{t("长")}</option>
             </select>
-            <button className="ghost" onClick={genScript} disabled={!topic.trim() || aiBusy}>{aiBusy ? "生成中…" : "✨ 生成"}</button>
+            <button className="ghost" onClick={genScript} disabled={!topic.trim() || aiBusy}>{aiBusy ? t("生成中…") : t("✨ 生成")}</button>
           </>
         ) : (
-          <span className="ai-hint">✦ AI 写稿未启用 — 启动 <code>ollama serve</code> 并拉取一个模型后点上面「重试」；或设 <code>MONOLINE_LLM_BASE_URL</code> / <code>MODEL</code> / <code>API_KEY</code> 指向任意 OpenAI 兼容端点。也可直接粘贴文本。</span>
+          <span className="ai-hint">{t("✦ AI 写稿未启用 — 启动")} <code>ollama serve</code> {t("并拉取一个模型后点上面「重试」；或设")} <code>MONOLINE_LLM_BASE_URL</code> / <code>MODEL</code> / <code>API_KEY</code> {t("指向任意 OpenAI 兼容端点。也可直接粘贴文本。")}</span>
         )}
       </div>
       {aiErr && <p className="ai-err">{aiErr}</p>}
@@ -223,57 +228,57 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         className="script"
         ref={taRef}
         value={script}
-        placeholder={"在漆黑的深海，超过九成的生物都能自己发光。\n这不是反射阳光，而是一场发生在体内的化学反应。"}
+        placeholder={t("在漆黑的深海，超过九成的生物都能自己发光。\n这不是反射阳光，而是一场发生在体内的化学反应。")}
         onChange={(e) => setScript(e.target.value)}
         onKeyDown={(e) => {
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && lines.length) generate();
         }}
       />
       <div className="opts">
-        <div className="opt-group" role="group" aria-label="画幅">
-          <span className="opt-lbl">画幅</span>
+        <div className="opt-group" role="group" aria-label={t("画幅")}>
+          <span className="opt-lbl">{t("画幅")}</span>
           <div className="chips">
             {["landscape", "portrait", "square"].map((r) => (
               <button key={r} className={ratio === r ? "chip on" : "chip"} aria-pressed={ratio === r} onClick={() => setRatio(r)}>{r}</button>
             ))}
           </div>
         </div>
-        <div className="opt-group" role="group" aria-label="分镜判定">
-          <span className="opt-lbl">分镜</span>
+        <div className="opt-group" role="group" aria-label={t("分镜判定")}>
+          <span className="opt-lbl">{t("分镜")}</span>
           <div className="chips">
             <button className={llmPlan && llm.ready ? "chip on" : "chip"} aria-pressed={llmPlan && llm.ready}
-              disabled={!llm.ready} title={llm.ready ? "规则打底，模型只重判规则判成纯文字的拍" : "需要模型连通"}
-              onClick={() => setLlmPlan(true)}>模型加判</button>
+              disabled={!llm.ready} title={llm.ready ? t("规则打底，模型只重判规则判成纯文字的拍") : t("需要模型连通")}
+              onClick={() => setLlmPlan(true)}>{t("模型加判")}</button>
             <button className={!llmPlan ? "chip on" : "chip"} aria-pressed={!llmPlan}
-              onClick={() => setLlmPlan(false)}>纯规则</button>
+              onClick={() => setLlmPlan(false)}>{t("纯规则")}</button>
           </div>
         </div>
-        <div className="opt-group" role="group" aria-label="版式">
-          <span className="opt-lbl">版式</span>
+        <div className="opt-group" role="group" aria-label={t("版式")}>
+          <span className="opt-lbl">{t("版式")}</span>
           <div className="chips">
-            {[["minimal", "极简"], ["editorial", "杂志"], ["bold", "醒目"]].map(([v, l]) => (
+            {[["minimal", t("极简")], ["editorial", t("杂志")], ["bold", t("醒目")]].map(([v, l]) => (
               <button key={v} className={layout === v ? "chip on" : "chip"} aria-pressed={layout === v} onClick={() => setLayout(v)}>{l}</button>
             ))}
           </div>
         </div>
-        <div className="opt-group" role="group" aria-label="质量">
-          <span className="opt-lbl">质量</span>
+        <div className="opt-group" role="group" aria-label={t("质量")}>
+          <span className="opt-lbl">{t("质量")}</span>
           <div className="chips">
-            {[["draft", "草样"], ["looks", "标准"], ["delivery", "高质"]].map(([v, l]) => (
+            {[["draft", t("草样")], ["looks", t("标准")], ["delivery", t("高质")]].map(([v, l]) => (
               <button key={v} className={quality === v ? "chip on" : "chip"} aria-pressed={quality === v} onClick={() => setQuality(v)}>{l}</button>
             ))}
           </div>
         </div>
-        <div className="opt-group" role="group" aria-label="帧率">
-          <span className="opt-lbl">帧率</span>
+        <div className="opt-group" role="group" aria-label={t("帧率")}>
+          <span className="opt-lbl">{t("帧率")}</span>
           <div className="chips">
             {[24, 30, 60].map((f) => (
               <button key={f} className={fps === f ? "chip on" : "chip"} aria-pressed={fps === f} onClick={() => setFps(f)}>{f}</button>
             ))}
           </div>
         </div>
-        <div className="opt-group" role="group" aria-label="导出格式">
-          <span className="opt-lbl">格式</span>
+        <div className="opt-group" role="group" aria-label={t("导出格式")}>
+          <span className="opt-lbl">{t("格式")}</span>
           <div className="chips">
             {["mp4", "webm", "mov"].map((f) => (
               <button key={f} className={format === f ? "chip on" : "chip"} aria-pressed={format === f} onClick={() => setFormat(f)}>{f}</button>
@@ -282,15 +287,15 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         </div>
       </div>
       {voices.length > 0 && (
-        <div className="voices" role="group" aria-label="旁白音色">
+        <div className="voices" role="group" aria-label={t("旁白音色")}>
           <div className="voices-bar">
-            <span className="opt-lbl">音色</span>
+            <span className="opt-lbl">{t("音色")}</span>
             <button className="voice-toggle" onClick={() => setVoiceOpen((o) => !o)} aria-expanded={voiceOpen}>
               <span className="voices-cur">{voices.find((v) => v.id === voice)?.label ?? voice}</span>
               <span className="vchev">{voiceOpen ? "▴" : "▾"}</span>
             </button>
             <button className="vplay-btn" onClick={() => audition.toggle(voice)}
-              aria-label={audition.playingId === voice ? "停止试听当前音色" : "试听当前音色"} title="试听">
+              aria-label={audition.playingId === voice ? t("停止试听当前音色") : t("试听当前音色")} title={t("试听")}>
               {audition.loadingId === voice ? <span className="vload" />
                 : audition.playingId === voice ? <span className="veq"><i /><i /><i /></span>
                 : <span className="vplay" />}
@@ -327,8 +332,8 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       )}
       <div className="brand-box">
         <button className="brand-toggle" aria-expanded={brandOpen} onClick={() => setBrandOpen(!brandOpen)}>
-          <span className="bt-lbl">外观 · 品牌</span>
-          <span className="bt-sum">{themes.find((t) => t.id === brand.theme)?.label || brand.theme} · {brand.label}{brand.logo ? " · Logo ✓" : ""}{brandBusy ? " · 保存中…" : ""}</span>
+          <span className="bt-lbl">{t("外观 · 品牌")}</span>
+          <span className="bt-sum">{themes.find((t) => t.id === brand.theme)?.label || brand.theme} · {brand.label}{brand.logo ? " · Logo ✓" : ""}{brandBusy ? t(" · 保存中…") : ""}</span>
           <span className="bt-caret">{brandOpen ? "▴" : "▾"}</span>
         </button>
         {brandOpen && (
@@ -342,29 +347,29 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
               ))}
             </div>
             <div className="ap-row">
-              <label className="fld-lbl">品牌</label>
+              <label className="fld-lbl">{t("品牌")}</label>
               <input className="fld" defaultValue={brand.label} onBlur={(e) => e.target.value !== brand.label && patchBrand({ label: e.target.value })} />
             </div>
             <div className="ap-row">
-              <label className="fld-lbl">强调色</label>
+              <label className="fld-lbl">{t("强调色")}</label>
               <input type="color" className="accent-pick" value={/^#[0-9a-fA-F]{6}$/.test(brand.accent) ? brand.accent : "#C4F82A"}
                 onChange={(e) => setBrand({ ...brand, accent: e.target.value })} onBlur={(e) => patchBrand({ accent: e.target.value })} />
-              {brand.accent && <button className="ghost sm" onClick={() => patchBrand({ accent: "" })}>默认</button>}
+              {brand.accent && <button className="ghost sm" onClick={() => patchBrand({ accent: "" })}>{t("默认")}</button>}
             </div>
             <div className="ap-row">
               <label className="fld-lbl">Logo</label>
-              {brand.logo_url ? <img className="brand-logo-prev" src={brand.logo_url} alt="当前 Logo" /> : <span className="muted">未设置</span>}
-              <label className="ghost sm file">{brandBusy ? "载入中…" : "上传"}
+              {brand.logo_url ? <img className="brand-logo-prev" src={brand.logo_url} alt={t("当前 Logo")} /> : <span className="muted">{t("未设置")}</span>}
+              <label className="ghost sm file">{brandBusy ? t("载入中…") : t("上传")}
                 <input type="file" accept="image/*" hidden disabled={brandBusy}
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }} />
               </label>
               {brand.logo && (
                 <button className="ghost sm" onClick={async () => {
                   const r = await fetch("/api/brand/logo", { method: "DELETE" }); if (r.ok) setBrand(await r.json());
-                }}>移除</button>
+                }}>{t("移除")}</button>
               )}
             </div>
-            <p className="bt-note">对之后每个新作业生效；单个作业仍可在出片后到右侧调整。</p>
+            <p className="bt-note">{t("对之后每个新作业生效；单个作业仍可在出片后到右侧调整。")}</p>
           </div>
         )}
       </div>
@@ -374,7 +379,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         <span>≈ {Math.round(lines.length * 3)}s</span>
         <span className="spacer" />
         <button className="generate" disabled={busy} aria-busy={busy} onClick={generate}>
-          {busy ? "创建中…" : "生成 ⌘↵"}
+          {busy ? t("创建中…") : t("生成 ⌘↵")}
         </button>
       </div>
       {genErr && <p className="ai-err" role="alert">{genErr}</p>}
@@ -399,7 +404,7 @@ function HistoryView({ onOpen, onNew }: { onOpen: (id: string) => void; onNew: (
         <p className="eyebrow">History · {jobs.length} jobs</p>
         <button className="ghost" onClick={onNew}>+ new</button>
       </div>
-      {jobs.length === 0 && <p className="muted">还没有作业。点右上 new 开始。</p>}
+      {jobs.length === 0 && <p className="muted">{t("还没有作业。点右上 new 开始。")}</p>}
       <table className="hist">
         <tbody>
           {jobs.map((j) => (
@@ -412,7 +417,7 @@ function HistoryView({ onOpen, onNew }: { onOpen: (id: string) => void; onNew: (
               <td className={`h-status ${j.status}`}>{j.status}</td>
               <td className="h-dur">{j.total_duration ? `${j.total_duration.toFixed(0)}s` : "—"}</td>
               <td className="h-when">{(j.created_at || "").slice(5, 16).replace("T", " ")}</td>
-              <td><button className="ghost sm" onClick={(e) => { e.stopPropagation(); del(j.id); }}>删除</button></td>
+              <td><button className="ghost sm" onClick={(e) => { e.stopPropagation(); del(j.id); }}>{t("删除")}</button></td>
             </tr>
           ))}
         </tbody>
@@ -448,18 +453,18 @@ function SetupView() {
   return (
     <div className="intake setup">
       <div className="hist-head">
-        <p className="eyebrow">Setup · 环境自检</p>
-        <button className="ghost" onClick={load} disabled={busy}>{busy ? "检查中…" : "重新检查 ↻"}</button>
+        <p className="eyebrow">{t("Setup · 环境自检")}</p>
+        <button className="ghost" onClick={load} disabled={busy}>{busy ? t("检查中…") : t("重新检查 ↻")}</button>
       </div>
       {checks === null ? (
-        <p className="muted">连不上后端。用 <code>monoline start</code> 启动后重试。</p>
+        <p className="muted">{t("连不上后端。用")} <code>monoline start</code> {t("启动后重试。")}</p>
       ) : (
         <div className="checks">
           {checks.map((c) => (
             <div key={c.name} className={`check ${STATE_TONE[c.state] || "warn"}`}>
               <span className="seg-dot" />
               <div className="check-body">
-                <div className="check-top"><span className="check-name">{CHECK_LABEL[c.name] || c.name}</span><span className="check-state">{c.state}</span></div>
+                <div className="check-top"><span className="check-name">{t(CHECK_LABEL[c.name]) || c.name}</span><span className="check-state">{c.state}</span></div>
                 {c.found && <div className="check-found">{c.found}</div>}
                 {c.state !== "ok" && c.fix && <div className="check-fix">修复：{c.fix}</div>}
               </div>
@@ -467,7 +472,7 @@ function SetupView() {
           ))}
         </div>
       )}
-      {ok === true && <p className="setup-ok">✓ 环境就绪，可以出片。</p>}
+      {ok === true && <p className="setup-ok">{t("✓ 环境就绪，可以出片。")}</p>}
     </div>
   );
 }
@@ -503,6 +508,10 @@ export function App() {
             <button className={route.view === "history" ? "on" : ""} onClick={() => go("history")}>History</button>
             <button className={route.view === "modes" ? "on" : ""} onClick={() => go("modes")}>Modes</button>
             <button className={route.view === "setup" ? "on" : ""} onClick={() => go("setup")}>Setup</button>
+          <button className="lang-toggle" onClick={() => setLang(lang() === "zh" ? "en" : "zh")}
+            aria-label={t("切换界面语言")} title={t("切换界面语言")}>
+            {LANG_NAME[lang() === "zh" ? "en" : "zh"]}
+          </button>
           </nav>
         )}
       </header>

@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { groupVoices, useAudition, useVoices } from "./voices";
 import { MODE_COUNT, ModePicker } from "./modes";
@@ -61,16 +62,16 @@ function IconPicker({ icons, value, onChange }: { icons: IconDef[]; value: strin
       <button type="button" className="fld icon-trigger" aria-haspopup="listbox" aria-expanded={open}
         onClick={() => setOpen((v) => !v)}>
         {current ? <IconGlyph body={current.body} /> : <span className="icon-dash">—</span>}
-        <span className="icon-name">{value || "无图标"}</span>
+        <span className="icon-name">{value || t("无图标")}</span>
         <span className="icon-count">{icons.length}</span>
       </button>
       {open && (
-        <div className="icon-pop" role="listbox" aria-label="图标库">
-          <input className="fld icon-filter" placeholder="筛选图标…" value={q} autoFocus
+        <div className="icon-pop" role="listbox" aria-label={t("图标库")}>
+          <input className="fld icon-filter" placeholder={t("筛选图标…")} value={q} autoFocus
             onChange={(e) => setQ(e.target.value)} />
           <div className="icon-grid">
             <button type="button" role="option" aria-selected={!value}
-              className={`icon-cell clear${!value ? " on" : ""}`} onClick={() => pick("")}>无</button>
+              className={`icon-cell clear${!value ? " on" : ""}`} onClick={() => pick("")}>{t("无")}</button>
             {shown.map((i) => (
               <button key={i.name} type="button" role="option" aria-selected={i.name === value} title={i.name}
                 className={`icon-cell${i.name === value ? " on" : ""}`} onClick={() => pick(i.name)}>
@@ -78,7 +79,7 @@ function IconPicker({ icons, value, onChange }: { icons: IconDef[]; value: strin
               </button>
             ))}
           </div>
-          {!shown.length && <p className="muted">没有匹配的图标</p>}
+          {!shown.length && <p className="muted">{t("没有匹配的图标")}</p>}
         </div>
       )}
     </div>
@@ -383,7 +384,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
 
       <div className="s3-body">
         {/* left: beats */}
-        <aside className="s3-beats" aria-label="节拍列表">
+        <aside className="s3-beats" aria-label={t("节拍列表")}>
           {segments.map((s) => (
             <button key={s.i}
               className={`beat ${sel === s.i ? "on" : ""} ${dragI === s.i ? "dragging" : ""} ${overI === s.i && dragI !== null && dragI !== s.i ? "dropover" : ""}`}
@@ -401,8 +402,8 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
               <span className="beat-kind">{scenes[s.i]?.kind || "—"}</span>
             </button>
           ))}
-          {reordering && <div className="beats-reorder">重排中…</div>}
-          <div className="beats-hint">← → 选拍 · ⇧←/→ 或拖动重排</div>
+          {reordering && <div className="beats-reorder">{t("重排中…")}</div>}
+          <div className="beats-hint">{t("← → 选拍 · ⇧←/→ 或拖动重排")}</div>
         </aside>
 
         {/* center: player + workflow */}
@@ -416,21 +417,21 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                   const st = byKey[k]?.status || "pending";
                   return (
                     <div key={k} className={`wrow ${st}`}>
-                      <span className="seg-dot" /><span className="wname">{STAGE_LABEL[k]}</span>
-                      <span className="wlog">{st === "running" ? (lastLog[k] || "进行中…") : (st === "succeeded" ? (lastLog[k] || "") : "")}</span>
+                      <span className="seg-dot" /><span className="wname">{t(STAGE_LABEL[k])}</span>
+                      <span className="wlog">{st === "running" ? (lastLog[k] || t("进行中…")) : (st === "succeeded" ? (lastLog[k] || "") : "")}</span>
                     </div>
                   );
                 })}
               </div>
               <div className="log" ref={logRef} role="log" aria-live="polite">{events.slice(-30).map((e) => (
-                <div key={e.id} className={`line ${e.level === "error" ? "err" : ""}`}><span className="lstage">{STAGE_LABEL[e.stage] || e.stage || ""}</span><span>{e.message}</span></div>
+                <div key={e.id} className={`line ${e.level === "error" ? "err" : ""}`}><span className="lstage">{t(STAGE_LABEL[e.stage]) || e.stage || ""}</span><span>{e.message}</span></div>
               ))}</div>
             </div>
           )}
           {job.status === "failed" && (
             <div className="err-banner" role="alert">
-              <strong>作业失败</strong>
-              <span>{job.error || "见下方日志"}</span>
+              <strong>{t("作业失败")}</strong>
+              <span>{job.error || t("见下方日志")}</span>
             </div>
           )}
           <div className="s3-actions">
@@ -438,41 +439,41 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
               <a className="download" href={`/api/jobs/${job.id}/download`} download>Download {outFmt.toUpperCase()} ↓</a>
             ) : (
               <button className="generate" onClick={onRun} disabled={job.status === "running"}>
-                {job.status === "running" ? "渲染中…" : "Render →"}
+                {job.status === "running" ? t("渲染中…") : "Render →"}
               </button>
             )}
             {composed && segments.length > 0 && (
               <span className="sub-links">
-                <a className="ghost sm" href={`/api/jobs/${job.id}/subtitles?fmt=srt`} download title="下载字幕 (SRT)">字幕 SRT</a>
-                <a className="ghost sm" href={`/api/jobs/${job.id}/subtitles?fmt=vtt`} download title="下载字幕 (WebVTT)">VTT</a>
+                <a className="ghost sm" href={`/api/jobs/${job.id}/subtitles?fmt=srt`} download title={t("下载字幕 (SRT)")}>{t("字幕 SRT")}</a>
+                <a className="ghost sm" href={`/api/jobs/${job.id}/subtitles?fmt=vtt`} download title={t("下载字幕 (WebVTT)")}>VTT</a>
                 {mp4 && job.status === "succeeded" && (
-                  <a className="ghost sm" href={`/api/jobs/${job.id}/poster`} download title="下载封面 (JPG)">封面</a>
+                  <a className="ghost sm" href={`/api/jobs/${job.id}/poster`} download title={t("下载封面 (JPG)")}>{t("封面")}</a>
                 )}
               </span>
             )}
             {job.status === "running" && (
-              <button className="ghost" onClick={() => fetch(`/api/jobs/${job.id}/cancel`, { method: "POST" })}>取消</button>
+              <button className="ghost" onClick={() => fetch(`/api/jobs/${job.id}/cancel`, { method: "POST" })}>{t("取消")}</button>
             )}
             <label className="ghost file">
-              {bgmBusy ? "载入中…" : "背景音乐"}
+              {bgmBusy ? t("载入中…") : t("背景音乐")}
               <input type="file" accept="audio/*" hidden disabled={bgmBusy}
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadBgm(f); e.target.value = ""; }} />
             </label>
-            {composed && <span className="s3-hint">编辑右侧即时更新预览；点 Render 出片</span>}
+            {composed && <span className="s3-hint">{t("编辑右侧即时更新预览；点 Render 出片")}</span>}
           </div>
         </main>
 
         {/* right: inspector */}
-        <aside className="s3-inspector" aria-label="属性面板">
+        <aside className="s3-inspector" aria-label={t("属性面板")}>
           {generating ? (
             <div className="insp-wait" role="status">
               <span className="iw-spin" aria-hidden="true" />
-              <div className="iw-title">生成中…</div>
-              <p>配置与逐拍编辑会在这一版出片后出现。<b>先生成，再调整</b>——左边阶段流就是当前进度。</p>
+              <div className="iw-title">{t("生成中…")}</div>
+              <p>{t("配置与逐拍编辑会在这一版出片后出现。")}<b>{t("先生成，再调整")}</b>{t("——左边阶段流就是当前进度。")}</p>
             </div>
           ) : (<>
           <div className="appearance">
-            <div className="ap-title">外观</div>
+            <div className="ap-title">{t("外观")}</div>
             <div className="swatches">
               {themes.map((t) => (
                 <button key={t.id} className={`swatch ${cfg.theme === t.id ? "on" : ""}`} aria-pressed={cfg.theme === t.id} title={t.label}
@@ -482,20 +483,20 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
               ))}
             </div>
             <div className="ap-row">
-              <label className="fld-lbl">版式</label>
+              <label className="fld-lbl">{t("版式")}</label>
               <div className="chips">
-                {[["minimal", "极简"], ["editorial", "杂志"], ["bold", "醒目"]].map(([v, l]) => (
+                {[["minimal", t("极简")], ["editorial", t("杂志")], ["bold", t("醒目")]].map(([v, l]) => (
                   <button key={v} className={cfg.layout === v ? "chip on" : "chip"} aria-pressed={cfg.layout === v} onClick={() => applyConfig({ layout: v })}>{l}</button>
                 ))}
               </div>
             </div>
             <div className="ap-row">
-              <label className="fld-lbl">品牌</label>
+              <label className="fld-lbl">{t("品牌")}</label>
               <input className="fld" defaultValue={cfg.brand} onBlur={(e) => e.target.value !== cfg.brand && applyConfig({ brand: e.target.value })} />
             </div>
             <div className="ap-row">
               <label className="fld-lbl">Logo</label>
-              <label className="ghost sm file-btn">上传
+              <label className="ghost sm file-btn">{t("上传")}
                 <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async (e) => {
                   const f = e.target.files?.[0]; if (!f) return;
                   const fd = new FormData(); fd.append("file", f);
@@ -506,27 +507,27 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
               {cfg.logo ? <button className="ghost sm" onClick={async () => {
                 const r = await fetch(`/api/jobs/${job.id}/logo`, { method: "DELETE" });
                 if (r.ok) { const d = await r.json(); setCfg((c) => ({ ...c, logo: "" })); setVersion(typeof d.version === "number" ? d.version : version + 1); }
-              }}>移除</button> : <span className="muted sm">品牌锁定处显示</span>}
+              }}>{t("移除")}</button> : <span className="muted sm">{t("品牌锁定处显示")}</span>}
             </div>
             <div className="ap-row">
-              <label className="fld-lbl">强调色</label>
+              <label className="fld-lbl">{t("强调色")}</label>
               <input type="color" className="accent-pick" value={/^#[0-9a-fA-F]{6}$/.test(cfg.accent) ? cfg.accent : "#C4F82A"}
                 onChange={(e) => applyConfig({ accent: e.target.value })} />
-              {cfg.accent && <button className="ghost sm" onClick={() => applyConfig({ accent: "" })}>默认</button>}
+              {cfg.accent && <button className="ghost sm" onClick={() => applyConfig({ accent: "" })}>{t("默认")}</button>}
             </div>
             <div className="ap-row preset-row">
               <select className="fld" value="" onChange={(e) => { if (e.target.value) loadPreset(e.target.value); }}>
-                <option value="">载入预设…</option>
+                <option value="">{t("载入预设…")}</option>
                 {presets.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              <button className="ghost sm" onClick={savePreset}>保存</button>
+              <button className="ghost sm" onClick={savePreset}>{t("保存")}</button>
             </div>
           </div>
           {voices.length > 0 && (
             <div className="appearance">
-              <div className="ap-title">配音</div>
+              <div className="ap-title">{t("配音")}</div>
               <div className="ap-row">
-                <label className="fld-lbl">音色{voiceBusy && <span className="resynth-tag"> · 重合成中…</span>}</label>
+                <label className="fld-lbl">音色{voiceBusy && <span className="resynth-tag"> {t("· 重合成中…")}</span>}</label>
                 <div className="voice-edit">
                   <select className="fld" value={cfg.voice} disabled={voiceBusy} onChange={(e) => changeVoice(e.target.value)}>
                     {groupVoices(voices).map((g) => (
@@ -536,7 +537,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                     ))}
                   </select>
                   <button className={`ghost vaudition ${audition.playingId === cfg.voice ? "playing" : ""}`}
-                    onClick={() => audition.toggle(cfg.voice)} disabled={voiceBusy} aria-label="试听当前音色" title="试听">
+                    onClick={() => audition.toggle(cfg.voice)} disabled={voiceBusy} aria-label={t("试听当前音色")} title={t("试听")}>
                     {audition.loadingId === cfg.voice ? <span className="vload" />
                       : audition.playingId === cfg.voice ? <span className="veq"><i /><i /><i /></span>
                       : <span className="vplay" />}
@@ -546,50 +547,50 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
               </div>
             </div>
           )}
-          {!d ? <p className="muted">选左侧一拍</p> : (
+          {!d ? <p className="muted">{t("选左侧一拍")}</p> : (
             <>
               <div className="fld-row">
-                <label className="fld-lbl">旁白{resynth && <span className="resynth-tag"> · 重合成中…</span>}</label>
+                <label className="fld-lbl">旁白{resynth && <span className="resynth-tag"> {t("· 重合成中…")}</span>}</label>
                 <textarea className="fld narration" key={`n-${sel}`} rows={3}
                   defaultValue={segments[sel]?.text ?? ""}
                   onChange={(e) => saveNarration(sel, e.target.value)} />
               </div>
               <div className="fld-lbl-row">
-                <label className="fld-lbl">呈现模式</label>
+                <label className="fld-lbl">{t("呈现模式")}</label>
                 <a className="mode-lib-link" href="#/modes">全部 {MODE_COUNT} 种</a>
               </div>
               <ModePicker value={d.kind} used={kindUsed} onChange={changeKind} />
               <p className="src-badge">{scenes[sel]?.source || "manual"}</p>
-              <label className="fld-lbl">图标</label>
+              <label className="fld-lbl">{t("图标")}</label>
               <IconPicker icons={icons} value={d.slots.icon ?? ""} onChange={(v) => setSlot("icon", v)} />
-              <label className="fld-lbl">{d.kind === "image" ? "图片" : "配图"}</label>
+              <label className="fld-lbl">{d.kind === "image" ? t("图片") : t("配图")}</label>
               <div className="img-row">
                 {d.slots.image ? (
                   <img className="img-thumb" src={`/w/${job.id}/${d.slots.image}`} alt="" />
                 ) : (
-                  <span className="img-none">未设置</span>
+                  <span className="img-none">{t("未设置")}</span>
                 )}
                 <label className="ghost file">
-                  {imgBusy ? "载入中…" : d.slots.image ? "更换" : "上传"}
+                  {imgBusy ? t("载入中…") : d.slots.image ? t("更换") : t("上传")}
                   <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden disabled={imgBusy}
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }} />
                 </label>
-                {d.slots.image && <button className="ghost" onClick={() => setSlot("image", "")}>移除</button>}
+                {d.slots.image && <button className="ghost" onClick={() => setSlot("image", "")}>{t("移除")}</button>}
               </div>
               {d.slots.image && (
                 <div className="fld-row">
-                  <label className="fld-lbl">{d.kind === "image" ? "图注" : "配图说明"}</label>
+                  <label className="fld-lbl">{d.kind === "image" ? t("图注") : t("配图说明")}</label>
                   <input className="fld" value={d.slots.image_caption ?? ""} onChange={(e) => setSlot("image_caption", e.target.value)} />
                 </div>
               )}
               {(d.slots.image || d.kind === "showcase") && (
                 <div className="fld-row">
-                  <label className="fld-lbl">图片色调</label>
-                  <div className="chips" role="group" aria-label="图片色调">
+                  <label className="fld-lbl">{t("图片色调")}</label>
+                  <div className="chips" role="group" aria-label={t("图片色调")}>
                     <button className={`chip${d.slots.image_tone !== "color" ? " on" : ""}`} aria-pressed={d.slots.image_tone !== "color"}
-                      onClick={() => setSlot("image_tone", "mono")}>统一灰调</button>
+                      onClick={() => setSlot("image_tone", "mono")}>{t("统一灰调")}</button>
                     <button className={`chip${d.slots.image_tone === "color" ? " on" : ""}`} aria-pressed={d.slots.image_tone === "color"}
-                      onClick={() => setSlot("image_tone", "color")}>保留原色</button>
+                      onClick={() => setSlot("image_tone", "color")}>{t("保留原色")}</button>
                   </div>
                 </div>
               )}
@@ -603,14 +604,14 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
 
               {(d.slots.rows || d.slots.stages) && (
                 <div className="rows-edit">
-                  <label className="fld-lbl">{d.slots.stages ? "漏斗层" : d.kind === "showcase" ? "卡片（名称 / 说明 / 配图）" : "数据行"}</label>
+                  <label className="fld-lbl">{d.slots.stages ? t("漏斗层") : d.kind === "showcase" ? t("卡片（名称 / 说明 / 配图）") : t("数据行")}</label>
                   {(d.slots.rows || d.slots.stages).map((r: any, ri: number) => (
                     <div key={ri} className={`row2${d.kind === "showcase" ? " row-img" : ""}`}>
                       <input className="fld" value={r.k} onChange={(e) => patchRow(ri, { k: e.target.value })} />
                       <input className="fld" value={r.v} onChange={(e) => patchRow(ri, { v: e.target.value })} />
                       {d.kind === "showcase" && (
-                        <label className="ghost file row-pick" title="给这张卡配图">
-                          {imgBusy ? "…" : r.img ? "换图" : "配图"}
+                        <label className="ghost file row-pick" title={t("给这张卡配图")}>
+                          {imgBusy ? "…" : r.img ? t("换图") : t("配图")}
                           <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden disabled={imgBusy}
                             onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f, (rel) => patchRow(ri, { img: rel })); e.target.value = ""; }} />
                         </label>
@@ -622,7 +623,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
 
               {LIST_SLOT[d.kind] && Array.isArray(d.slots[LIST_SLOT[d.kind]]) && (
                 <div className="rows-edit">
-                  <label className="fld-lbl">{LIST_LABEL[d.kind]}</label>
+                  <label className="fld-lbl">{t(LIST_LABEL[d.kind])}</label>
                   {(d.slots[LIST_SLOT[d.kind]] as string[]).map((it: string, ii: number) => {
                     const key = LIST_SLOT[d.kind];
                     const text = (
@@ -635,8 +636,8 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                     return (
                       <div key={ii} className="row2 row-node">
                         {text}
-                        <label className="ghost file row-pick" title="给这个节点配截图">
-                          {imgBusy ? "…" : imgs[ii] ? "换图" : "配图"}
+                        <label className="ghost file row-pick" title={t("给这个节点配截图")}>
+                          {imgBusy ? "…" : imgs[ii] ? t("换图") : t("配图")}
                           <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden disabled={imgBusy}
                             onChange={(e) => {
                               const f = e.target.files?.[0];
@@ -652,7 +653,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
 
               {d.kind === "compare" && (["a", "b"] as const).map((side) => (
                 <div key={side} className="rows-edit">
-                  <label className="fld-lbl">{side === "a" ? "A 标题/描述" : "B 标题/描述"}</label>
+                  <label className="fld-lbl">{side === "a" ? t("A 标题/描述") : t("B 标题/描述")}</label>
                   <input className="fld" value={d.slots[side]?.h ?? ""} onChange={(e) => setCompare(side, "h", e.target.value)} />
                   <input className="fld" value={d.slots[side]?.d ?? ""} onChange={(e) => setCompare(side, "d", e.target.value)} />
                 </div>

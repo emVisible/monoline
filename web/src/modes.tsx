@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -102,24 +103,24 @@ export function ModeGlyph({ body, w = 96, h = 60 }: { body: string; w?: number; 
  *  answer "how many looks do I actually have?" — this can. */
 export function ModesView() {
   return (
-    <section className="modes" aria-label="呈现模式库">
+    <section className="modes" aria-label={t("呈现模式库")}>
       <div className="modes-head">
-        <h2 className="modes-h">呈现模式 <span className="modes-n">{MODE_COUNT}</span></h2>
+        <h2 className="modes-h">{t("呈现模式")} <span className="modes-n">{MODE_COUNT}</span></h2>
         <p className="modes-sub">
-          每一拍选一种讲法。{MODE_GROUPS.length} 类 · 共 {MODE_COUNT} 种，分镜会自动挑，也可以随时手动换。
+          {t("每一拍选一种讲法。")}{MODE_GROUPS.length}{t(" 类 · 共 ")}{MODE_COUNT}{t(" 种，分镜会自动挑，也可以随时手动换。")}
         </p>
       </div>
       {MODE_GROUPS.map((g) => (
         <div key={g.id} className="modes-group">
-          <h3 className="modes-gh">{g.zh}<span className="modes-gn">{g.modes.length}</span><span className="modes-gnote">{g.note}</span></h3>
+          <h3 className="modes-gh">{t(g.zh)}<span className="modes-gn">{g.modes.length}</span><span className="modes-gnote">{t(g.note)}</span></h3>
           <div className="modes-grid">
             {g.modes.map((m) => (
               <figure key={m.kind} className="mode-card">
                 <ModeGlyph body={m.glyph} />
                 <figcaption>
-                  <span className="mode-zh">{m.zh}</span>
+                  <span className="mode-zh">{t(m.zh)}</span>
                   <span className="mode-kind">{m.kind}</span>
-                  <span className="mode-desc">{m.desc}</span>
+                  <span className="mode-desc">{t(m.desc)}</span>
                 </figcaption>
               </figure>
             ))}
@@ -145,7 +146,7 @@ export function ModePicker({ value, used, onChange }: { value: string; used: Rec
     const s = q.trim().toLowerCase();
     if (!s) return MODE_GROUPS;
     return MODE_GROUPS
-      .map((g) => ({ ...g, modes: g.modes.filter((m) => `${m.kind} ${m.zh} ${m.desc}`.toLowerCase().includes(s)) }))
+      .map((g) => ({ ...g, modes: g.modes.filter((m) => `${m.kind} ${m.zh} ${m.desc} ${t(m.zh)} ${t(m.desc)}`.toLowerCase().includes(s)) }))
       .filter((g) => g.modes.length);
   }, [q]);
   const place = useCallback(() => {
@@ -182,28 +183,28 @@ export function ModePicker({ value, used, onChange }: { value: string; used: Rec
       <button ref={trig} type="button" className="fld mode-trigger" aria-haspopup="listbox" aria-expanded={open}
         onClick={() => setOpen((v) => !v)}>
         <span className="mode-thumb">{current && <ModeGlyph body={current.glyph} w={34} h={21} />}</span>
-        <span className="mode-names"><b>{current?.zh ?? value}</b><i>{value}</i></span>
+        <span className="mode-names"><b>{t(current?.zh ?? value)}</b><i>{value}</i></span>
         <span className="mode-count">{MODE_COUNT}</span>
       </button>
       {open && createPortal(
-        <div ref={pop} className="mode-pop" role="listbox" aria-label="呈现模式"
+        <div ref={pop} className="mode-pop" role="listbox" aria-label={t("呈现模式")}
           style={{ left: rect.left, top: rect.top, width: rect.width, maxHeight: rect.maxHeight }}>
-          <input className="fld mode-filter" placeholder="搜模式（名称 / 用途）…" value={q} autoFocus
+          <input className="fld mode-filter" placeholder={t("搜模式（名称 / 用途）…")} value={q} autoFocus
             onChange={(e) => setQ(e.target.value)} />
           {groups.map((g) => (
             <div key={g.id} className="mode-sec">
-              <p className="mode-sech">{g.zh} · {g.modes.length}</p>
+              <p className="mode-sech">{t(g.zh)} · {g.modes.length}</p>
               {g.modes.map((m) => (
                 <button key={m.kind} type="button" role="option" aria-selected={m.kind === value}
                   className={`mode-row${m.kind === value ? " on" : ""}`} onClick={() => pick(m.kind)}>
                   <ModeGlyph body={m.glyph} w={44} h={28} />
-                  <span className="mode-rowtxt"><b>{m.zh}</b><i>{m.desc}</i></span>
+                  <span className="mode-rowtxt"><b>{t(m.zh)}</b><i>{t(m.desc)}</i></span>
                   {used[m.kind] ? <span className="mode-used">{used[m.kind]} 拍</span> : null}
                 </button>
               ))}
             </div>
           ))}
-          {!groups.length && <p className="muted">没有匹配的模式</p>}
+          {!groups.length && <p className="muted">{t("没有匹配的模式")}</p>}
         </div>, document.body)}
     </div>
   );

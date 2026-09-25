@@ -433,3 +433,6 @@ table.hist { width:100%; border-collapse:collapse; }
   transition: color var(--t-micro); }
 .mode-lib-link:hover { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .mode-pop { animation: none; } .mode-card, .mode-row { transition: none; } }
+
+/* V50: language switch sits at the end of the nav, quiet until hovered. */
+.lang-toggle { margin-left: auto; min-width: 34px; letter-spacing: 0.06em; }
