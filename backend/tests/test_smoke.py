@@ -1253,6 +1253,38 @@ def test_radial_screenshot_nodes_v45():
     assert texty.count('class="pos"') == 6, "text-only branches keep the old 5-branch cap"
 
 
+def test_success_clears_the_stale_error_v46():
+    """A job that failed and was then re-run successfully kept its failure text, so the
+    API reported status=succeeded together with an error string — enough to send someone
+    debugging a render that had already been fixed."""
+    import asyncio
+    import pathlib
+    import tempfile
+    from pathlib import Path
+
+    src = (pathlib.Path(__file__).resolve().parents[1] / "src/monoline/pipeline/runner.py").read_text()
+    line = [ln for ln in src.splitlines() if 'status="succeeded"' in ln and "update_job" in ln]
+    assert len(line) == 1 and "error=None" in line[0], src
+
+    async def run():
+        from monoline.settings import Settings
+        from monoline.queue.manager import JobManager
+
+        s = Settings()
+        s.app_dir = Path(tempfile.mkdtemp(prefix="monoline-err-"))
+        s.ensure_dirs()
+        m = JobManager(s)
+        await m.repo.connect()
+        jid = await m.repo.create_job(script_text="x", config={}, canvas={}, title="t", slug="t")
+        await m.repo.update_job(jid, status="failed", error="render: disk capture shortfall")
+        await m.repo.update_job(jid, status="succeeded", error=None)
+        job = await m.repo.get_job(jid)
+        assert job["status"] == "succeeded" and job["error"] is None
+        await m.repo.close()
+
+    asyncio.run(run())
+
+
 def test_beat_rows_keep_their_height_v46():
     """A flex item with overflow:hidden gets min-height:0, so the default flex-shrink:1
     let every row in the .s3-beats scroll box collapse (19 rows measured 29px tall against

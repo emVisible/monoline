@@ -370,7 +370,9 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
     # resume, or reconcile of an already-finished job) short-circuits every stage incl.
     # deliver, so writing "succeeded" only from s_deliver left such jobs stuck "running"
     # forever — which then re-reconciled on every restart. This runs on any clean exit.
-    await repo.update_job(job_id, status="succeeded", finished_at=now_iso())
+    # error is cleared here too, or a re-run leaves the row reading status=succeeded with
+    # the previous failure text still attached.
+    await repo.update_job(job_id, status="succeeded", error=None, finished_at=now_iso())
 
 
 def _flat(d: dict) -> list:
