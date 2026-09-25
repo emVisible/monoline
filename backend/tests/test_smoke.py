@@ -1127,6 +1127,34 @@ def test_poster_kind_v43():
         "hl": ["因循怠惰"], "by": "某集团老板", "verbatim": True}}]))
     assert 'class="p-tab"' in html and "<mark>因循怠惰</mark>" in html
     assert 'class="p-by"' in html and ".k-poster .p-body mark" in html
+    # re-moding a beat to poster must never blank the slide: narration is the floor
+    bare = render_composition(tim, ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "poster", "slots": {}}]))
+    assert 'class="p-body">引语。<' in bare and 'class="p-tab"' not in bare
+
+
+def test_mode_library_catalog_is_the_single_source_v44():
+    """V44: the Modes page and the inspector picker both read web/src/modes.tsx, so a
+    kind that exists in sceneplan.KINDS but has no card becomes silently unpickable.
+    One registry, one assertion — plus proof the bare <select> is actually gone."""
+    import pathlib
+    import re
+    from monoline.ir.sceneplan import KINDS
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    src = (root / "web" / "src" / "modes.tsx").read_text()
+    cards = re.findall(r'\{ kind: "([a-z]+)", zh: "([^"]+)", desc: "([^"]+)", glyph:', src)
+    ids = [k for k, _, _ in cards]
+    assert len(ids) == len(set(ids)), f"duplicate mode cards: {sorted(ids)}"
+    assert set(ids) == set(KINDS), (
+        f"catalog/KINDS drift: no card for {sorted(set(KINDS) - set(ids))}, "
+        f"unknown card {sorted(set(ids) - set(KINDS))}")
+    assert all(zh.strip() and desc.strip() for _, zh, desc in cards)
+
+    studio = (root / "web" / "src" / "Studio.tsx").read_text()
+    assert "<ModePicker value={d.kind} used={kindUsed}" in studio
+    assert '<select className="fld" value={d.kind}' not in studio
+    app = (root / "web" / "src" / "App.tsx").read_text()
+    assert "h === \"modes\"" in app and "<ModesView />" in app
 
 
 def test_composed_css_stays_balanced():

@@ -201,10 +201,13 @@
         font-size: 21px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase;
         color: var(--accent-ink); background: var(--accent); border-radius: 3px; }
       .k-poster .p-body { font-size: 58px; line-height: 1.6; font-weight: 700; color: var(--ink);
-        text-wrap: balance; }
-      .k-poster .p-body mark { color: inherit; padding: 0 6px;
-        background: linear-gradient(transparent 56%,
-          color-mix(in oklab, var(--accent) 42%, transparent) 56%); }
+        text-align: left; text-wrap: balance; }
+      /* Marker, not censor bar: a light wash through the glyphs plus a denser band
+         along the bottom edge. A flat 42% ink box reads as redaction on paper themes. */
+      .k-poster .p-body mark { color: inherit; padding: 0 8px; border-radius: 2px;
+        background: linear-gradient(to top,
+          color-mix(in oklab, var(--accent) 34%, transparent) 0 16%,
+          color-mix(in oklab, var(--accent) 13%, transparent) 16% 100%); }
       .k-poster .p-by { display: flex; align-items: center; gap: 18px; margin-top: 40px;
         font-size: 27px; color: var(--ink-muted); }
       .k-poster .p-dash { width: 58px; height: 2px; flex: none; background: var(--ink-faint); }

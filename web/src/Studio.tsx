@@ -1,5 +1,6 @@
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { groupVoices, useAudition, useVoices } from "./voices";
+import { MODE_COUNT, ModePicker } from "./modes";
 
 type Scene = { i: number; kind: string; slots: Record<string, any>; source?: string };
 type Seg = { i: number; start: number; end: number; norm_duration: number; text: string };
@@ -8,7 +9,6 @@ type Artifact = { kind: string; size_bytes: number; state: string };
 type Job = { id: string; slug: string; title: string; status: string; total_duration: number | null; config_json?: string | null; canvas_json?: string | null; error: string | null };
 type Hydration = { job: Job; stages: Stage[]; segments: Seg[]; artifacts: Artifact[]; plan: { scenes: Scene[] } | null; events: any[] };
 
-const KINDS = ["title", "statement", "section", "definition", "stat", "table", "cards", "compare", "quote", "list", "note", "summary", "image", "flow", "radial", "steps", "arch", "cycle", "funnel", "bars", "kpi", "timeline", "share", "trend", "matrix", "poster"];
 const STAGE_ORDER = ["script", "tts", "assemble", "plan", "fonts", "compose", "gate", "render", "deliver"];
 const STAGE_LABEL: Record<string, string> = {
   script: "切分", tts: "语音合成", assemble: "拼接旁白", plan: "分镜规划", fonts: "字体子集",
@@ -129,6 +129,11 @@ function Player({ src, w, h, registerRef }: { src: string; w: number; h: number;
 export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBack: () => void; onRun: () => void; refresh?: () => void }) {
   const { job, segments, plan, stages, artifacts, events } = data;
   const scenes = plan?.scenes ?? [];
+  const kindUsed = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const s of scenes) m[s.kind] = (m[s.kind] ?? 0) + 1;
+    return m;
+  }, [plan]);
   const [sel, setSel] = useState(0);
   const [version, setVersion] = useState(1);
   const [draft, setDraft] = useState<Scene | null>(null);
@@ -289,6 +294,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
     if (kind === "trend" && !Array.isArray(slots.series)) slots.series = ["", "", ""];
     if (kind === "matrix" && !Array.isArray(slots.cells)) slots.cells = ["", "", "", ""];
     if (kind === "list" && !Array.isArray(slots.items)) slots.items = ["", "", ""];
+    if (kind === "poster" && !Array.isArray(slots.hl)) slots.hl = ["", ""];
     if ((kind === "flow" || kind === "radial") && !Array.isArray(slots.nodes)) slots.nodes = ["", "", ""];
     if (kind === "steps" && !Array.isArray(slots.steps)) slots.steps = ["", "", ""];
     if (kind === "arch" && !Array.isArray(slots.layers)) slots.layers = ["", "", ""];
@@ -537,10 +543,11 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                   defaultValue={segments[sel]?.text ?? ""}
                   onChange={(e) => saveNarration(sel, e.target.value)} />
               </div>
-              <label className="fld-lbl">类型</label>
-              <select className="fld" value={d.kind} onChange={(e) => changeKind(e.target.value)}>
-                {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-              </select>
+              <div className="fld-lbl-row">
+                <label className="fld-lbl">呈现模式</label>
+                <a className="mode-lib-link" href="#/modes">全部 {MODE_COUNT} 种</a>
+              </div>
+              <ModePicker value={d.kind} used={kindUsed} onChange={changeKind} />
               <p className="src-badge">{scenes[sel]?.source || "manual"}</p>
               <label className="fld-lbl">图标</label>
               <IconPicker icons={icons} value={d.slots.icon ?? ""} onChange={(v) => setSlot("icon", v)} />

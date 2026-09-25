@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Studio } from "./Studio";
+import { ModesView } from "./modes";
 import { Logo } from "./Logo";
 import { groupVoices, useAudition, useVoices } from "./voices";
 
@@ -471,12 +472,13 @@ function SetupView() {
   );
 }
 
-type Route = { view: "new" | "history" | "setup" | "job"; jobId?: string };
+type Route = { view: "new" | "history" | "setup" | "modes" | "job"; jobId?: string };
 function parseHash(): Route {
   const h = window.location.hash.replace(/^#\/?/, "");
   if (h.startsWith("job/")) return { view: "job", jobId: h.slice(4) };
   if (h === "history") return { view: "history" };
   if (h === "setup") return { view: "setup" };
+  if (h === "modes") return { view: "modes" };
   return { view: "new" };
 }
 
@@ -490,7 +492,7 @@ export function App() {
   const go = (to: string) => { window.location.hash = to; };
   const jobId = route.view === "job" ? route.jobId ?? null : null;
   return (
-    <div className={jobId ? "app-root wide" : "shell"}>
+    <div className={jobId ? "app-root wide" : route.view === "modes" ? "shell wide-page" : "shell"}>
       <header className="head">
         <div className="wm" onClick={() => go("")} role="button"><Logo size={20} /><span className="wm-txt">monoline<span className="dot">.</span></span></div>
         <div className="tag">paste a script. get a film.</div>
@@ -499,12 +501,14 @@ export function App() {
           <nav className="nav">
             <button className={route.view === "new" ? "on" : ""} onClick={() => go("")}>New</button>
             <button className={route.view === "history" ? "on" : ""} onClick={() => go("history")}>History</button>
+            <button className={route.view === "modes" ? "on" : ""} onClick={() => go("modes")}>Modes</button>
             <button className={route.view === "setup" ? "on" : ""} onClick={() => go("setup")}>Setup</button>
           </nav>
         )}
       </header>
       {jobId ? <JobShell id={jobId} onBack={() => go("history")} />
         : route.view === "history" ? <HistoryView onOpen={(id) => go(`job/${id}`)} onNew={() => go("")} />
+        : route.view === "modes" ? <ModesView />
         : route.view === "setup" ? <SetupView />
         : <NewView onCreate={(id) => go(`job/${id}`)} />}
     </div>
