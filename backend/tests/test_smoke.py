@@ -1923,3 +1923,29 @@ def test_brand_api_round_trip_including_logo_delete():
     assert gone.status_code == 200 and gone.json()["logo"] == ""
     assert c.delete("/api/brand/logo").status_code == 200      # idempotent
     c.patch("/api/brand", json={"label": "Monoline", "accent": ""})
+
+
+def test_document_metadata_v53():
+    """V53: the shell carries real metadata, and the CLI it advertises exists.
+
+    The noscript block is the one place the SPA states a command out loud, so it has to
+    name a command that is actually registered — an invented one reads as documentation
+    and fails as instructions.
+    """
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    html = (root / "web" / "index.html").read_text()
+    for tag in ('name="description"', 'name="application-name"', 'property="og:title"',
+                'property="og:description"', 'property="og:site_name"', 'name="robots"',
+                'name="theme-color"', 'rel="icon"'):
+        assert tag in html, f"shell is missing {tag}"
+    # the default must agree with the app's default language; i18n rewrites it at runtime
+    assert '<html lang="zh-CN"' in html
+    assert len(re.search(r'name="description" content="([^"]+)"', html).group(1)) > 40
+
+    cli = (root / "backend" / "src" / "monoline" / "cli.py").read_text()
+    registered = set(re.findall(r'@app\.command\("([a-z-]+)"\)', cli)) | \
+        set(re.findall(r'@app\.command\(\)\ndef (\w+)', cli))
+    for cmd in re.findall(r"<code>monoline ([a-z-]+)", html):
+        assert cmd in registered, f"noscript advertises `monoline {cmd}`, not registered in {sorted(registered)}"

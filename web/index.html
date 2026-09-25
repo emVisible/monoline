@@ -1,5 +1,7 @@
 <!doctype html>
-<html lang="en" data-theme="mono-ink">
+<!-- lang is the app's default (Chinese); i18n.tsx rewrites it at runtime when the
+     preference is English, so the document never disagrees with what is on screen. -->
+<html lang="zh-CN" data-theme="mono-ink">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,10 +9,33 @@
     <link rel="alternate icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
     <meta name="theme-color" content="#0b0b0c" />
-    <title>Monoline</title>
+
+    <title>Monoline · 贴一段文字，出一条片子</title>
+    <meta name="application-name" content="Monoline" />
+    <meta name="author" content="Monoline" />
+    <meta name="description" content="Monoline 把一段文字切成节拍，逐拍配音，再按内容自动分镜，导出一条单色极简的说明视频。本地运行，无需账号。" />
+    <meta name="keywords" content="monoline, 文字转视频, 分镜, 旁白, hyperframes, text to video, storyboard, narration" />
+
+    <!-- The app binds to localhost and its pages contain unpublished drafts, so the
+         default is to stay out of indexes. Flip to index,follow only if it is ever
+         deployed somewhere public on purpose. -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Monoline" />
+    <meta property="og:title" content="Monoline · 贴一段文字，出一条片子" />
+    <meta property="og:description" content="一句话一拍：自动分镜、逐拍配音、单色极简画面，本地跑完直接出 MP4。" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Monoline" />
+    <meta name="twitter:description" content="Paste a script, get a film — one sentence per beat, auto storyboard, local render." />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      Monoline 的界面需要 JavaScript。也可以在终端里直接用命令行出片：
+      <code>monoline run-script &lt;script.txt&gt;</code>。
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
