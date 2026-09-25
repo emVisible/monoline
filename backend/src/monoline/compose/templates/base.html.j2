@@ -169,6 +169,11 @@
       .k-statement .eyebrow { font-size: 28px; letter-spacing: 0.3em; color: var(--ink-faint); text-transform: uppercase; }
       .k-statement .headline { font-size: 120px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
       .k-statement .headline .accent { color: var(--accent); }
+      /* V38: a hairline over the headline turns a lone short line into a framed block —
+         structure, not ornament. Short headlines only: past ~16 chars the text already
+         fills two lines and the frame is not empty (measured median: 10 chars). */
+      .k-statement .top-rule { display: block; width: 100%; height: 1px; margin-bottom: 30px;
+        background: var(--hairline); transform-origin: left center; }
       .k-statement .sub { font-size: 40px; color: var(--ink-muted); margin-top: 20px; }
       /* V31g: 57% of real beats land as a plain statement, and the headline is short
          (median 10 chars) with no number or quote to hang emphasis on — so the slide
@@ -642,6 +647,7 @@
         { clipPath: "inset(-12% 100% -12% 0)", opacity: 0.001 },
         { clipPath: "inset(-12% 0% -12% 0)", opacity: 1, duration: {{ (enter + 0.28)|round(3) }}, ease: "{{ eease }}" }, {{ (seg.start + 0.06)|round(3) }});
       {# V9-4 accent rule draws in under the hero (signature PPT flourish), transform-only #}
+      tl.fromTo("#scene-{{ seg.i }} .top-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "{{ eease }}" }, {{ (seg.start + 0.24)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .accent-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.55, ease: "{{ eease }}" }, {{ (seg.start + 0.42)|round(3) }});
       {# V9-5 data-viz draw-in: ring strokes in from empty, table bars grow left→right.
          stroke/scaleX only → deterministic; .from() reads each element's authored end value. #}

@@ -52,6 +52,9 @@ class ScenePlanner(Protocol):
 
 
 _TRAIL = re.compile(r"[。！？!?…；;\.]+$")
+# A clause can open with ellipsis or dashes after a split ("……魅力得自己去挣"); on a
+# 120px display line that leading punctuation reads as a rendering glitch.
+_LEAD_PUNCT = re.compile(r"^[\s。.…、，,;；:：·—–~～]+")
 
 # Leading discourse markers that make poor on-slide keywords — distill skips them.
 _LEAD_CONNECT = {
@@ -83,8 +86,8 @@ def distill_keyword(text: str, *, max_len: int = 12) -> tuple[str, bool]:
     and the full sentence becomes the caption. When no clean keyword exists, returns
     (full_sentence, False) → slide shows the sentence, no caption (no duplication).
     """
-    s = _TRAIL.sub("", text.strip())
-    parts = [p.strip() for p in re.split(r"[，、：；,;]", s) if p.strip()]
+    s = _LEAD_PUNCT.sub("", _TRAIL.sub("", text.strip()))
+    parts = [_LEAD_PUNCT.sub("", p).strip() for p in re.split(r"[，、：；,;]", s) if p.strip()]
     # prefer the first clause that isn't a bare connective or short setup ("总之" / "相比旧版")
     first = next((p for p in parts if not _is_lead_clause(p)), parts[0] if parts else s)
     if 2 <= len(first) <= max_len and len(first) < len(s):

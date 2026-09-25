@@ -1018,6 +1018,31 @@ def test_magnitude_parsing_v37():
     assert argmax(["12万", "9800", "2100"]) == 0
 
 
+def test_statement_frame_and_clean_headlines_v38():
+    """V38: a hairline over the headline frames a lone line into a block. Measured on 119
+    real statement headlines (median 10 chars) — the first cut gated it to <=16 chars
+    assuming long ones wrap, but a shrunk 24-char line still sits on one line and looked
+    worse without the frame, so the gate is gone."""
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+    from monoline.pipeline.planner import distill_keyword
+
+    assert distill_keyword("……魅力得自己去挣。")[0] == "魅力得自己去挣"
+    assert distill_keyword("——说到底，还是要回到取舍。")[0] == "说到底"
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["短。", "长。"], [4.0, 4.0])
+    scenes = [{"i": 0, "kind": "statement", "slots": {"headline": "分镜不是配图"}},
+              {"i": 1, "kind": "statement", "slots": {"headline": "Monoline 做的就是这件事：文本进，分镜出"}}]
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=scenes))
+    assert html.count('class="top-rule"') == 2
+    assert "#scene-0 .top-rule" in html and "#scene-1 .top-rule" in html
+    assert ".k-statement .top-rule" in html.split("<script>")[0]
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`
