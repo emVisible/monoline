@@ -1358,6 +1358,50 @@ def test_long_script_segments_and_llm_batches_v47():
     asyncio.run(run())
 
 
+def test_display_text_contract_v48():
+    """V48: one owner for the on-slide punctuation rule (GB/T 15834 B.4 — a display line
+    carries no terminal mark except ？ ！ …). The corpus measured 43 strings (13.8%) ending
+    in punctuation, 17 (5.5%) ending mid-clause on 「，、：」, and 4 orphan quote marks left
+    by segmentation; the rules were duplicated across 11 Python sites and none of them."""
+    from monoline.pipeline.display_text import tidy, tidy_slots
+    from monoline.pipeline.planner import RulePlanner
+
+    assert tidy("中美双方同意将原定于11月10日到期的“贸易休战”协议延长两个月，") == \
+        "中美双方同意将原定于11月10日到期的“贸易休战”协议延长两个月"
+    assert tidy("探寻在经济领域可以取得哪些成果”") == "探寻在经济领域可以取得哪些成果"
+    assert tidy("我们还是支持他们。”") == "我们还是支持他们"
+    assert tidy("延长“贸易休战”协议两个月，将让双方“有更多时间,") == \
+        "延长“贸易休战”协议两个月，将让双方“有更多时间"
+    assert tidy("……魅力得自己去挣") == "魅力得自己去挣"
+    assert tidy("成本，，很高。。") == "成本，很高"
+    # what must survive: meaning, numbers, and machine values
+    assert tidy("这到底是为什么？") == "这到底是为什么？"
+    assert tidy("版本 v1.2") == "版本 v1.2"
+    assert tidy("增长 3.5%") == "增长 3.5%"
+    assert tidy("") == "" and tidy(None) == ""
+
+    s = tidy_slots("statement", {"headline": "收尾。", "verbatim": False, "icon": "sparkle",
+                                 "image": "assets/a.png", "image_tone": "mono"})
+    assert s["headline"] == "收尾" and s["verbatim"] is False
+    assert s["icon"] == "sparkle" and s["image"] == "assets/a.png" and s["image_tone"] == "mono"
+    s2 = tidy_slots("list", {"title": "要点：", "items": ["快速启动。", "稳定支撑，"]})
+    assert s2["title"] == "要点" and s2["items"] == ["快速启动", "稳定支撑"]
+
+    scenes = RulePlanner().plan([
+        "中美双方同意将原定于11月10日到期的“贸易休战”协议延长两个月，",
+        "探寻在经济领域可以取得哪些成果”",
+        "这到底是为什么？",
+        "效率高达 68.8%，成本下降三成。",
+    ])
+    for sc in scenes:
+        for k in ("headline", "title", "q", "body", "term", "gloss", "label", "hub"):
+            v = sc["slots"].get(k)
+            if isinstance(v, str) and v:
+                assert not v.endswith(("。", "，", "、", "：", "；", ",")), (sc["kind"], k, v)
+    assert any(sc["slots"].get("headline", "").endswith("？") for sc in scenes), \
+        "a question headline keeps its ？"
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`

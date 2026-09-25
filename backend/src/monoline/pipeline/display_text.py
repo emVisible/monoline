@@ -1,0 +1,109 @@
+"""V48: the single contract for text that gets DISPLAYED on a slide.
+
+Before this, punctuation rules lived in 11 separate regexes/`strip` calls inside
+`pipeline/planner.py` (+ `segment.py`, + two audio-only dedupe rules in `narration.py`
+that no display path ever imported), and templates/CSS had none. Measured on the real
+corpus (43 jobs / 311 beats): 43 display strings (13.8%) ended in punctuation, 17 (5.5%)
+ended mid-clause on 「，、：」, and 4 had a quote mark with no partner because the pair
+was split across two beats.
+
+The rule we implement is GB/T 15834-2011 附录 B.4: a title/heading carries no terminal
+punctuation — except ？, ！ and …, which are part of the wording, not a sentence marker.
+W3C clreq adds that a display line must not open with punctuation either. Everything here
+is that narrow: we never rewrite wording, we only drop marks that carry no meaning at the
+end of a display line, and we drop quote marks that were orphaned by segmentation.
+
+Applied at the two places that GENERATE text (RulePlanner.plan, llm.planner.merge). Not on
+the manual PATCH path: a slot the user typed by hand is what they asked for, and silently
+eating a character they typed is a worse surprise than the mark itself.
+"""
+from __future__ import annotations
+
+import re
+
+# marks that may never END a display line. ASCII '.' is deliberately absent so "v1.2" and
+# "3.5" survive, and ？ ！ … are absent because they carry the line's meaning (GB/T B.4);
+# a trailing '-' is a split artefact, so it goes.
+_STRIP_END = "。，,、：:；;·—–-"
+
+_DUP = ((re.compile(r"[，,]{2,}"), "，"), (re.compile(r"。{2,}"), "。"),
+        (re.compile(r"[，,]。"), "。"), (re.compile(r"。[，,]"), "。"),
+        (re.compile(r"、{2,}"), "、"), (re.compile(r"[：:]{2,}"), "："),
+        (re.compile(r"[？?]{2,}"), "？"), (re.compile(r"[！!]{2,}"), "！"))
+_LEAD = re.compile(r"^[\s。，、：:；;·…—–~～”」』)）]+")
+
+_CLOSERS = "”」』）)"
+_OPENERS = "“「『（("
+
+# slots that are display text at all. Everything else in a scene's slots is a machine
+# value (icon name, asset path, verbatim flag) and must not be touched.
+DISPLAY_KEYS = ("headline", "sub", "title", "term", "gloss", "label", "value", "unit",
+                "q", "attr", "body", "hub", "tab", "by", "tagline", "x_axis", "y_axis",
+                "eyebrow", "image_caption")
+LIST_KEYS = ("items", "nodes", "steps", "layers", "cells", "series")
+
+
+def balance_quotes(t: str) -> str:
+    """Drop a quote mark whose partner never arrived — the pair was cut apart by the
+    segmenter, so on screen it reads as a typo, not as an open quotation."""
+    while t and t[-1] in _CLOSERS and t.count("“") < t.count("”"):
+        t = t[:-1].rstrip()
+    while t and t[-1] in _OPENERS and t.count("“") > t.count("”"):
+        t = t[:-1].rstrip()
+    while t and t[0] in _OPENERS and t.count("“") > t.count("”"):
+        t = t[1:].lstrip()
+    return t
+
+
+def tidy(text: object, *, hero: bool = True) -> str:
+    """One display string → what may be painted. Never rewrites wording."""
+    t = str(text or "").strip()
+    if not t:
+        return ""
+    for pat, rep in _DUP:
+        t = pat.sub(rep, t)
+    t = _LEAD.sub("", t)
+    # balance first: "他们。”" only exposes its terminal mark once the orphan quote is gone
+    t = balance_quotes(t)
+    if hero:
+        t = t.rstrip(_STRIP_END)
+    return t.strip()
+
+
+def tidy_slots(kind: str, slots: dict) -> dict:
+    """Apply the contract to one scene in place of the 11 scattered strips.
+    Returns the dict (mutated copy) so callers can pipe it straight through."""
+    if not isinstance(slots, dict):
+        return slots
+    out = dict(slots)
+    for key in DISPLAY_KEYS:
+        v = out.get(key)
+        if isinstance(v, str) and v:
+            out[key] = tidy(v)
+    for key in LIST_KEYS:
+        v = out.get(key)
+        if isinstance(v, list):
+            out[key] = [tidy(x) for x in v]
+    for key in ("rows", "stages"):
+        v = out.get(key)
+        if isinstance(v, list):
+            rows = []
+            for r in v:
+                if isinstance(r, dict):
+                    rr = dict(r)
+                    for rk in ("k", "v", "t"):
+                        if isinstance(rr.get(rk), str):
+                            rr[rk] = tidy(rr[rk])
+                    rows.append(rr)
+                else:
+                    rows.append(tidy(r))
+            out[key] = rows
+    for side in ("a", "b"):
+        v = out.get(side)
+        if isinstance(v, dict):
+            vv = dict(v)
+            for sk in ("h", "d"):
+                if isinstance(vv.get(sk), str):
+                    vv[sk] = tidy(vv[sk])
+            out[side] = vv
+    return out

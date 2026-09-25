@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 
 from .client import LLMError, Target, chat, detect, list_as, parse_json
+from ..pipeline.display_text import tidy_slots
 
 # What the model may promote a plain sentence INTO. Deliberately excludes title /
 # summary / section (positional), note (rules own caveats) and image (needs an upload).
@@ -143,7 +144,8 @@ def merge(beats: list[str], scenes: list[dict], payload: object) -> tuple[list[d
         if slots is None:
             stats["rejected"] += 1
             continue
-        out[i] = {"i": i, "kind": kind, "source": "llm:upgrade", "slots": slots}
+        out[i] = {"i": i, "kind": kind, "source": "llm:upgrade",
+                  "slots": tidy_slots(kind, slots)}
         stats["upgraded"] += 1
     return out, stats
 

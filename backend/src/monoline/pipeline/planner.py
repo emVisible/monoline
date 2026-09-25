@@ -14,6 +14,7 @@ import re
 from typing import Protocol
 
 from ..ir.sceneplan import DIAGRAM_KINDS, KINDS
+from .display_text import tidy_slots
 from .segment import SentenceSegmenter  # noqa: F401  (re-export for callers)
 
 # Number + unit / arrow tokens that deserve a `stat` treatment.
@@ -51,7 +52,10 @@ class ScenePlanner(Protocol):
     def plan(self, beats: list[str], *, brand: str = "Monoline", date_eyebrow: str = "") -> list[dict]: ...
 
 
-_TRAIL = re.compile(r"[。！？!?…；;\.]+$")
+# V48: only the marks that GB/T forbids on a display line. ？ ！ … used to be stripped
+# here too, which deleted the whole point of a question headline — display_text.tidy() is
+# now the single owner of the end-of-line rule.
+_TRAIL = re.compile(r"[。．.；;]+$")
 # A clause can open with ellipsis or dashes after a split ("……魅力得自己去挣"); on a
 # 120px display line that leading punctuation reads as a rendering glitch.
 _LEAD_PUNCT = re.compile(r"^[\s。.…、，,;；:：·—–~～]+")
@@ -418,6 +422,8 @@ class RulePlanner:
                                    "slots": {"eyebrow": "In short", "headline": ts["headline"], "verbatim": ts["verbatim"]}})
             else:
                 scenes.append(self._classify(i, b))
+        for s in scenes:
+            s["slots"] = tidy_slots(s["kind"], s["slots"])
         apply_icons(scenes, beats)
         number_sections(scenes)
         return scenes
