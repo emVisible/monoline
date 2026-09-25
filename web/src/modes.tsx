@@ -26,6 +26,8 @@ export const MODE_GROUPS: ModeGroup[] = [
         '<rect x="9" y="9" width="30" height="16" rx="2"/><rect x="13" y="5" width="11" height="4" rx="1" class="mg-a"/><line x1="13" y1="15" x2="28" y2="15" stroke-width="2.4"/><line x1="13" y1="20.5" x2="22" y2="20.5" stroke-width="1.4"/>' },
       { kind: "note", zh: "旁注", desc: "标记符 + 一句补充说明", glyph:
         '<circle cx="10" cy="11" r="3.4" class="mg-a"/><line x1="17" y1="10" x2="40" y2="10" stroke-width="1.6"/><line x1="17" y1="18" x2="31" y2="18" stroke-width="1.6"/><line x1="17" y1="24" x2="26" y2="24" stroke-width="1.6"/>' },
+      { kind: "split", zh: "双栏", desc: "左侧提要撑住，右侧正文解释", glyph:
+        '<rect x="5" y="9" width="17" height="13" rx="2" class="mg-a"/><line x1="27" y1="9" x2="43" y2="9" stroke-width="1.6"/><line x1="27" y1="15" x2="41" y2="15" stroke-width="1.6"/><line x1="27" y1="21" x2="37" y2="21" stroke-width="1.6"/><line x1="24" y1="6" x2="24" y2="25" stroke-width="1.2"/>' },
     ],
   },
   {

@@ -20,7 +20,7 @@ const SCALAR_SLOTS: Record<string, string[]> = {
   section: ["index", "title"], definition: ["term", "gloss"], stat: ["value", "unit", "label", "delta", "trend"],
   table: ["title"], cards: ["title", "tagline"], quote: ["q", "attr"], list: ["title"], note: ["marker", "body"],
   compare: ["pivot"], image: ["headline"], flow: ["title"], steps: ["title"], radial: ["hub"], arch: ["title"], cycle: ["title"], funnel: ["title"],
-  poster: ["tab", "body", "by"], showcase: ["title"],
+  poster: ["tab", "body", "by"], showcase: ["title"], split: ["lead", "body"],
   bars: ["title"], kpi: ["title"], timeline: ["title"], share: ["title"], trend: ["title"], matrix: ["title", "x_axis", "y_axis"],
 };
 // kind → the string-array slot its editor exposes (list items / diagram nodes / timeline steps)

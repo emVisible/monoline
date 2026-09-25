@@ -1402,6 +1402,54 @@ def test_display_text_contract_v48():
         "a question headline keeps its ？"
 
 
+def test_rotation_breaks_long_text_runs_v49():
+    """V49: the corpus measured 96 beats (30.9%) inside a same-kind run longer than two,
+    the longest run being 12 consecutive statements. Per-beat classification cannot see
+    that, so a whole-piece pass converts the surplus beat into the most specific shape its
+    own words support — and never invents copy."""
+    import json
+    from pathlib import Path
+    from monoline.ir.sceneplan import ScenePlan, Theme, KINDS
+    from monoline.ir.timings import Timings
+    from monoline.compose.engine import render_composition
+    from monoline.pipeline.planner import RulePlanner
+    from monoline.pipeline.rotation import rebalance
+
+    assert "split" in KINDS
+    beat = "这是第一个论点的说明，后面还跟着足够长的解释内容与依据。"
+    out = rebalance([{"i": i, "kind": "statement", "slots": {}, "source": "rules:default"}
+                     for i in range(5)], [beat] * 5)
+    assert [s["kind"] for s in out] == ["statement", "statement", "split", "statement", "statement"]
+    assert out[2]["source"] == "rules:rotation"
+    assert out[2]["slots"]["lead"] in beat and out[2]["slots"]["verbatim"] is True
+
+    # a beat the segmenter cut mid-quotation stays a statement: splitting it again would
+    # paint an orphan “ (real case from job 001a0d3b0c9c, beat 5)
+    cut = "针对市场上流传的诸多说法，余承东在合肥门店现场表示：“经过这几年的合作发展，"
+    three = [{"i": i, "kind": "statement", "slots": {}, "source": "rules:default"} for i in range(3)]
+    kept = rebalance(three, ["第一句说明情况，后面还有足够的解释内容。",
+                             "第二句说明情况，后面还有足够的解释内容。", cut])
+    assert kept[2]["kind"] == "statement" and "“" not in (kept[2]["slots"].get("lead") or "")
+
+    scenes = RulePlanner().plan(["开场白在这里。"] + [f"第{i}个观点说明现状，同时给出可执行的路径与依据。"
+                                                    for i in range(8)])
+    kinds = [s["kind"] for s in scenes]
+    run = longest = 1
+    for a, b in zip(kinds, kinds[1:]):
+        run = run + 1 if a == b else 1
+        longest = max(longest, run)
+    assert longest <= 3, f"longest same-kind run {longest}: {kinds}"
+    assert len({k for k in kinds if k != "statement"}) >= 2, kinds
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations([beat], [5.0])
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=[
+        {"i": 0, "kind": "split", "slots": {"lead": "第一个论点", "body": "后面还跟着足够长的解释内容",
+                                            "verbatim": True}}]))
+    assert 'class="inner k-split"' in html and 'class="sp-lead"' in html and "第一个论点" in html
+    assert ".k-split .sp-body" in html and "grid-template-columns" in html
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`

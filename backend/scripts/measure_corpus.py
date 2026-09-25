@@ -30,8 +30,16 @@ def get(path: str) -> dict:
         return json.loads(f.read())
 
 
-def count(scenes: list[dict]) -> tuple[int, int, int]:
-    """(ends-in-punctuation, ends-mid-clause, unbalanced-quote) over every display slot."""
+def longest_run(kinds: list[str]) -> int:
+    run = best = 1 if kinds else 0
+    for a, b in zip(kinds, kinds[1:]):
+        run = run + 1 if a == b else 1
+        best = max(best, run)
+    return best
+
+
+def count(scenes: list[dict]) -> tuple[int, int, int, int]:
+    """(forbidden trailing punct, mid-clause ending, unbalanced quote, kept ？！…)"""
     trail = mid = unbal = kept = 0
     for s in scenes:
         for f in FIELDS:
@@ -60,9 +68,15 @@ def main() -> None:
     stored = [0, 0, 0]
     regen = [0, 0, 0]
     do_regen = "--regen" in sys.argv
-    if do_regen:
-        from monoline.pipeline.planner import RulePlanner
+    from monoline.pipeline import planner as planner_mod
+    RulePlanner = planner_mod.RulePlanner
     unbalanced: list[tuple[str, str]] = []
+    punct = {"base": 0, "rot": 0}
+    mid = {"base": 0, "rot": 0}
+    unb = {"base": 0, "rot": 0}
+    runs = {"base": 0, "rot": 0}
+    runs_stored = 0
+    kinds_by: dict[str, dict[str, int]] = {"base": {}, "rot": {}}
     for j in jobs:
         d = get("/api/jobs/" + j["id"])
         segs = d.get("segments") or []
@@ -78,11 +92,24 @@ def main() -> None:
         stored[0] += a
         stored[1] += b
         stored[2] += c
+        runs_stored = max(runs_stored, longest_run([x["kind"] for x in plan["scenes"]]))
         if do_regen:
-            r, m, u, _ = count(RulePlanner().plan([s["text"] for s in segs]))
-            regen[0] += r
-            regen[1] += m
-            regen[2] += u
+            # A/B on one variable: same beats, same rules, rotation pass off then on
+            texts = [s["text"] for s in segs]
+            real = planner_mod.rebalance
+            planner_mod.rebalance = lambda sc, b: sc
+            base = RulePlanner().plan(texts)
+            planner_mod.rebalance = real
+            planned = RulePlanner().plan(texts)
+            for tag, scenes in (("base", base), ("rot", planned)):
+                r, m, u, _ = count(scenes)
+                punct[tag] = punct[tag] + r
+                mid[tag] = mid[tag] + m
+                unb[tag] = unb[tag] + u
+                ks = [x["kind"] for x in scenes]
+                runs[tag] = max(runs[tag], longest_run(ks))
+                for x in scenes:
+                    kinds_by[tag][x["kind"]] = kinds_by[tag].get(x["kind"], 0) + 1
         for s in plan["scenes"]:
             kinds[s["kind"]] = kinds.get(s["kind"], 0) + 1
             used.add(s["kind"])
@@ -97,10 +124,18 @@ def main() -> None:
     print("distribution: " + ", ".join(f"{k} {v} ({v / n_beats:.1%})" for k, v in top))
     print(f"top-5 share {sum(v for _, v in top[:5]) / n_beats:.1%}")
     print(f"STORED plan  — forbidden trailing punct {stored[0]} ({stored[0] / n_beats:.1%}), "
-          f"mid-clause {stored[1]} ({stored[1] / n_beats:.1%}), unbalanced quotes {stored[2]}")
+          f"mid-clause {stored[1]} ({stored[1] / n_beats:.1%}), unbalanced quotes {stored[2]}, "
+          f"longest same-kind run {runs_stored}")
     if do_regen:
-        print(f"RE-PLANNED   — forbidden trailing punct {regen[0]}, mid-clause {regen[1]}, "
-              f"unbalanced quotes {regen[2]}")
+        for tag, label in (("base", "rules only  "), ("rot", "+ rotation  ")):
+            kb = kinds_by[tag]
+            tot = sum(kb.values()) or 1
+            st = kb.get("statement", 0)
+            top5 = sorted(kb.values(), reverse=True)[:5]
+            print(f"{label}— statement {st} ({st / tot:.1%}), "
+                  f"top-5 share {sum(top5) / tot:.1%}, kinds {len(kb)}/{len(REGISTRY)}, "
+                  f"longest same-kind run {runs[tag]}, forbidden punct {punct[tag]}, "
+                  f"mid-clause {mid[tag]}, unbalanced quotes {unb[tag]}")
     for k, t in unbalanced[:4]:
         print(f"  {k}: …{t}")
 

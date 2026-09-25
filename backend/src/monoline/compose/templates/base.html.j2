@@ -230,6 +230,18 @@
       .k-showcase .sc-note { display: block; margin-top: 4px; font-size: 22px; line-height: 1.45;
         color: var(--ink-muted); }
 
+      /* kind: split — two-column text slide, the rotation fallback when a beat carries
+         neither a quotation nor key:value pairs. Left rail holds, right rail explains. */
+      .k-split { display: grid; grid-template-columns: 0.86fr 1.14fr; gap: 0 48px;
+        align-items: start; width: 1400px; max-width: 100%; text-align: left; }
+      .k-split .sp-lead { font-weight: 800; line-height: 1.18; letter-spacing: -0.01em;
+        color: var(--ink); text-wrap: balance; }
+      .k-split .sp-body { padding-left: 48px; border-left: 1px solid var(--hairline);
+        font-size: 40px; line-height: 1.62; color: var(--ink-muted); }
+      body[data-aspect="portrait"] .k-split { grid-template-columns: 1fr; gap: 28px; }
+      body[data-aspect="portrait"] .k-split .sp-body { padding-left: 0; padding-top: 28px;
+        border-left: 0; border-top: 1px solid var(--hairline); }
+
       /* kind: stat */
       .k-stat .value { font-size: 260px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--accent); }
       .k-stat .ring-wrap { position: relative; width: 400px; height: 400px; }

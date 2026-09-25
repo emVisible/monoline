@@ -15,6 +15,7 @@ from typing import Protocol
 
 from ..ir.sceneplan import DIAGRAM_KINDS, KINDS
 from .display_text import tidy_slots
+from .rotation import rebalance
 from .segment import SentenceSegmenter  # noqa: F401  (re-export for callers)
 
 # Number + unit / arrow tokens that deserve a `stat` treatment.
@@ -44,7 +45,7 @@ _LEAD_LABEL = re.compile(r"^([^，,。；;]{2,10}?)\s*[:：]\s*(.+)$")
 # Kinds that carry their own picture — they outrank the positional summary rule.
 # Derived from the registry, because a hand-maintained list goes stale: a timeline on
 # the last beat was being turned into a summary by exactly this omission.
-_TEXT_KINDS = {"title", "statement", "section", "definition", "quote", "note", "summary"}
+_TEXT_KINDS = {"title", "statement", "section", "definition", "quote", "note", "summary", "split"}
 _SHAPE_KINDS = {k for k in KINDS if k not in _TEXT_KINDS}
 
 
@@ -422,6 +423,7 @@ class RulePlanner:
                                    "slots": {"eyebrow": "In short", "headline": ts["headline"], "verbatim": ts["verbatim"]}})
             else:
                 scenes.append(self._classify(i, b))
+        scenes = rebalance(scenes, beats)      # whole-piece view: no 12-beat run of one layout
         for s in scenes:
             s["slots"] = tidy_slots(s["kind"], s["slots"])
         apply_icons(scenes, beats)
