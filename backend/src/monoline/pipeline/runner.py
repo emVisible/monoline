@@ -319,10 +319,13 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
     await stage("plan", 3, s_plan, ihash=_h(st, config.get("brand"), config.get("theme"), config.get("accent")), ready=lambda: bool(ws.ir.joinpath("scene_plan.json").exists()))
     pj = await _plan_json()
     await stage("fonts", 4, s_fonts, ihash=_h(pj), ready=lambda: ws.font_woff2.exists())
-    await stage("compose", 5, s_compose, ihash=_h(pj, st, bg), ready=lambda: ws.index_html.exists())
-    await stage("gate", 6, s_gate, ihash=_h(pj, bg), ready=lambda: (ws.gate / "lint.json").exists())
-    await stage("render", 7, s_render, ihash=_h(pj, st, bg, fmt), ready=_any_render)
-    await stage("deliver", 8, s_deliver, ihash=_h(pj, bg, fmt), ready=_any_render)
+    await stage("compose", 5, s_compose, ihash=_h(pj, av, bg), ready=lambda: ws.index_html.exists())
+    await stage("gate", 6, s_gate, ihash=_h(pj, av, bg), ready=lambda: (ws.gate / "lint.json").exists())
+    # `av` (script+voice+lang+speed), not `st` (script only): the narration track these
+    # stages bake in changes when the voice changes, so keying them on the text alone let a
+    # re-voiced job replay its old render — the new voice reached index.html but never the mp4.
+    await stage("render", 7, s_render, ihash=_h(pj, av, bg, fmt), ready=_any_render)
+    await stage("deliver", 8, s_deliver, ihash=_h(pj, av, bg, fmt), ready=_any_render)
 
     # Terminal status lives here, not inside a stage: a cached re-run (double enqueue,
     # resume, or reconcile of an already-finished job) short-circuits every stage incl.
