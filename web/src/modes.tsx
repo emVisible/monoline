@@ -87,6 +87,17 @@ export const MODE_GROUPS: ModeGroup[] = [
   },
 ];
 
+// The content-free treatment axis from rotation.py: same kind, different setting.
+// Kept here rather than imported from the API because the inspector needs it while the
+// user is choosing, and test_rotation_variants_match_the_frontend_registry proves the
+// two sides do not drift.
+export const VARIANTS: { id: string; zh: string }[] = [
+  { id: "hero", zh: "居中" },
+  { id: "flush", zh: "满栏" },
+  { id: "frame", zh: "卡框" },
+];
+export const VARIANT_KINDS = ["statement", "summary", "quote"];
+
 export const MODES: Record<string, Mode> = Object.fromEntries(
   MODE_GROUPS.flatMap((g) => g.modes).map((m) => [m.kind, m]));
 export const MODE_COUNT = Object.keys(MODES).length;
@@ -206,6 +217,17 @@ export function ModePicker({ value, used, onChange }: { value: string; used: Rec
           ))}
           {!groups.length && <p className="muted">{t("没有匹配的模式")}</p>}
         </div>, document.body)}
+    </div>
+  );
+}
+
+export function VariantPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="opt-group variant-pick" role="group" aria-label={t("版式处理")}>
+      {VARIANTS.map((v) => (
+        <button key={v.id} className={value === v.id ? "on" : ""} aria-pressed={value === v.id}
+          onClick={() => onChange(v.id)}>{t(v.zh)}</button>
+      ))}
     </div>
   );
 }

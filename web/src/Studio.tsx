@@ -1,7 +1,7 @@
 import { t } from "./i18n";
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { groupVoices, useAudition, useVoices } from "./voices";
-import { MODE_COUNT, ModePicker } from "./modes";
+import { MODE_COUNT, ModePicker, VariantPicker, VARIANT_KINDS } from "./modes";
 
 type Scene = { i: number; kind: string; slots: Record<string, any>; source?: string };
 type Seg = { i: number; start: number; end: number; norm_duration: number; text: string };
@@ -560,6 +560,9 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                 <a className="mode-lib-link" href="#/modes">{t("全部 ")}{MODE_COUNT}{t(" 种")}</a>
               </div>
               <ModePicker value={d.kind} used={kindUsed} onChange={changeKind} />
+              {VARIANT_KINDS.includes(d.kind) && (
+                <VariantPicker value={d.slots.variant ?? "hero"} onChange={(v) => setSlot("variant", v)} />
+              )}
               <p className="src-badge">{scenes[sel]?.source || "manual"}</p>
               <label className="fld-lbl">{t("图标")}</label>
               <IconPicker icons={icons} value={d.slots.icon ?? ""} onChange={(v) => setSlot("icon", v)} />

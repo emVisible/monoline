@@ -1949,3 +1949,28 @@ def test_document_metadata_v53():
         set(re.findall(r'@app\.command\(\)\ndef (\w+)', cli))
     for cmd in re.findall(r"<code>monoline ([a-z-]+)", html):
         assert cmd in registered, f"noscript advertises `monoline {cmd}`, not registered in {sorted(registered)}"
+
+
+def test_rotation_variants_match_the_frontend_registry_v49():
+    """Studio's treatment chips and rotation.py's assignment must be the same list.
+
+    The picker writes slots.variant, the template reads it, and rotation decides it
+    automatically — three places, one vocabulary. A rename on either side would silently
+    leave chips that render nothing.
+    """
+    import re
+    from pathlib import Path
+    from monoline.pipeline.rotation import VARIANTS, VARIANT_KINDS
+    src = (Path(__file__).resolve().parents[2] / "web" / "src" / "modes.tsx").read_text()
+    ids = re.findall(r'\{ id: "([a-z]+)", zh: "([^"]+)" \}', src)
+    assert [i for i, _ in ids] == list(VARIANTS), f"chips {[i for i, _ in ids]} != {VARIANTS}"
+    assert all(zh.strip() for _, zh in ids), "every treatment needs a Chinese label"
+    kinds = re.search(r"export const VARIANT_KINDS = \[([^\]]+)\]", src).group(1)
+    assert {k.strip().strip('"') for k in kinds.split(",")} == set(VARIANT_KINDS)
+    # and the CSS must carry a rule for every treatment beyond hero, or the chip is a no-op
+    css = (Path(__file__).resolve().parents[1] / "src" / "monoline" / "compose"
+           / "templates" / "base.html.j2").read_text()
+    for v in VARIANTS:
+        if v == "hero":
+            continue
+        assert f".k-statement.v-{v}" in css, f"treatment {v} has no statement rule"
