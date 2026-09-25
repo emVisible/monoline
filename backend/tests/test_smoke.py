@@ -246,6 +246,40 @@ def test_llm_not_configured_raises(monkeypatch):
     asyncio.run(run())
 
 
+def test_render_requests_the_streaming_path_v46():
+    """V46 root cause: we never set workers, so the producer picks auto (4 on a 10-core
+    Mac). Multi-worker capture on macOS is screenshot-based and CANNOT stream, so every
+    frame goes to disk — a 110s @ 60fps 1080p render asked for 6.9 GB of temp space and
+    died with rc=1 when the volume had 2.9 GB free. mp4/mov stream at one worker, so both
+    render paths must say so explicitly."""
+    from monoline.hf.cli import RENDER_WORKERS, _render_argv, _render_payload
+
+    assert RENDER_WORKERS == 1
+    argv = _render_argv("/proj", "/out.mp4", fps=60, quality="standard", fmt="mp4")
+    assert argv[0] == "render" and "--workers" in argv
+    assert argv[argv.index("--workers") + 1] == "1"
+    assert argv[argv.index("--fps") + 1] == "60"
+
+    payload = _render_payload("/proj", "/out.mp4", fps=60, quality="high", fmt="mp4")
+    assert payload["workers"] == 1
+    assert payload["fps"] == 60 and payload["format"] == "mp4"
+    assert payload["quality"] in ("standard", "high", "draft", "looks", "delivery")
+
+    # and when a render does fail, keep the sentence that says what to do
+    from monoline.hf.cli import _tail_error
+
+    stderr = ("[INFO] streaming-encode gate {\"reason\":\"multi_worker\"}\n"
+              "  25%  Failed: Disk capture may need ~6877.1 MB\n\n"
+              "✗  Render failed\n\n"
+              "   Disk capture may need ~6877.1 MB of temporary frame storage, "
+              "but only 2856.6 MB is free at /tmp/work-x. This render landed on disk because "
+              "it is multi-worker screenshot capture. Re-run with --workers 1, or free up disk space.\n"
+              "   Try --docker for containerized rendering\n")
+    msg = _tail_error(stderr)
+    assert msg.startswith("Disk capture may need") and "6877.1" in msg and "2856.6" in msg
+    assert msg.endswith("Try --docker for containerized rendering")
+
+
 def test_sidecar_render_signals_fallback_when_unreachable():
     import asyncio
     from monoline.settings import Settings

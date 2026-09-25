@@ -40,6 +40,33 @@ class SidecarUnavailableError(RuntimeError):
 _QUALITY_TO_SIDECAR = {"draft": "draft", "looks": "standard", "standard": "standard",
                        "delivery": "high", "high": "high"}
 
+# Multi-worker capture on macOS is screenshot-based and cannot stream, so the producer
+# writes EVERY frame to disk (~6.9 GB for a 110s @ 60fps 1080p render) and aborts when the
+# volume can't hold it. mp4/mov stream straight to the encoder at one worker.
+RENDER_WORKERS = 1
+
+
+def _render_argv(project_dir: str, out_path: str, *, fps: int, quality: str, fmt: str) -> list[str]:
+    return ["render", str(project_dir), "-o", str(out_path), "--fps", str(fps),
+            "--quality", quality, "--format", fmt, "--workers", str(RENDER_WORKERS)]
+
+
+def _render_payload(project_dir: str, out_path: str, *, fps: int, quality: str, fmt: str) -> dict:
+    return {"projectDir": str(project_dir), "output": str(out_path), "fps": fps,
+            "quality": _QUALITY_TO_SIDECAR.get(quality, "standard"), "format": fmt,
+            "workers": RENDER_WORKERS}
+
+
+def _tail_error(stderr: str, limit: int = 600) -> str:
+    """The actionable sentence sits right under '✗ Render failed' and is followed by a
+    long enumeration of possible causes — slicing the last N chars kept only that tail and
+    threw away the numbers (how much space was needed vs actually free)."""
+    marker = "Render failed"
+    i = stderr.rfind(marker)
+    body = stderr[i + len(marker):] if i > -1 else stderr
+    lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+    return " | ".join(lines)[:limit] if lines else stderr[-limit:]
+
 
 class HF:
     def __init__(self, settings: Settings) -> None:
@@ -137,12 +164,12 @@ class HF:
     async def render(self, project_dir: str, out_path: str, *, fps: int = 30, quality: str = "standard",
                      fmt: str = "mp4") -> ProcResult:
         r = await self.run(
-            ["render", project_dir, "-o", out_path, "--fps", str(fps), "--quality", quality, "--format", fmt],
+            _render_argv(project_dir, out_path, fps=fps, quality=quality, fmt=fmt),
             cwd=project_dir,
             timeout=1800,
         )
         if not r.ok:
-            raise HFError(f"render failed rc={r.returncode}: {r.stderr[-600:]}")
+            raise HFError(f"render failed rc={r.returncode}: {_tail_error(r.stderr)}")
         return r
 
     async def render_via_sidecar(self, project_dir: str, out_path: str, *, fps: int = 30,
@@ -152,9 +179,7 @@ class HF:
         real render failure (→ no fallback; the composition itself is broken)."""
         import httpx
 
-        q = _QUALITY_TO_SIDECAR.get(quality, "standard")
-        payload = {"projectDir": str(project_dir), "output": str(out_path),
-                   "fps": fps, "quality": q, "format": fmt}
+        payload = _render_payload(project_dir, out_path, fps=fps, quality=quality, fmt=fmt)
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=5)) as client:
                 resp = await client.post(f"{self.s.sidecar_url}/render", json=payload)
