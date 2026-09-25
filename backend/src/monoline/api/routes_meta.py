@@ -155,4 +155,5 @@ async def put_brand_logo(file: UploadFile = File(...)) -> dict:
 async def del_brand_logo() -> dict:
     from .. import brand
     from ..settings import get_settings
-    return _brand_view(brand.drop_logo(get_settings()))
+    brand.drop_logo(get_settings())        # drop_logo returns the brand dict, not Settings
+    return _brand_view(get_settings())

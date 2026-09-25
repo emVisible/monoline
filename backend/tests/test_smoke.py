@@ -1,5 +1,6 @@
 """Smoke tests — no render, no network. Assert the M0 contract shape + key logic."""
 import os
+import pathlib
 import tempfile
 
 # Isolate app data before importing settings (lru_cache reads env at call time).
@@ -799,3 +800,23 @@ def test_a_funnel_only_draws_when_things_shrink():
     assert growing["kind"] != "funnel"
     shrinking = plan_scenes(["开场。", "漏斗：曝光 12000 人、点击 3400 人、下单 520 人", "收尾。"])[1]
     assert shrinking["kind"] == "funnel"
+
+
+def test_brand_api_round_trip_including_logo_delete():
+    """The DELETE route once fed drop_logo()'s dict into _brand_view(settings) → 500 on
+    the Studio's 移除 button. Every brand endpoint is answered through the real app."""
+    from fastapi.testclient import TestClient
+    from monoline.api.app import app
+    c = TestClient(app)
+    assert c.patch("/api/brand", json={"label": "Acme", "accent": "#FF7A5A"}).status_code == 200
+    assert c.patch("/api/brand", json={"accent": "red"}).status_code == 422
+    assert c.patch("/api/brand", json={"theme": "nope"}).status_code == 422
+    png = (pathlib.Path(__file__).parent.parent / "src/monoline/static/favicon.png").read_bytes()
+    up = c.post("/api/brand/logo", files={"file": ("f.png", png, "image/png")})
+    assert up.status_code == 200 and up.json()["logo"].startswith("logo-")
+    assert c.get(f"/api/brand/logo?name={up.json()['logo']}").status_code == 200
+    assert c.post("/api/brand/logo", files={"file": ("f.exe", b"x", "application/octet-stream")}).status_code == 422
+    gone = c.delete("/api/brand/logo")
+    assert gone.status_code == 200 and gone.json()["logo"] == ""
+    assert c.delete("/api/brand/logo").status_code == 200      # idempotent
+    c.patch("/api/brand", json={"label": "Monoline", "accent": ""})
