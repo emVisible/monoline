@@ -649,6 +649,50 @@ def test_kpi_and_timeline_kinds_v31d():
         assert (_TEMPLATES / "kinds" / f"{k2}.html.j2").exists()
 
 
+def test_share_and_trend_kinds_v31e():
+    """V31e: donut() and sparkline() had no automatic entry point. Two guards matter:
+    a share ring only makes sense when the parts exhaust one whole, and a line only
+    makes sense when there is a run of numbers to connect."""
+    import json
+    from pathlib import Path
+    from monoline.ir.sceneplan import KINDS, ScenePlan, Theme
+    from monoline.ir.timings import Timings
+    from monoline.compose.engine import render_composition
+    from monoline.pipeline.planner import plan_scenes
+
+    assert {"share", "trend"} <= set(KINDS)
+
+    def kind_of(b):
+        return [s for s in plan_scenes(["开场。", b], brand="Monoline") if s["i"] == 1][0]
+
+    sh = kind_of("市场份额：芯片 45%，整机 30%，服务 25%")
+    assert sh["kind"] == "share" and sh["slots"]["title"] == "市场份额"     # lead label is the title
+    assert [r["v"] for r in sh["slots"]["rows"]] == ["45%", "30%", "25%"]
+    # 45+30+10 ≠ a whole → these are three rates, not one pie
+    assert kind_of("芯片 45%，整机 30%，服务 10%")["kind"] == "kpi"
+    # 'iOS 占 30%' puts a verb between label and number; the pattern must still read it
+    assert kind_of("安卓占 45%，iOS 占 30%，其他 25%")["kind"] == "share"
+
+    tr = kind_of("季度营收 1.2 亿、1.9 亿、2.4 亿、3.1 亿")
+    assert tr["kind"] == "trend" and tr["slots"]["series"] == ["1.2 亿", "1.9 亿", "2.4 亿", "3.1 亿"]
+    assert kind_of("转化率从 12% 涨到 48%")["kind"] == "trend"             # 2 points + 从…到…
+    assert kind_of("速度 120，功耗 45，成本 30")["kind"] == "bars"          # 3 numbers, no order claimed
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["份额", "走势"], [4.0, 4.0])
+    plan = ScenePlan(theme=theme, scenes=[
+        {"i": 0, "kind": "share", "slots": {"title": "份额", "verbatim": True, "rows": [
+            {"k": "芯片", "v": "45%"}, {"k": "整机", "v": "30%"}, {"k": "服务", "v": "25%"}]}},
+        {"i": 1, "kind": "trend", "slots": {"title": "季度营收", "verbatim": True,
+            "series": ["1.2 亿", "1.9 亿", "2.4 亿", "3.1 亿"]}}])
+    html = render_composition(tim, plan)
+    assert 'class="donut"' in html and html.count("<circle") >= 4
+    assert html.count('class="legend"') == 1 and 'class="sw s3"' in html   # legend tone 3 exists
+    assert 'class="spark"' in html and '<div class="tv">3.1 亿</div>' in html   # newest value is the hero
+    assert html.count('class="tlabels"') == 1
+    assert "clipPath" in html                                               # the line wipes in
+
+
 def test_count_up_parsing_contract():
     import json
     from pathlib import Path

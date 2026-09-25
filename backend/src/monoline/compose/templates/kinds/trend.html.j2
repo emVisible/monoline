@@ -1,0 +1,11 @@
+{#- V31e: a run of numbers reads as one line. The newest value is the hero, the line
+    gives it context, and the authored values stay visible underneath so nothing is
+    implied that the text didn't say (no invented percentage change). -#}
+<div class="inner k-trend">
+  {%- if scene.slots.title %}<div class="d-title">{{ scene.slots.title }}</div>{% endif %}
+  <div class="tv">{{ scene.slots.series[-1] }}</div>
+  {{ sparkline(scene.slots.series, w=820, h=200) | safe }}
+  <div class="tlabels">
+    {%- for v in scene.slots.series %}<span>{{ v }}</span>{% endfor %}
+  </div>
+</div>

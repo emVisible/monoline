@@ -20,7 +20,7 @@ SCHEMA = "sceneplan/v1"
 KINDS = ["title", "statement", "section", "definition", "stat", "table",
          "cards", "compare", "quote", "list", "note", "summary", "image",
          "flow", "radial", "steps", "arch", "cycle", "funnel", "bars",
-         "kpi", "timeline"]
+         "kpi", "timeline", "share", "trend"]
 # Kinds whose whole payload is already drawn as graphics on the slide — the caption
 # would just repeat the node labels, so the planner marks them verbatim.
 DIAGRAM_KINDS = {"flow", "radial", "steps", "arch", "cycle", "funnel"}

@@ -186,9 +186,11 @@ _FUNNEL_MARK = re.compile(
 # used to fall through to a plain sentence. A chunk is label + number + optional unit.
 _METRIC_CHUNK = re.compile(
     r"^([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9]{0,7}?)\s*"
+    r"(?:占|为|是|达|约|达到|仅|已)?\s*"
     r"([\d][\d.,]*)\s*(%|％|万|亿|元|人|次|天|周|月|小时|分钟|ms|s|秒|倍|台|单|家|户|K|M|G|GB)?\s*$")
 _DATE_CHUNK = re.compile(r"^(20\d{2}|19\d{2})\s*年?|[Qq一二三四]\s*[度Q]|^\d{1,2}\s*月")
 _SPLIT_CHUNKS = re.compile(r"[，,、；;。]")
+_FROM_TO = re.compile(r"(从|由)[^，,。]{0,8}?(到|至|涨到|升到|降到|跌至|扩至|升至)")
 
 
 def _numeric(v: str) -> bool:
@@ -199,13 +201,59 @@ def _chunks(s: str) -> list[str]:
     return [c.strip() for c in _SPLIT_CHUNKS.split(s) if c.strip()]
 
 
+def _lead(s: str) -> tuple[str, str]:
+    """'市场份额：芯片 45%，整机 30%…' → ('市场份额', '芯片 45%，整机 30%…').
+
+    The lead label is the scene title, not the first item's name — without splitting it
+    off, the first chunk carries a colon and no metric pattern matches it."""
+    m = _LEAD_LABEL.match(s)
+    return (m.group(1).strip(), m.group(2).strip()) if m else ("", s)
+
+
+def _share(s: str) -> tuple[str, list[dict]]:
+    """'安卓 45%，iOS 30%，其他 25%' → a part-of-whole ring.
+
+    Every chunk must carry a percentage *and* the parts must add up to roughly one
+    whole. Otherwise it's a set of unrelated rates (kpi), and drawing a donut would
+    claim they exhaust a pie they don't belong to."""
+    title, body = _lead(s)
+    out = []
+    for c in _chunks(body):
+        m = _METRIC_CHUNK.match(c)
+        unit = (m.group(3) or "").strip() if m else ""
+        if not m or unit not in ("%", "％") or len(m.group(1).strip()) < 2:
+            return "", []
+        out.append({"k": m.group(1).strip(), "v": f"{m.group(2).strip()}%"})
+    if len(out) < 2:
+        return "", []
+    total = sum(float(v["v"].rstrip("%")) for v in out)
+    # ±5pp only: a ring whose parts add to 85% quietly deletes 15% of the whole.
+    if not 95.0 <= total <= 105.0:
+        return "", []
+    return title, out[:4]
+
+
+def _trend(s: str) -> tuple[str, list[str]]:
+    """'1.2 亿、1.9 亿、2.4 亿、3.1 亿' or '从 12% 涨到 48%' → a series line.
+
+    Needs 3+ numbers, or 2 with an explicit 从…到…: two lone numbers are a comparison
+    (bars), and calling that a trend would invent an ordering between them."""
+    title, body = _lead(s)
+    nums = [x.strip() for x in _NUM.findall(body) if any(ch.isdigit() for ch in x)]
+    span = bool(_FROM_TO.search(body))
+    if len(nums) < 3 and not (span and len(nums) == 2):
+        return "", []
+    return title, nums[:8]
+
+
 def _timeline(s: str) -> tuple[str, list[dict]]:
     """'2019 创业，2021 拿 A 轮，2024 上市' → dated milestones on an axis.
 
     Needs ≥2 chunks that each open with a date, so a sentence that merely mentions a
     year stays a statement. The date becomes the tick label; the rest is the event."""
+    title, body = _lead(s)
     out = []
-    for c in _chunks(s):
+    for c in _chunks(body):
         m = _DATE_CHUNK.search(c)
         if not m:
             continue
@@ -213,8 +261,8 @@ def _timeline(s: str) -> tuple[str, list[dict]]:
         out.append({"k": m.group(0).strip(), "v": event})
     if len(out) < 2:
         return "", []
-    lead = _LEAD_LABEL.match(s)
-    title = lead.group(1).strip() if lead and not _DATE_CHUNK.search(lead.group(1)) else ""
+    if _DATE_CHUNK.search(title):
+        title = ""
     return title, out[:6]
 
 
@@ -224,8 +272,9 @@ def _kpis(s: str) -> tuple[str, list[dict]]:
     Colon-free, so _KV never sees these. Cards rather than bars when the units differ:
     120 万 and 45% are not comparable lengths, and normalizing them into one axis would
     invent a ranking that the numbers don't support."""
+    title, body = _lead(s)
     out = []
-    for c in _chunks(s):
+    for c in _chunks(body):
         m = _METRIC_CHUNK.match(c)
         if not m or _DATE_CHUNK.search(c):
             return "", []                      # one non-metric chunk breaks the set
@@ -235,8 +284,6 @@ def _kpis(s: str) -> tuple[str, list[dict]]:
         out.append({"k": label, "v": f"{num}{unit}"})
     if len(out) < 2:
         return "", []
-    lead = _LEAD_LABEL.match(s)
-    title = lead.group(1).strip() if lead else ""
     return title, out[:4]
 
 
@@ -386,6 +433,13 @@ class RulePlanner:
             return {"i": i, "kind": "timeline", "source": "rules:dated-milestones",
                     "slots": {"title": tt, "rows": tpts, "verbatim": True}}
 
+        # V31e share: percentages that add up to one whole → a ring. Ahead of kpi
+        # because a share set is also a labelled metric list.
+        st, sparts = _share(s)
+        if sparts:
+            return {"i": i, "kind": "share", "source": "rules:part-of-whole",
+                    "slots": {"title": st, "rows": sparts, "verbatim": True}}
+
         # V31d metric list without colons (「日活 120 万，留存 45%」) — _KV never sees it.
         # Bare numbers of one kind are comparable → bars; mixed units are not, so they
         # become KPI cards rather than bars whose lengths would imply a ranking.
@@ -397,6 +451,12 @@ class RulePlanner:
                         "slots": {"title": kt, "rows": kcards, "verbatim": True}}
             return {"i": i, "kind": "kpi", "source": "rules:metric-list",
                     "slots": {"title": kt, "rows": kcards, "verbatim": True}}
+
+        # V31e trend: a run of numbers (or an explicit 从…到…) reads as a line, not a list.
+        rt, rseries = _trend(s)
+        if rseries:
+            return {"i": i, "kind": "trend", "source": "rules:number-series",
+                    "slots": {"title": rt, "series": rseries, "verbatim": True}}
 
         # stat: a dominant number/percent/price token
         nums = [x.strip() for x in _NUM.findall(s) if any(c.isdigit() for c in x)]

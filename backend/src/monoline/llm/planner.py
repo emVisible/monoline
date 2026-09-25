@@ -25,6 +25,8 @@ ALLOWED: dict[str, dict[str, str]] = {
     "bars": {"title": "s", "rows": "kv"},
     "kpi": {"title": "s", "rows": "kv"},
     "timeline": {"title": "s", "rows": "kv"},
+    "share": {"title": "s", "rows": "kv"},
+    "trend": {"title": "s", "series": "sl"},
     "cards": {"title": "s", "rows": "kv"},
     "compare": {"a": "pair", "b": "pair"},
     "flow": {"nodes": "sl"},
