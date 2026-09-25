@@ -215,6 +215,14 @@ _DATE_CHUNK = re.compile(r"^(20\d{2}|19\d{2})\s*年?|[Qq一二三四]\s*[度Q]|^
 _SPLIT_CHUNKS = re.compile(r"[，,、；;。]")
 _FROM_TO = re.compile(r"(从|由)[^，,。]{0,8}?(到|至|涨到|升到|降到|跌至|扩至|升至)")
 # A 2×2 grid needs two named dimensions, so only an explicit quadrant word earns it.
+# Source boilerplate, not a narrative point: a bare URL, a 「链接：」/「来源：」 label, or a
+# republication notice. Measured on the real corpus these three shapes have 0 false
+# positives; looser heuristics (any trailing comma, any short clause) hit only prose that
+# the segmenter had split mid-sentence, which is a different problem.
+_SOURCE_JUNK = re.compile(
+    r"^(?:https?://|www\.|//\w)|^\s*(?:链接|来源|出处|摘自)\s*[：:]"
+    r"|(?:转载请注明出处|商业转载请|版权归原作者|版权归)")
+# A 2×2 grid needs two named dimensions, so only an explicit quadrant word earns it.
 _MATRIX_MARK = re.compile(r"(四象限|象限|矩阵|二维定位)")
 _AXIS = re.compile(r"([^\s，,。；;、：:（）()]{1,6}?)\s*(?:轴|维度)")
 
@@ -428,6 +436,11 @@ class RulePlanner:
 
     def _classify(self, i: int, b: str) -> dict:
         s = self._clean(b)
+
+        # source boilerplate first: it must never reach the screen as a display headline
+        if _SOURCE_JUNK.search(s):
+            return {"i": i, "kind": "note", "source": "rules:source-junk",
+                    "slots": {"marker": "!", "body": s, "verbatim": True}}
 
         # quote: whole beat wrapped in quotes
         m = _QUOTE_WRAP.match(s)

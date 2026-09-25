@@ -1078,6 +1078,28 @@ def test_resume_cannot_downgrade_a_shaped_plan_v41():
     assert keep_richer_plan(None, "rules") is False                 # first run
 
 
+def test_source_boilerplate_never_becomes_a_headline_v42():
+    """Gap 11a: 4 beats in the real corpus were a bare URL / 链接： / a republication
+    notice rendered at 116px display size. Three hard shapes, 0 measured false positives."""
+    from monoline.pipeline.planner import RulePlanner
+    p = RulePlanner()
+
+    for t in ["//www.zhihu.com/question/2068641114068988689/a", "链接：https:",
+              "商业转载请联系作者获得授权，非商业转载请注明出处。", "https://example.com/x"]:
+        sc = p._classify(0, t)
+        assert sc["kind"] == "note" and sc["source"] == "rules:source-junk", t
+        assert sc["slots"]["body"]
+
+    # the prose my first loose detector wrongly flagged must not be swept up
+    legit = ["君王将宫殿修得越来越高，在彰显国力、君威的同时，",
+             "月球在高处，而古人对高处最直观的感受就是冷，越高越冷，",
+             "终端BG董事长余承东现身合肥鸿蒙智行线下门店，",
+             "他们也自知这样会使得自己的处境变得越加冷清、孤寂，让孤、寡、不穀、",
+             "更神奇的是，顺着溪水往上找，最后往往不是找到一个大水潭，",
+             "它在 DeepSWE 基准上拿到 68.8%。"]
+    assert [t for t in legit if p._classify(0, t)["source"] == "rules:source-junk"] == []
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`
