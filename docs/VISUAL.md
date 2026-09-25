@@ -76,3 +76,4 @@ donut 四段用 ink 的四个透明度档位，而不是四种颜色。加颜色
 | `5efdc01` | 文字场景 accent 竖轨 | 依据 212 拍实测：statement 占 57.1%，缺的是骨架不是配色 |
 | `97ce7c7` | 每拍一层光（wash 按序号轮换）+ CSS 括号平衡门禁 | 4 主题 × 3 版式组合成后括号/圆括号全平衡 |
 | `9ca38f3` | 补 `make test` 门禁 | 此前只跑 test_smoke.py，`/api/icons` 契约变更漏改藏了 8 个提交 |
+| `69abc88` | 图片处理层 `.shot`（要素 15）+ 深色主题光晕、竖屏出画两个既有缺陷 | mono-ink / mono-paper × 16:9 / 9:16 抽帧：灰调归一、`image_tone=color` 保留原色、2.2s→3.9s 同图明显变大；71 passed |
