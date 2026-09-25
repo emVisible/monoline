@@ -40,6 +40,49 @@
       #glow { position: absolute; left: 12%; top: 6%; width: 54%; height: 58%; z-index: 0; pointer-events: none;
         background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 62%);
         filter: blur(64px); opacity: 0.85; }
+      /* ── V31b graphic kit ── three static layers that separate a "designed deck"
+         from a text file on a coloured background. All CSS, theme-var driven,
+         zero motion (so nothing can desync from the render sampler). */
+      /* grain: a dot texture the gradients can sit on. Masked toward the top-left
+         so it reads as material in the corner, not wallpaper over the copy. */
+      #grain { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+        background-image: radial-gradient(circle at center,
+          color-mix(in oklab, var(--ink) 13%, transparent) 1.1px, transparent 1.5px);
+        background-size: 26px 26px;
+        -webkit-mask-image: radial-gradient(115% 95% at 8% 4%, #000 12%, transparent 62%);
+        mask-image: radial-gradient(115% 95% at 8% 4%, #000 12%, transparent 62%); }
+      /* ticks: crop marks at the safe-area corners — the printer's cue that the
+         frame was composed, not filled. */
+      #ticks { position: absolute; z-index: 2; pointer-events: none;
+        top: calc(var(--gutter-y) * 0.62); bottom: calc(var(--gutter-y) * 0.62);
+        left: calc(var(--gutter-x) * 0.62); right: calc(var(--gutter-x) * 0.62); }
+      #ticks i { position: absolute; width: 38px; height: 38px;
+        border: 2px solid color-mix(in oklab, var(--ink) 20%, transparent); }
+      #ticks i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+      #ticks i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+      #ticks i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+      #ticks i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+      /* folio: scene ordinal, the page number of a slide deck */
+      .folio { position: absolute; right: var(--gutter-x); bottom: calc(var(--caption-bottom) * 0.42);
+        z-index: 38; display: flex; align-items: baseline; gap: 8px;
+        font-size: 22px; font-weight: 600; letter-spacing: 0.06em; color: var(--ink-faint);
+        font-variant-numeric: tabular-nums; }
+      .folio .f-now { color: var(--accent); font-size: 30px; font-weight: 800; }
+      .folio .f-sep { opacity: 0.55; }
+      body[data-aspect="portrait"] .folio { font-size: 26px; }
+      body[data-aspect="portrait"] .folio .f-now { font-size: 34px; }
+      /* icon plate: a bare glyph reads as an orphan; the same glyph in a soft
+         accent ring reads as an intentional mark. */
+      .scene-icon { display: flex; align-items: center; justify-content: center;
+        width: 188px; height: 188px; border-radius: 999px;
+        background: radial-gradient(circle at 50% 42%,
+          color-mix(in oklab, var(--accent) 17%, transparent), transparent 68%);
+        border: 1px solid color-mix(in oklab, var(--accent) 26%, transparent); }
+      /* eyebrow as a badge: hairline pill + accent dot (bold keeps the filled bar) */
+      .eyebrow { display: inline-flex; align-items: center; gap: 14px; }
+      .eyebrow::before { content: ""; flex: none; width: 9px; height: 9px; border-radius: 999px;
+        background: var(--accent); }
+      body[data-layout="bold"] .eyebrow::before { background: var(--accent-ink); }
       #brand { position: absolute; top: 56px; left: var(--gutter-x); z-index: 40;
         display: flex; align-items: center; gap: 14px;
         font-size: 26px; letter-spacing: 0.02em; color: var(--ink-muted); font-weight: 600; }
@@ -280,6 +323,8 @@
          data-width="{{ canvas.width }}" data-height="{{ canvas.height }}">
       <div id="bg"></div>
       <div id="glow" aria-hidden="true"></div>
+      <div id="grain" aria-hidden="true"></div>
+      <div id="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div id="brand">{% if brand.logo %}<img class="brand-logo" src="{{ brand.logo }}" alt="">{% endif %}<span class="a">{{ brand.label }}</span></div>
       <div id="progress"><span id="progress-fill"></span></div>
       <audio id="vo" src="{{ vo_src }}" data-start="0" data-duration="{{ total }}"></audio>
@@ -297,6 +342,7 @@
           {% include "kinds/" + scene.kind + ".html.j2" %}
           {%- if scene.kind in ["title", "statement", "summary", "section", "definition", "quote", "note"] %}<span class="accent-rule"></span>{% endif %}
         </div></div>
+        <div class="folio"><span class="f-now">{{ '%02d' % (seg.i + 1) }}</span><span class="f-sep">/</span><span>{{ '%02d' % (segments | length) }}</span></div>
         {%- if show_cap %}
         <div class="cap"><div class="inner">{{ seg.text }}</div></div>
         {%- endif %}

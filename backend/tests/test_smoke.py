@@ -485,6 +485,36 @@ def test_layout_presets_render_distinct_and_validate():
     assert body_layout(render_composition(t, plan, layout="comic-sans")) == "minimal"
 
 
+def test_graphic_kit_layers_render_v31b():
+    """V31b: the three static depth layers every designed deck has — dot texture,
+    corner crop marks, per-scene folio — must be in the composition, and the folio
+    must count scenes, not segments or frames."""
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    t = Timings.from_durations(["第一拍。", "第二拍", "第三拍"], [3.0, 3.0, 3.0])
+    plan = ScenePlan(theme=theme, scenes=[
+        {"i": 0, "kind": "title", "slots": {"eyebrow": "Acme", "headline": "第一拍", "icon": "sparkles"}},
+        {"i": 1, "kind": "statement", "slots": {"headline": "第二拍"}},
+        {"i": 2, "kind": "stat", "slots": {"value": "30", "label": "第三拍"}}])
+    html = render_composition(t, plan)
+
+    assert '<div id="grain"' in html and "background-size: 26px 26px" in html
+    assert html.count('<div id="ticks"') == 1 and html.count("<i></i>") >= 4
+    # one folio per scene, zero-padded, sharing the same total
+    for i in range(3):
+        assert f'<span class="f-now">{i + 1:02d}</span>' in html
+    assert html.count('class="folio"') == 3 and ">03</span>" in html
+    # the icon plate is a plate only when an icon is present
+    assert 'class="scene-icon"' in html and html.count('class="scene-icon"') == 1
+    assert ".eyebrow::before" in html                                   # badge dot
+    assert "background-size: 26px 26px" in html and "url(http" not in html   # still offline
+
+
 def test_count_up_parsing_contract():
     import json
     from pathlib import Path
