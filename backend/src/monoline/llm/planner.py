@@ -36,6 +36,11 @@ ALLOWED: dict[str, dict[str, str]] = {
 }
 
 _MAX_STR, _MIN_ITEMS, _MAX_ITEMS = 24, 2, 5
+# A local model gets both worse and heavier with a long list: it returns fewer items than
+# asked (breaking 1 beat = 1 scene) and a big prompt is what pushes the host out of memory.
+# So the weak beats go up in sequential batches under both budgets.
+BATCH_BEATS = 12
+BATCH_CHARS = 900
 # Beats whose rule verdict is "just text" — the only ones worth asking about.
 WEAK_KINDS = {"statement"}
 _PUNCT = re.compile(r"[\s，,。.、：:；;！!？?“”\"'『」（）()《》\-—→…·*_#>❶-❿]")
@@ -143,6 +148,24 @@ def merge(beats: list[str], scenes: list[dict], payload: object) -> tuple[list[d
     return out, stats
 
 
+def _batches(items: list[tuple[int, str]], *, beats: int = BATCH_BEATS,
+             chars: int = BATCH_CHARS) -> list[list[tuple[int, str]]]:
+    """Group weak beats into requests under BOTH budgets, preserving order. A single beat
+    longer than the char budget still gets its own batch (never dropped)."""
+    out: list[list[tuple[int, str]]] = []
+    cur: list[tuple[int, str]] = []
+    used = 0
+    for item in items:
+        if cur and (len(cur) >= beats or used + len(item[1]) > chars):
+            out.append(cur)
+            cur, used = [], 0
+        cur.append(item)
+        used += len(item[1])
+    if cur:
+        out.append(cur)
+    return out
+
+
 async def upgrade(settings, beats: list[str], scenes: list[dict], *,
                   target: Target | None = None, timeout: float = 240.0) -> tuple[list[dict], dict]:
     """Ask the model about the weak beats. Returns (scenes, stats); never raises."""
@@ -150,11 +173,21 @@ async def upgrade(settings, beats: list[str], scenes: list[dict], *,
     t = target or detect(settings)
     if not idx or not t.ok:
         return scenes, {"asked": len(idx), "upgraded": 0, "rejected": 0, "skipped": "no target" if not t.ok else "no weak beats"}
-    try:
-        content = await chat(build_prompt(idx), target=t, temperature=0.0, json_mode=True, timeout=timeout)
-        payload = parse_json(content)
-    except (LLMError, ValueError, TypeError) as e:
-        return scenes, {"asked": len(idx), "upgraded": 0, "rejected": len(idx), "error": str(e)[:200]}
-    out, stats = merge(beats, scenes, payload)
-    stats["model"] = t.model
+    # the budgets are per-model: a small local context wants smaller batches
+    batches = _batches(idx, beats=max(1, int(getattr(settings, "llm_batch_beats", BATCH_BEATS) or 1)),
+                       chars=max(60, int(getattr(settings, "llm_batch_chars", BATCH_CHARS) or 0)))
+    rows: list[dict] = []
+    failed: list[str] = []
+    for b in batches:
+        try:
+            rows.extend(list_as(parse_json(await chat(
+                build_prompt(b), target=t, temperature=0.0, json_mode=True, timeout=timeout))))
+        except (LLMError, ValueError, TypeError) as e:
+            # One bad batch costs its own beats only — the rest keep their upgrades and the
+            # rule plan is never replaced by an empty one.
+            failed.append(str(e)[:120])
+    out, stats = merge(beats, scenes, rows)
+    stats.update({"model": t.model, "batches": len(batches), "failed_batches": len(failed)})
+    if failed:
+        stats["error"] = failed[0]
     return out, stats

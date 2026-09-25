@@ -53,14 +53,19 @@ class Segmenter(Protocol):
 
 
 class SentenceSegmenter:
-    """min/target/max are in CJK-equivalent characters (latin runs count loosely)."""
+    """min/target/max are in CJK-equivalent characters (latin runs count loosely).
+
+    hard_cap is a "this is a book, not a script" guard, NOT a per-job length limit: a long
+    paste is segmented line by line whatever its size, and the model side batches it
+    (llm.planner.upgrade) so a small local model never receives the whole thing at once.
+    """
 
     def __init__(self, *, min_chars: int = 6, target_chars: int = 24, max_chars: int = 40,
-                 max_beats: int = 60) -> None:
+                 hard_cap: int = 240) -> None:
         self.min_chars = min_chars
         self.target_chars = target_chars
         self.max_chars = max_chars
-        self.max_beats = max_beats
+        self.hard_cap = hard_cap
 
     def _len(self, s: str) -> int:
         return len(_WS.sub("", s))
@@ -115,8 +120,10 @@ class SentenceSegmenter:
                 for part in self._split_structured(sent):
                     raw.extend((b, protected) for b in self._split_long(part))
         beats = self._merge_tiny(raw)
-        if len(beats) > self.max_beats:
-            raise ValueError(f"{len(beats)} beats exceeds cap {self.max_beats}; split the script into shorter pieces")
+        if len(beats) > self.hard_cap:
+            raise ValueError(
+                f"{len(beats)} beats from {len(text)} chars exceeds the hard cap {self.hard_cap} "
+                f"(≈{len(beats) * 2.6 / 60:.1f} min of narration); split the script into separate jobs")
         return beats
 
     def _join(self, a: str, b: str) -> str:

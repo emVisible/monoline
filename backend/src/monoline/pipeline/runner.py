@@ -211,6 +211,11 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
             if target.ok:
                 await log("plan", f"分镜判定：{target.model}")
                 scenes, llm = await upgrade(settings, beats, scenes, target=target)
+                if llm.get("batches"):
+                    await log("plan", f"逐批判定的结果：{llm.get('asked', 0)} 拍分 {llm['batches']} 批，"
+                                      f"升格 {llm.get('upgraded', 0)} 拍"
+                                      + (f"；{llm['failed_batches']} 批失败，这些拍按规则保留"
+                                         if llm.get("failed_batches") else ""))
                 apply_icons(scenes, beats)      # promoted beats need the new kind's icon
                 number_sections(scenes)
                 source = "llm" if llm.get("upgraded") else "rules"

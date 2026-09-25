@@ -1302,6 +1302,62 @@ def test_beat_rows_keep_their_height_v46():
     assert "overflow-y:auto" in box, "the list is the scroller, not the rows"
 
 
+def test_long_script_segments_and_llm_batches_v47():
+    """V47: a long paste used to die with "70 beats exceeds cap 60" (1 of 45 real jobs),
+    and the model got the whole weak-beat list in ONE prompt — which is exactly what
+    OOMs a small local model and makes it answer with fewer items than asked."""
+    import asyncio
+    import json
+    from types import SimpleNamespace
+
+    from monoline.pipeline.segment import segment_text
+    from monoline.llm import planner
+
+    beats = segment_text("".join(f"这是第{i}个论点的说明句子，用来验证长文本。" for i in range(90)))
+    assert len(beats) == 90, "the old 60-beat cap raised here instead of segmenting"
+    try:
+        segment_text("论点说明句子用来验证。" * 300)
+        raise AssertionError("expected the hard cap to fire")
+    except ValueError as e:
+        assert "hard cap" in str(e)
+
+    groups = planner._batches([(i, f"第{i}个论点的说明句子用来验证") for i in range(40)])
+    assert len(groups) >= 4 and all(len(g) <= planner.BATCH_BEATS for g in groups)
+    assert [x for g in groups for x in g] == [(i, f"第{i}个论点的说明句子用来验证") for i in range(40)]
+
+    asked: list[list[int]] = []
+
+    async def fake_chat(messages, **kw):
+        idxs = [int(ln.split(".")[0]) for ln in messages[1]["content"].splitlines()]
+        asked.append(idxs)
+        if len(asked) == 2:
+            raise planner.LLMError("simulated out of memory")
+        return json.dumps({"scenes": [{"i": i, "kind": "definition",
+                                       "slots": {"term": "论点", "gloss": "说明"}} for i in idxs]})
+
+    async def run():
+        b = [f"第{i}个论点的说明句子用来验证" for i in range(40)]
+        s = [{"i": i, "kind": "statement", "slots": {}, "source": "rules"} for i in range(40)]
+        real = planner.chat
+        planner.chat = fake_chat
+        try:
+            out, stats = await planner.upgrade(None, b, s, target=SimpleNamespace(ok=True, model="fake"))
+            # the budgets come from settings, so a small local context can shrink them
+            asked.clear()
+            tight = SimpleNamespace(llm_batch_beats=3, llm_batch_chars=900)
+            out2, stats2 = await planner.upgrade(tight, b, s, target=SimpleNamespace(ok=True, model="fake"))
+        finally:
+            planner.chat = real
+        assert len(out) == 40 and all(o["kind"] in ("statement", "definition") for o in out)
+        assert stats["upgraded"] > 0, "one failed batch must not cancel the others"
+        assert stats["batches"] == 4 and stats["failed_batches"] == 1
+        assert len(out2) == 40 and stats2["batches"] == 14
+        assert sum(len(a) for a in asked) == 40 and all(len(a) <= 3 for a in asked), \
+            "settings must drive the batch size"
+
+    asyncio.run(run())
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`

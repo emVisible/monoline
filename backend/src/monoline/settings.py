@@ -50,6 +50,10 @@ class Settings:
     llm_base_url: str = _env("MONOLINE_LLM_BASE_URL", "https://api.openai.com/v1")
     llm_api_key: str = _env("MONOLINE_LLM_API_KEY", "")
     llm_model: str = _env("MONOLINE_LLM_MODEL", "gpt-4o-mini")
+    # --- a small local model degrades on long prompts (and can OOM the host), so the ----
+    # --- storyboard upgrade walks the weak beats in batches under both budgets. ---------
+    llm_batch_beats: int = int(_env("MONOLINE_LLM_BATCH_BEATS", "12"))
+    llm_batch_chars: int = int(_env("MONOLINE_LLM_BATCH_CHARS", "900"))
 
     @property
     def llm_ready(self) -> bool:
