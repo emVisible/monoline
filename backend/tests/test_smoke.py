@@ -2013,3 +2013,27 @@ def test_avoiding_a_bad_cut_still_respects_a_ceiling_v54a():
     beats = SentenceSegmenter().segment(chain)
     assert len(beats) > 1, "a 12-clause chain must still become several beats"
     assert all(SentenceSegmenter()._len(b) <= 40 * CEIL_FACTOR for b in beats[:-1]), beats
+
+
+def test_no_spring_overshoot_in_entrances_v52a():
+    """`back.out` is the #1 turn-off in agent-made motion per HyperFrames' own
+    spring-pop-entrance rule ("never a default"), and every theme token already ships
+    power3.out for entrances. This is a ratchet: the template had 4 overshoots
+    (.node / .hub-mark / .kcard / .donut) and none of them survive."""
+    import json
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    theme = Theme(id="mono-ink", tokens=json.loads(
+        (Path(__file__).parents[2] / "design/tokens/mono-ink.json").read_text())["tokens"])
+    scenes = [
+        {"i": 0, "kind": "flow", "slots": {"title": "链路", "nodes": ["写稿", "分镜", "出片"]}},
+        {"i": 1, "kind": "cycle", "slots": {"title": "循环", "hub": "数据", "nodes": ["采集", "训练", "上线"]}},
+        {"i": 2, "kind": "kpi", "slots": {"title": "指标", "cards": [{"label": "成本", "value": "12"}]}},
+        {"i": 3, "kind": "share", "slots": {"title": "占比", "total": "100", "parts": [{"label": "A", "value": "60"}]}}]
+    html = render_composition(Timings.from_durations([s["kind"] for s in scenes], [4.0] * 4),
+                              ScenePlan(theme=theme, scenes=scenes))
+    assert "back.out" not in html, f"overshoot crept back in: {[l for l in html.splitlines() if 'back.out' in l]}"
+    assert 'ease: "power3.out"' in html

@@ -660,7 +660,7 @@
       tl.fromTo("#scene-{{ seg.i }} .d-title", { opacity: 0, y: -20 },
         { opacity: 1, y: 0, duration: {{ enter }}, ease: "{{ eease }}" }, {{ seg.start }});
       tl.fromTo("#scene-{{ seg.i }} .node", { opacity: 0, scale: 0.82 },
-        { opacity: 1, scale: 1, duration: 0.52, ease: "back.out(1.6)", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.12)|round(3) }});
+        { opacity: 1, scale: 1, duration: 0.52, ease: "{{ eease }}", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.12)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .link, #scene-{{ seg.i }} .spoke", { opacity: 0 },
         { opacity: 1, duration: 0.34, ease: "power1.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.26)|round(3) }});
       {%- if scene.kind == 'arch' %}
@@ -674,7 +674,7 @@
         { opacity: 1, x: 0, duration: 0.34, ease: "power2.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.34)|round(3) }});
       {%- elif scene.kind == 'cycle' %}
       tl.fromTo("#scene-{{ seg.i }} .hub-mark", { opacity: 0, scale: 0.7 },
-        { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.5)" }, {{ (seg.start + 0.06)|round(3) }});
+        { opacity: 1, scale: 1, duration: 0.6, ease: "{{ eease }}" }, {{ (seg.start + 0.06)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .arc, #scene-{{ seg.i }} .arc-tip", { opacity: 0 },
         { opacity: 1, duration: 0.4, ease: "power1.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.55)|round(3) }});
       {%- endif %}
@@ -695,7 +695,7 @@
           ticks land on it. Rail scales along the axis the layout actually uses. -#}
       {%- if scene.kind == 'kpi' %}
       tl.fromTo("#scene-{{ seg.i }} .kcard", { opacity: 0, y: 18, scale: 0.94 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "back.out(1.5)", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.16)|round(3) }});
+        { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "{{ eease }}", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.16)|round(3) }});
       {%- elif scene.kind == 'timeline' %}
       tl.from("#scene-{{ seg.i }} .tl-rail", { {% if aspect == 'portrait' %}scaleY: 0{% else %}scaleX: 0{% endif %}, duration: 0.8, ease: "power1.inOut" }, {{ (seg.start + 0.1)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .tl-p", { opacity: 0, y: 16 },
@@ -714,7 +714,7 @@
         { opacity: 1, duration: 0.4, ease: "power1.out" }, {{ (seg.start + 0.5)|round(3) }});
       {%- elif scene.kind == 'share' %}
       tl.fromTo("#scene-{{ seg.i }} .donut", { opacity: 0, scale: 0.86 },
-        { opacity: 1, scale: 1, duration: 0.62, ease: "back.out(1.4)", transformOrigin: "center" }, {{ (seg.start + 0.12)|round(3) }});
+        { opacity: 1, scale: 1, duration: 0.62, ease: "{{ eease }}", transformOrigin: "center" }, {{ (seg.start + 0.12)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .legend li", { opacity: 0, x: -22 },
         { opacity: 1, x: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.3)|round(3) }});
       {%- endif %}

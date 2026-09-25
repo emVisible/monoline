@@ -159,20 +159,29 @@ listClient 629`）。这类塌陷在别处还会复发。
 
 ## V52 动效与可视化进阶：从「有动」到「编排」（动效 / 可视化）
 
-**实测问题**：所有入场集中在 `start+0.1…0.55` 一小段里，**旁白说到哪、元素才出现**这件事
-没有实现；`base.html.j2:635/649/670/689` 仍在用 `back.out(1.4–1.6)` 回弹，而 HyperFrames
-自带的 motion-language 文档明确点名 `back.out` 是「一眼假的头号特征」；每个 scene 是独立
-子树，**没有任何跨拍连续性**（所以转场只能 crossfade）；stat 的 count-up 会因数字变宽抖动
-（缺 `tabular-nums`）。
+**实测问题**：块级入场（`.inner > *`）用固定 `stagger: 0.09`，只在场景开头一小段里排完
+（V34 已把**逐条/逐行**入场按停留时长摊开，所以「所有入场都挤在开头」这句原判断范围过宽，
+2026-09-25 更正）；`base.html.j2` 曾有 4 处 `back.out(1.4–1.6)` 回弹，而 HyperFrames 的
+`rules/spring-pop-entrance.md` 明写 bouncy `back.out` 是「agent 做 videos 的头号劝退特征、
+绝不当默认」；每个 scene 是独立子树，**没有任何跨拍连续性**（所以转场只能 crossfade）。
+~~stat 的 count-up 会因数字变宽抖动（缺 `tabular-nums`）~~ → **按证据作废**（见下面第 5 条）。
 
 **要交付（按性价比排序）**
-1. 去回弹：`back.out` → `power3.out` / 临界阻尼收尾（S，table-stakes）；
+1. ✅ **去回弹（V52a 已做）**：`.node` / `.hub-mark` / `.kcard` / `.donut` 四处 `back.out` →
+   `{{ eease }}`。四个主题的 `ease_enter` 本来就是 `power3.out`，正是该规则给的默认值，
+   缩放幅度（0.82/0.7/0.94/0.86 → 1）不动，所以「弹」的感觉由前段速度承担而不是过冲。
+   棘轮：`test_no_spring_overshoot_in_entrances_v52a` 渲染 flow/cycle/kpi/share 四 kind 的
+   合成 HTML，出现 `back.out` 即红（改回一处见过它红）。
 2. **line-mask 标题揭示 + 逐词错峰**（GSAP SplitText 的 `mask:"lines"` 机制，自己用
    overflow 包裹实现，S/M）——直接服务 80% 的纯文字拍；
 3. **命名对象 morph**：给指标/节点稳定 id（`metric:转化率`、`node:感知`），相邻拍之间插值
    位置与尺寸而非交叉淡化（L，这是 PowerPoint Morph / Keynote Magic Move 的契约）；
 4. **按速度匹配的接缝剪辑**：在运动峰值处切，按叙事关系（延续 / 换题 / 无关）选剪辑类型（M）；
-5. hero 数字：值域缩放字号 + `tabular-nums` + `Intl` 紧凑单位（3.2万 / 1.4亿）（S/M）；
+5. ❌ **作废（V52a 实测，别再当活干）**：「hero 数字缺 `tabular-nums` 会抖动」。在真合成里
+   量 `ExplainerCJK` @260px / 800 / letter-spacing −0.04em：**0–9 十个数字前宽完全一致
+   （各 0.53em）**——等宽本来就是这个子集字的形状，count-up 无从横向抖动；而且该子集不含
+   `tnum`，`font-variant-numeric: tabular-nums` 实测前后每个数字宽度一字不差，写了也是空操作。
+   仍然值得做的只有「值域缩放字号 + 紧凑单位（3.2万 / 1.4亿）」这半条。
 6. 每 kind 的入场签名表（哪个 kind 允许哪些动作），写进 VISUAL.md 并进确定性测试（M）。
 
 **约束**：全部走 transform/opacity、compose 期算完几何、无运行时测量、无 `Math.random`
