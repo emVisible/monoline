@@ -1253,6 +1253,23 @@ def test_radial_screenshot_nodes_v45():
     assert texty.count('class="pos"') == 6, "text-only branches keep the old 5-branch cap"
 
 
+def test_beat_rows_keep_their_height_v46():
+    """A flex item with overflow:hidden gets min-height:0, so the default flex-shrink:1
+    let every row in the .s3-beats scroll box collapse (19 rows measured 29px tall against
+    60px of content) — the text was cut mid-line and painted over its neighbour instead of
+    the list scrolling. Rows must opt out of shrinking."""
+    import pathlib
+    import re
+
+    css = (pathlib.Path(__file__).resolve().parents[2] / "web" / "src" / "styles.css").read_text()
+    strip = lambda s: re.sub(r"/\*.*?\*/", "", s, flags=re.S)  # prose must not satisfy a declaration check
+    beat = strip(css.split(".beat {", 1)[1].split("}", 1)[0])
+    assert "flex:none" in beat, ".beat rows shrink into each other inside the scroll box"
+    assert "overflow:hidden" in beat, "the row still clips its own overflow"
+    box = strip(css.split(".s3-beats {", 1)[1].split("}", 1)[0])
+    assert "overflow-y:auto" in box, "the list is the scroller, not the rows"
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`

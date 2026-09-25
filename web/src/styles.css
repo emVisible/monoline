@@ -216,6 +216,11 @@ body {
 .beat-kind { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); white-space:nowrap; }
 .beat { position:relative; display:grid; grid-template-columns:16px 20px 1fr auto; gap:10px; align-items:center; text-align:left;
   background:none; border:0; border-bottom:1px solid var(--hairline); padding:12px 8px; cursor:pointer; color:var(--ink-muted); font:inherit; overflow:hidden;
+  /* flex:none — the list is a scroll box, so rows must keep their content height.
+     .beat also has overflow:hidden, which zeroes a flex item's automatic min-size, so the
+     default flex-shrink:1 let all 19 rows collapse to 29px against 60px of content: the
+     text was cut mid-line and painted over its neighbour instead of the list scrolling. */
+  flex:none;
   transition:background .18s ease, opacity .18s ease, transform .18s ease; }
 .beat:hover { background:var(--surface); } .beat.on { background:var(--elev); color:var(--ink); }
 .beat-grip { font-size:14px; line-height:1; color:var(--ink-faint); opacity:0; cursor:grab; transition:opacity .18s ease; }
