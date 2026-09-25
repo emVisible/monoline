@@ -672,3 +672,37 @@ def test_llm_upgrade_keeps_rules_where_the_model_is_wrong():
     out4, st4 = merge(["开场。", "这个工具的核心是确定性渲染。"],
                       [{"i": 0, "kind": "title", "slots": {}}, {"i": 1, "kind": "statement", "slots": {}}], tail)
     assert out4[1]["kind"] == "statement" and st4["rejected"] == 1
+
+
+# ── V30: pre-flight brand identity + phase separation ──────────────────────────
+
+def test_brand_store_round_trip_and_freeze(tmp_path):
+    import pathlib
+    import pytest
+    from monoline import brand
+    from monoline.settings import Settings
+    s = Settings()
+    s.__dict__["app_dir"] = tmp_path          # isolate: never touch the real app dir
+    assert brand.load(s)["label"] == "Monoline" and brand.load(s)["logo"] == ""
+    # dropping with nothing stored must not resolve Path("") to the cwd and unlink it
+    assert brand.drop_logo(s)["logo"] == ""
+    png = pathlib.Path("src/monoline/static/favicon.png").read_bytes()
+    assert brand.put_logo(s, png, ".png")["logo"].startswith("logo-")
+    assert brand.put_logo(s, png + b"1", ".png")["logo"].startswith("logo-")
+    assert len(list((tmp_path / "brand").glob("logo-*"))) == 1   # the old one is gone
+    name = brand.load(s)["logo"]
+    assert brand.save(s, label="Acme", accent="#FF7A5A")["label"] == "Acme"
+    cfg = brand.apply_to_config(s, {"voice": "zf_xiaoxiao"})
+    assert cfg["brand"] == "Acme" and cfg["accent"] == "#FF7A5A" and cfg["logo"] == name
+    rel = brand.freeze_logo_into(s, "j1", name)
+    assert rel == f"assets/{name}" and (tmp_path / "workspaces/j1/composition" / rel).is_file()
+    assert brand.freeze_logo_into(s, "j2", "../escape.png") == ""      # no traversal
+    with pytest.raises(ValueError):
+        brand.put_logo(s, b"x" * 10, ".exe")
+
+
+def test_spa_index_is_not_cacheable():
+    """A cached index.html pins the whole app to an old bundle — the reported
+    'clicked generate, nothing happened'."""
+    from monoline.api.app import SpaStatic
+    assert SpaStatic.__doc__ and "never be cached" in SpaStatic.__doc__

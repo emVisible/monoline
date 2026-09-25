@@ -104,6 +104,9 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
   const canvas = (() => { try { return JSON.parse(job.canvas_json || "{}"); } catch { return {}; } })();
   const cw = Number(canvas.width) || 1920, ch = Number(canvas.height) || 1080;
   const composed = (byKey["compose"]?.status === "succeeded") || job.status === "succeeded";
+  // Phase gate: while a version is being generated the inspector stays out of the way —
+  // you watch progress, then adjust once a film exists.
+  const generating = job.status === "running";
   const previewSrc = `/w/${job.id}/index.html?v=${version}`;
 
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [events.length]);
@@ -374,6 +377,13 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
 
         {/* right: inspector */}
         <aside className="s3-inspector" aria-label="属性面板">
+          {generating ? (
+            <div className="insp-wait" role="status">
+              <span className="iw-spin" aria-hidden="true" />
+              <div className="iw-title">生成中…</div>
+              <p>配置与逐拍编辑会在这一版出片后出现。<b>先生成，再调整</b>——左边阶段流就是当前进度。</p>
+            </div>
+          ) : (<>
           <div className="appearance">
             <div className="ap-title">外观</div>
             <div className="swatches">
@@ -526,6 +536,8 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                 </div>
               ))}
             </>
+          )}
+          </>
           )}
         </aside>
       </div>

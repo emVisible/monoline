@@ -5,7 +5,9 @@ then cached under cache/voices/ so repeat previews are instant).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+import re
+
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -87,3 +89,70 @@ async def delete_preset(pid: str, request: Request) -> dict:
     m = request.app.state.manager
     await m.repo.delete_preset(pid)
     return {"removed": True}
+
+
+# --- V30 brand identity: set up once, on the intake screen, applied to every new job ---
+
+class BrandPatch(BaseModel):
+    label: str | None = None
+    theme: str | None = None
+    accent: str | None = None
+
+
+def _brand_view(s) -> dict:
+    from .. import brand
+    b = brand.load(s)
+    return {"label": b["label"], "theme": b["theme"], "accent": b["accent"],
+            "logo": b["logo"], "logo_url": f"/api/brand/logo?name={b['logo']}" if b["logo"] else ""}
+
+
+@router.get("/brand")
+async def get_brand() -> dict:
+    from ..settings import get_settings
+    return _brand_view(get_settings())
+
+
+@router.patch("/brand")
+async def patch_brand(body: BrandPatch) -> dict:
+    from .. import brand
+    from ..settings import get_settings
+    from ..themes import available
+    s = get_settings()
+    if body.theme is not None and body.theme not in {t["id"] for t in available(s)}:
+        raise HTTPException(422, f"unknown theme {body.theme!r}")
+    if body.accent is not None and body.accent.strip() and not re.fullmatch(r"#[0-9a-fA-F]{6}", body.accent.strip()):
+        raise HTTPException(422, "accent must be a #rrggbb hex color")
+    brand.save(s, label=body.label, theme=body.theme, accent=body.accent)
+    return _brand_view(s)
+
+
+@router.get("/brand/logo")
+async def get_brand_logo(name: str = ""):
+    from .. import brand
+    from ..settings import get_settings
+    p = brand.logo_file(get_settings(), name)
+    if p is None:
+        raise HTTPException(404, "no such logo")
+    return FileResponse(str(p), headers={"cache-control": "no-store"})
+
+
+@router.post("/brand/logo")
+async def put_brand_logo(file: UploadFile = File(...)) -> dict:
+    from pathlib import Path
+
+    from .. import brand
+    from ..settings import get_settings
+    s = get_settings()
+    data = await file.read()
+    try:
+        brand.put_logo(s, data, Path(file.filename or "").suffix)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    return _brand_view(s)
+
+
+@router.delete("/brand/logo")
+async def del_brand_logo() -> dict:
+    from .. import brand
+    from ..settings import get_settings
+    return _brand_view(brand.drop_logo(get_settings()))

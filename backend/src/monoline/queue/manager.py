@@ -67,10 +67,13 @@ class JobManager:
         if self._worker:
             self._worker.cancel()
 
-    async def create_job(self, *, script: str, config: dict, canvas: dict) -> str:
+    async def create_job(self, *, script: str, config: dict, canvas: dict, start: bool = True) -> str:
+        """Persist a job; `start=False` leaves it queued-out so the caller can finish
+        wiring it (e.g. freeze the brand logo into its assets) before it runs."""
         jid = await self.repo.create_job(
             script_text=script, config=config, canvas=canvas, title="", slug="")
-        await self._queue.put((jid, False))
+        if start:
+            await self._queue.put((jid, False))
         return jid
 
     async def enqueue(self, jid: str, *, force: bool = False) -> None:

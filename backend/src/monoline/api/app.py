@@ -63,10 +63,22 @@ async def workspace_file(job_id: str, rel: str):
 
 
 # --- SPA (built web/dist copied into static_dir by `monoline start`) ----------
+class SpaStatic(StaticFiles):
+    """index.html must never be cached. A stale bundle is exactly "I clicked and nothing
+    happened" — the assets it references are content-hashed, so those stay cacheable."""
+
+    async def get_response(self, path, scope):  # type: ignore[override]
+        resp = await super().get_response(path, scope)
+        ctype = resp.headers.get("content-type", "")
+        if path.endswith(".html") or ctype.startswith("text/html"):
+            resp.headers["cache-control"] = "no-store"
+        return resp
+
+
 settings = get_settings()
 static = settings.static_dir
 if static.exists() and (static / "index.html").exists():
-    app.mount("/", StaticFiles(directory=str(static), html=True), name="spa")
+    app.mount("/", SpaStatic(directory=str(static), html=True), name="spa")
 else:
     @app.get("/")
     async def spa_placeholder() -> JSONResponse:

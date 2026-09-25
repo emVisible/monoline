@@ -80,6 +80,15 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   const [llm, setLlm] = useState<{ ready: boolean; source: string; model: string | null; detail: string; latency_ms: number | null }>(
     { ready: false, source: "none", model: null, detail: "", latency_ms: null });
   const [llmBusy, setLlmBusy] = useState(false);
+  const [genErr, setGenErr] = useState<string | null>(null);
+  // V30: brand identity lives at the user level and is set BEFORE generating.
+  const [brand, setBrand] = useState<{ label: string; theme: string; accent: string; logo: string; logo_url: string }>(
+    { label: "Monoline", theme: "mono-ink", accent: "", logo: "", logo_url: "" });
+  const [themes, setThemes] = useState<{ id: string; label: string; paper: string; ink: string; accent: string }[]>([]);
+  const [brandOpen, setBrandOpen] = useState(false);
+  const [brandBusy, setBrandBusy] = useState(false);
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  const topicRef = useRef<HTMLInputElement | null>(null);
   const [llmPlan, setLlmPlan] = useState(true);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiErr, setAiErr] = useState<string | null>(null);
@@ -104,10 +113,33 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       .finally(() => setLlmBusy(false));
   };
   useEffect(() => { loadLlm(false); }, []);
+  useEffect(() => {
+    fetch("/api/brand").then((r) => r.json()).then((d) => setBrand(d)).catch(() => {});
+    fetch("/api/themes").then((r) => r.json()).then((d) => setThemes(d.themes || [])).catch(() => {});
+  }, []);
+  const patchBrand = async (body: Record<string, string>) => {
+    setBrandBusy(true);
+    try {
+      const r = await fetch("/api/brand", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({} as any));
+      if (r.ok) setBrand(d); else setGenErr(d.detail || "外观未保存");
+    } catch { setGenErr("无法保存外观 — 后端未响应"); } finally { setBrandBusy(false); }
+  };
+  const uploadLogo = async (f: File) => {
+    setBrandBusy(true);
+    try {
+      const fd = new FormData(); fd.append("file", f);
+      const r = await fetch("/api/brand/logo", { method: "POST", body: fd });
+      const d = await r.json().catch(() => ({} as any));
+      if (r.ok) setBrand(d); else setGenErr(d.detail || "Logo 上传失败");
+    } catch { setGenErr("Logo 上传失败"); } finally { setBrandBusy(false); }
+  };
   useEffect(() => { if (defaultVoice && !voice) setVoice(defaultVoice); }, [defaultVoice, voice]);
 
   const genScript = async () => {
-    if (!topic.trim()) return;
+    if (!topic.trim()) {
+      setAiErr("先给 AI 一个主题 — 它按主题写整段口播稿。"); topicRef.current?.focus(); return;
+    }
     setAiBusy(true); setAiErr(null);
     try {
       const r = await fetch("/api/script", {
@@ -125,18 +157,33 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   };
 
   const generate = async () => {
-    setBusy(true);
+    // Every way this can fail must say so on screen — a dead primary button with no
+    // reason reads as "nothing happened".
+    if (!lines.length) {
+      setGenErr("还没有内容 — 粘贴一段文字，或点上面 ✨ 让 AI 从主题写一段。");
+      taRef.current?.focus();
+      return;
+    }
+    if (!voice) { setGenErr("还没选配音音色。"); return; }
+    setBusy(true); setGenErr(null);
     try {
       const r = await fetch("/api/jobs", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ script, ratio, layout, quality, fps, format, voice, llm_plan: llmPlan && llm.ready }),
       });
-      const d = await r.json();
-      if (d.job_id) onCreate(d.job_id);
-    } finally {
-      setBusy(false);
+      const d = await r.json().catch(() => ({} as any));
+      if (!r.ok || !d.job_id) {
+        setGenErr(d.detail || `创建失败（HTTP ${r.status}）`);
+        setBusy(false);
+        return;
+      }
+      onCreate(d.job_id);   // stay busy: we are leaving for the Studio, not idle
+      return;
+    } catch {
+      setGenErr("无法连接后端 — 服务还在跑吗？");
     }
+    setBusy(false);
   };
 
   return (
@@ -155,7 +202,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       <div className="ai-row">
         {llm.ready ? (
           <>
-            <input className="fld ai-topic" placeholder="给 AI 一个主题，自动生成旁白…" value={topic}
+            <input className="fld ai-topic" ref={topicRef} placeholder="给 AI 一个主题，自动生成旁白…" value={topic}
               onChange={(e) => setTopic(e.target.value)} onKeyDown={(e) => e.key === "Enter" && genScript()} />
             <select className="fld ai-sel" value={tone} onChange={(e) => setTone(e.target.value)}>
               <option value="neutral">克制</option><option value="warm">温暖</option>
@@ -173,6 +220,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       {aiErr && <p className="ai-err">{aiErr}</p>}
       <textarea
         className="script"
+        ref={taRef}
         value={script}
         placeholder={"在漆黑的深海，超过九成的生物都能自己发光。\n这不是反射阳光，而是一场发生在体内的化学反应。"}
         onChange={(e) => setScript(e.target.value)}
@@ -276,15 +324,59 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
           )}
         </div>
       )}
+      <div className="brand-box">
+        <button className="brand-toggle" aria-expanded={brandOpen} onClick={() => setBrandOpen(!brandOpen)}>
+          <span className="bt-lbl">外观 · 品牌</span>
+          <span className="bt-sum">{themes.find((t) => t.id === brand.theme)?.label || brand.theme} · {brand.label}{brand.logo ? " · Logo ✓" : ""}{brandBusy ? " · 保存中…" : ""}</span>
+          <span className="bt-caret">{brandOpen ? "▴" : "▾"}</span>
+        </button>
+        {brandOpen && (
+          <div className="appearance brand-body">
+            <div className="swatches">
+              {themes.map((t) => (
+                <button key={t.id} className={`swatch${brand.theme === t.id ? " on" : ""}`} aria-pressed={brand.theme === t.id} title={t.label}
+                  style={{ background: t.paper }} onClick={() => patchBrand({ theme: t.id })}>
+                  <span className="sw-ink" style={{ background: t.ink }} /><span className="sw-dot" style={{ background: t.accent }} />
+                </button>
+              ))}
+            </div>
+            <div className="ap-row">
+              <label className="fld-lbl">品牌</label>
+              <input className="fld" defaultValue={brand.label} onBlur={(e) => e.target.value !== brand.label && patchBrand({ label: e.target.value })} />
+            </div>
+            <div className="ap-row">
+              <label className="fld-lbl">强调色</label>
+              <input type="color" className="accent-pick" value={/^#[0-9a-fA-F]{6}$/.test(brand.accent) ? brand.accent : "#C4F82A"}
+                onChange={(e) => setBrand({ ...brand, accent: e.target.value })} onBlur={(e) => patchBrand({ accent: e.target.value })} />
+              {brand.accent && <button className="ghost sm" onClick={() => patchBrand({ accent: "" })}>默认</button>}
+            </div>
+            <div className="ap-row">
+              <label className="fld-lbl">Logo</label>
+              {brand.logo_url ? <img className="brand-logo-prev" src={brand.logo_url} alt="当前 Logo" /> : <span className="muted">未设置</span>}
+              <label className="ghost sm file">{brandBusy ? "载入中…" : "上传"}
+                <input type="file" accept="image/*" hidden disabled={brandBusy}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }} />
+              </label>
+              {brand.logo && (
+                <button className="ghost sm" onClick={async () => {
+                  const r = await fetch("/api/brand/logo", { method: "DELETE" }); if (r.ok) setBrand(await r.json());
+                }}>移除</button>
+              )}
+            </div>
+            <p className="bt-note">对之后每个新作业生效；单个作业仍可在出片后到右侧调整。</p>
+          </div>
+        )}
+      </div>
       <div className="meta">
         <span>{lines.length} beats</span>
         <span>{chars} chars</span>
         <span>≈ {Math.round(lines.length * 3)}s</span>
         <span className="spacer" />
-        <button className="generate" disabled={!lines.length || busy || !voice} onClick={generate}>
-          {busy ? "…" : "Generate ⌘↵"}
+        <button className="generate" disabled={busy} aria-busy={busy} onClick={generate}>
+          {busy ? "创建中…" : "生成 ⌘↵"}
         </button>
       </div>
+      {genErr && <p className="ai-err" role="alert">{genErr}</p>}
     </div>
   );
 }

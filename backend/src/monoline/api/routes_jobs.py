@@ -9,6 +9,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from .. import brand
 from ..voices import DEFAULT_VOICE
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
@@ -24,9 +25,11 @@ class CreateJob(BaseModel):
     layout: str = "minimal"
     fps: int = Field(default=30, ge=1, le=60)
     format: str = "mp4"
-    theme: str = "mono-ink"
-    accent: str = ""
-    brand: str = "Monoline"
+    # appearance identity is optional here: whatever is omitted comes from the
+    # user-level brand store (GET /api/brand), not from a hardcoded default
+    theme: str | None = None
+    accent: str | None = None
+    brand: str | None = None
     llm_plan: bool = True   # let a connected model re-judge the beats the rules call plain text
 
 
@@ -56,9 +59,22 @@ async def create_job(body: CreateJob, request: Request) -> dict:
     layout = body.layout if body.layout in _LAYOUTS else "minimal"
     # lang is derived from the voice so the phonemizer can never drift from it
     config = {"voice": body.voice, "lang": voice_lang(body.voice), "speed": body.speed,
-              "quality": quality, "brand": body.brand, "format": fmt, "layout": layout,
-              "theme": body.theme, "accent": body.accent.strip(), "llm_plan": bool(body.llm_plan)}
-    jid = await m.create_job(script=body.script, config=config, canvas={"width": w, "height": h, "fps": body.fps})
+              "quality": quality, "format": fmt, "layout": layout, "llm_plan": bool(body.llm_plan)}
+    for key, val in (("brand", body.brand), ("theme", body.theme), ("accent", body.accent)):
+        if val:
+            config[key] = val.strip() if isinstance(val, str) else val
+    brand.apply_to_config(m.settings, config)      # user identity fills what's missing
+    logo = config.pop("logo", "")
+    jid = await m.create_job(script=body.script, config=config, canvas={"width": w, "height": h, "fps": body.fps},
+                             start=False)
+    if logo:
+        rel = brand.freeze_logo_into(m.settings, jid, logo)
+        if rel:
+            job = await m.repo.get_job(jid)
+            cfg = json.loads(job["config_json"])
+            cfg["logo"] = rel
+            await m.repo.update_job(jid, config_json=cfg)
+    await m.enqueue(jid)
     return {"job_id": jid}
 
 
