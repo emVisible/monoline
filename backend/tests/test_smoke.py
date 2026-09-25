@@ -325,11 +325,13 @@ def test_image_kind_and_inset_image_render():
         {"i": 1, "kind": "image", "slots": {"image": "assets/b.jpg", "headline": "纯图卡"}}])
     html = render_composition(t, plan)
     assert '<img src="assets/a.png"' in html          # inset 配图 on a text kind
-    assert '<img class="full" src="assets/b.jpg"' in html  # dedicated image kind
+    assert '<div class="shot"><img src="assets/b.jpg"' in html  # dedicated image kind
     # image kind must NOT also emit the generic scene-media block — count actual emitted
     # blocks (class="scene-media"), not the bare token, which also appears in CSS + the
     # stagger JS selector. Only scene-0 (statement w/ image) emits one; the image kind emits zero.
     assert html.count('class="scene-media"') == 1
+    # V33: both entrances go through the same treated frame, not a bare <img>
+    assert html.count('<div class="shot">') == 2
 
 
 def test_list_template_renders_items():
@@ -797,6 +799,52 @@ def test_scene_light_wash_cycles_v32():
         assert f".scene .wash.{tone}" in html
     # static decoration: the timeline must never touch it (it rides the scene opacity)
     assert "wash" not in html.split("<script>")[1]
+
+
+def test_image_treatment_and_ken_burns_v33():
+    """V33: a raw uploaded photo was the one element that ignored the brand language —
+    its own colours, its own contrast, no depth, and dead still. Shots are now normalised
+    (grayscale + one accent wash), framed (hairline/radius/shadow) and drifted."""
+    import json
+    import re
+    from pathlib import Path
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["有图。", "彩色图。", "没图。"], [4.0, 3.0, 3.0])
+    scenes = [
+        {"i": 0, "kind": "image", "slots": {"image": "assets/a.png", "headline": "有图"}},
+        {"i": 1, "kind": "image", "slots": {"image": "assets/b.png", "headline": "彩色", "image_tone": "color"}},
+        {"i": 2, "kind": "statement", "slots": {"headline": "没图"}},
+    ]
+    html = render_composition(tim, ScenePlan(theme=theme, scenes=scenes))
+    css, js = html.split("<style>")[1].split("</style>")[0], html.split("<script>")[1]
+
+    # tone: any photo is pulled into the monochrome brand language…
+    assert "grayscale(1)" in css and ".shot img" in css
+    # …with one accent wash and real depth, and the frame clips the drift
+    assert ".shot { position: relative; overflow: hidden" in css
+    assert "mix-blend-mode: soft-light" in css and "box-shadow: 0 30px 60px -34px rgb(0 0 0" in css
+    # portrait/square lift the frame by --scene-scale, so a raw 94vw cap ran the shot off
+    # the canvas — every shot cap is divided back out
+    assert "max-width: calc(min(1400px, 94vw) / var(--scene-scale))" in css
+    assert "max-height: calc(72vh / var(--scene-scale))" in css
+    assert "94vw)" not in css.replace("calc(min(1400px, 94vw) / var(--scene-scale))", "")
+    # per-scene escape hatch, driven by a slot the Studio can edit
+    assert '<div class="shot tone-color">' in html
+    assert ".shot.tone-color img { filter: none; }" in css
+    assert ".shot.tone-color::after { display: none; }" in css
+
+    # motion: one push-in per shot, spanning the scene it lives in (4.0s → 3.5s of drift).
+    # "none" = constant angular velocity; a keyed scale is the only spatial property used.
+    drifts = re.findall(
+        r'fromTo\("#scene-(\d+) \.shot img", \{ scale: ([\d.]+) \},\s*'
+        r'\{ scale: ([\d.]+), duration: ([\d.]+), ease: "(\w+)" \}, ([\d.]+)\)', html)
+    assert drifts == [("0", "1.02", "1.075", "3.5", "none", "0.2"),
+                      ("1", "1.02", "1.075", "2.5", "none", "4.2")]
+    assert "scene-2 .shot" not in js                        # nothing to drift without an image
 
 
 def test_composed_css_stays_balanced():

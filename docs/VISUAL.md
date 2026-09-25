@@ -26,6 +26,7 @@
 | 12 | 动效节奏 | 匀速=机器；错峰=人做的 | GSAP 单条 paused timeline，`stagger` + `from:"end"` | 已有（V15/V27） |
 | 13 | 字幕版式 | 字幕不是第二份正文 | 三种 preset 下的下三分之一/描边/色块 | 已有（V13） |
 | 14 | 品牌一致性 | 每拍同一处 Logo、同一支笔 | 用户级 brand + `freeze_logo_into` | 已有（V30c） |
+| 15 | 图片处理 | 上传的照片是唯一「带色进来」的素材，不处理就等于贴了张别人的图 | `.shot` 统一灰调 + accent soft-light 洗 + hairline/半径/投影 + 确定性 Ken Burns；`image_tone: color` 豁免 | **V33 新增** |
 
 ## 2. 三条实现原则（V31 期间被验证或被违反后修正）
 
@@ -72,3 +73,6 @@ donut 四段用 ink 的四个透明度档位，而不是四种颜色。加颜色
 | `ef3a58a` | KPI 单位排版 | 端到端 8 拍作业分镜：title/kpi/timeline/bars/funnel/arch/cycle/stat |
 | `7a9f7ff` | 新 kind share + trend（donut / sparkline 的自动入口） | 10 例分类全过；16:9 与 9:16 各两帧；Studio 24 个 kind 实测可选可编辑 |
 | `40850c9` | 形状 kind 集合改为派生 | 末拍 timeline 不再被 summary 吞掉（端到端复跑确认） |
+| `5efdc01` | 文字场景 accent 竖轨 | 依据 212 拍实测：statement 占 57.1%，缺的是骨架不是配色 |
+| `97ce7c7` | 每拍一层光（wash 按序号轮换）+ CSS 括号平衡门禁 | 4 主题 × 3 版式组合成后括号/圆括号全平衡 |
+| `9ca38f3` | 补 `make test` 门禁 | 此前只跑 test_smoke.py，`/api/icons` 契约变更漏改藏了 8 个提交 |

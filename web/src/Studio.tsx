@@ -563,6 +563,17 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                   <input className="fld" value={d.slots.image_caption ?? ""} onChange={(e) => setSlot("image_caption", e.target.value)} />
                 </div>
               )}
+              {d.slots.image && (
+                <div className="fld-row">
+                  <label className="fld-lbl">图片色调</label>
+                  <div className="chips" role="group" aria-label="图片色调">
+                    <button className={`chip${d.slots.image_tone !== "color" ? " on" : ""}`} aria-pressed={d.slots.image_tone !== "color"}
+                      onClick={() => setSlot("image_tone", "mono")}>统一灰调</button>
+                    <button className={`chip${d.slots.image_tone === "color" ? " on" : ""}`} aria-pressed={d.slots.image_tone === "color"}
+                      onClick={() => setSlot("image_tone", "color")}>保留原色</button>
+                  </div>
+                </div>
+              )}
 
               {(SCALAR_SLOTS[d.kind] || []).map((key) => (
                 <div key={key} className="fld-row">

@@ -118,13 +118,37 @@
       .sbody > .inner { text-align: center; max-width: 100%; }
       .scene-icon { color: var(--accent); line-height: 0; }
       .scene-icon svg { width: 118px; height: 118px; }
+      /* V33: image treatment. An uploaded photo is the only element that ignores the
+         brand language — it brings its own colours, its own contrast, no depth. Every
+         shot is normalised (monochrome + one accent wash), framed (hairline + radius +
+         shadow) and given a slow deterministic drift. `image_tone: color` opts out.
+         The shadow is a fixed dark, never var(--ink): on the dark theme ink is near
+         white and the drop shadow bloomed into a glowing halo around the frame. */
+      .shot { position: relative; overflow: hidden; line-height: 0; border-radius: 16px;
+        border: 1px solid var(--hairline);
+        box-shadow: 0 30px 60px -34px rgb(0 0 0 / .62); }
+      /* Portrait/square lift the whole frame by --scene-scale (1.24 / 1.12) so text
+         reads at phone size. A shot capped at 94vw gets lifted with it and runs off the
+         canvas, so its box is divided back out — 94vw means 94% of the canvas in every
+         aspect, not 94% of the design space. */
+      .shot img { display: block; object-fit: contain;
+        max-width: calc(min(1400px, 94vw) / var(--scene-scale));
+        max-height: calc(72vh / var(--scene-scale));
+        filter: grayscale(1) contrast(1.06) brightness(1.02); }
+      .shot::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+        background: linear-gradient(152deg, var(--wash-1), transparent 58%);
+        mix-blend-mode: soft-light; }
+      .shot.tone-color img { filter: none; }
+      .shot.tone-color::after { display: none; }
       .scene-media { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-      .scene-media img { max-width: min(1080px, 90vw); max-height: 44vh; object-fit: contain;
-        border-radius: 14px; border: 1px solid var(--hairline); }
+      .scene-media .shot { border-radius: 14px; }
+      .scene-media .shot img { max-width: calc(min(1080px, 90vw) / var(--scene-scale));
+        max-height: calc(44vh / var(--scene-scale)); }
       .scene-media .mcap { font-size: 26px; color: var(--ink-muted); }
       .k-image { display: flex; flex-direction: column; align-items: center; gap: 26px; }
-      .k-image img.full { max-width: min(1400px, 94vw); max-height: 72vh; object-fit: contain;
-        border-radius: 16px; border: 1px solid var(--hairline); }
+      /* 72vh + an 88px headline overflowed the frame's caption reserve and the headline
+         landed on top of the caption pill. The full-bleed shot leaves that room. */
+      .k-image .shot img { max-height: calc(54vh / var(--scene-scale)); }
       .cap { position: absolute; left: 0; right: 0; bottom: var(--caption-bottom); z-index: 30;
         display: flex; justify-content: center; }
       .cap > .inner { opacity: 0; max-width: var(--caption-max-w); text-align: center;
@@ -486,7 +510,7 @@
         <span class="wash w{{ (seg.i % 3) + 1 }}" aria-hidden="true"></span>
         <div class="frame"><div class="sbody{{ ' sbody--ed' if scene.kind in ['statement', 'section'] }}">
           {%- if scene.slots.get("icon") and scene.kind not in ['flow', 'radial', 'steps', 'arch', 'cycle', 'funnel'] %}<div class="scene-icon">{{ icon_svg(scene.slots.get("icon")) | safe }}</div>{% endif %}
-          {%- if scene.kind != "image" and scene.slots.get("image") %}<div class="scene-media"><img src="{{ scene.slots.get('image') }}" alt="">{% if scene.slots.get("image_caption") %}<span class="mcap">{{ scene.slots.get("image_caption") }}</span>{% endif %}</div>{% endif %}
+          {%- if scene.kind != "image" and scene.slots.get("image") %}<div class="scene-media"><div class="shot{{ ' tone-color' if scene.slots.get('image_tone') == 'color' else '' }}"><img src="{{ scene.slots.get('image') }}" alt=""></div>{% if scene.slots.get("image_caption") %}<span class="mcap">{{ scene.slots.get("image_caption") }}</span>{% endif %}</div>{% endif %}
           {% include "kinds/" + scene.kind + ".html.j2" %}
           {%- if scene.kind in ["title", "statement", "summary", "section", "definition", "quote", "note"] %}<span class="accent-rule"></span>{% endif %}
         </div></div>
@@ -589,6 +613,16 @@
          stroke/scaleX only → deterministic; .from() reads each element's authored end value. #}
       tl.from("#scene-{{ seg.i }} .ring-fill", { strokeDashoffset: 263.894, duration: 0.9, ease: "power2.out" }, {{ (seg.start + 0.2)|round(3) }});
       tl.from("#scene-{{ seg.i }} .tbar, #scene-{{ seg.i }} .bfill", { scaleX: 0, transformOrigin: "left center", duration: 0.7, ease: "power2.out", stagger: 0.08 }, {{ (seg.start + 0.28)|round(3) }});
+      {#- V33 Ken Burns: the shot drifts for as long as the scene is on screen, so a
+          still image is never a dead rectangle. Scale-only — it overflows the .shot box
+          and is clipped, so it stays inside the transform allowlist. -#}
+      {%- if scene.slots.get("image") %}
+      {%- set kb = (seg.dur - 0.5) | round(3) %}
+      {%- if kb > 0.6 %}
+      tl.fromTo("#scene-{{ seg.i }} .shot img", { scale: 1.02 },
+        { scale: 1.075, duration: {{ kb }}, ease: "none" }, {{ (seg.start + 0.2)|round(3) }});
+      {%- endif %}
+      {%- endif %}
       {%- if show_cap %}
       tl.fromTo("#scene-{{ seg.i }} .cap > .inner", { opacity: 0, y: 16 },
         { opacity: 1, y: 0, duration: {{ capenter }}, ease: "power2.out" }, {{ seg.start }});
