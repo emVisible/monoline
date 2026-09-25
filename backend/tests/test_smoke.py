@@ -598,6 +598,56 @@ def test_bars_kind_v31d():
     assert "bfill" in html and 'class="btrack"' in html
 
 
+def test_kpi_and_timeline_kinds_v31d():
+    """V31d: colon-free metric lists and dated milestones were falling through to a
+    plain sentence (or, worse, to a funnel because the numbers happened to shrink)."""
+    import json
+    from pathlib import Path
+    from monoline.ir.sceneplan import KINDS, ScenePlan, Theme
+    from monoline.ir.timings import Timings
+    from monoline.compose.engine import render_composition
+    from monoline.pipeline.planner import plan_scenes
+
+    assert {"kpi", "timeline"} <= set(KINDS)
+
+    def kind_of(b):
+        return [s for s in plan_scenes(["开场。", b], brand="Monoline") if s["i"] == 1][0]
+
+    k = kind_of("日活 120 万，留存 45%，营收 3.2 亿")
+    assert k["kind"] == "kpi"                      # mixed units → not comparable by length
+    assert [r["k"] for r in k["slots"]["rows"]] == ["日活", "留存", "营收"]
+    # 留存 used to be a funnel marker word: as a standalone rate it must not be one
+    assert kind_of("曝光 12000 人、点击 3400 人、下单 520 人")["kind"] == "funnel"
+    assert kind_of("速度 120，功耗 45，成本 30")["kind"] == "bars"
+
+    t = kind_of("2019 年创业，2021 年拿 A 轮，2024 年上市")
+    assert t["kind"] == "timeline"
+    assert t["slots"]["rows"] == [{"k": "2019 年", "v": "创业"}, {"k": "2021 年", "v": "拿 A 轮"},
+                                  {"k": "2024 年", "v": "上市"}]
+    # one lonely year is not a timeline
+    assert kind_of("这事发生在 2019 年的一天下午")["kind"] != "timeline"
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    tim = Timings.from_durations(["指标", "里程碑"], [4.0, 4.0])
+    plan = ScenePlan(theme=theme, scenes=[
+        {"i": 0, "kind": "kpi", "slots": {"title": "本月", "verbatim": True,
+            "rows": [{"k": "日活", "v": "120 万"}, {"k": "留存", "v": "45%"}]}},
+        {"i": 1, "kind": "timeline", "slots": {"title": "历程", "verbatim": True,
+            "rows": [{"k": "2019 年", "v": "创业"}, {"k": "2024 年", "v": "上市"}]}}])
+    html = render_composition(tim, plan)
+    assert html.count('class="kcard"') == 2 and 'class="kv"' in html
+    assert html.count('class="tl-p') == 2 and 'class="tl-p now"' in html   # last tick accented
+    rail = [ln.strip() for ln in html.splitlines() if ".tl-rail" in ln and "from(" in ln]
+    assert len(rail) == 1 and "scaleX: 0" in rail[0]                       # landscape draws sideways
+    tall = ScenePlan(theme=theme, canvas={"width": 1080, "height": 1920}, scenes=plan.scenes)
+    rail_p = [ln.strip() for ln in render_composition(tim, tall).splitlines()
+              if ".tl-rail" in ln and "from(" in ln]
+    assert len(rail_p) == 1 and "scaleY: 0" in rail_p[0]                   # portrait draws top-down
+    for k2 in ("kpi", "timeline"):
+        from monoline.compose.engine import _TEMPLATES
+        assert (_TEMPLATES / "kinds" / f"{k2}.html.j2").exists()
+
+
 def test_count_up_parsing_contract():
     import json
     from pathlib import Path

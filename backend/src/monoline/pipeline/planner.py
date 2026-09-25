@@ -176,12 +176,68 @@ _LAYER_MARK = re.compile(r"([一二三四五六七八九十\d]层|分层|堆叠|
 # A funnel is one flow losing population. Without one of these words a decreasing
 # number list is just a comparison of unrelated metrics (速度/功耗/成本), which is a
 # bar chart — drawing it as a funnel would claim a relationship that isn't there.
+# 留存/流失 are deliberately absent: as often a standalone rate (留存 45%) as a funnel
+# stage, and a false funnel is worse than a missed one.
 _FUNNEL_MARK = re.compile(
-    r"(漏斗|转化|转化率|链路|留存|流失|曝光|点击|加购|下单|成交|付费|线索|商机|试用|注册|报名|筛选)")
+    r"(漏斗|转化|转化率|链路|曝光|点击|加购|下单|成交|付费|线索|商机|试用|注册|报名|筛选)")
+
+# ── V31d: colon-free metric lists (kpi) and dated milestones (timeline) ─────────
+# 「日活 120 万，留存 45%，营收 3.2 亿」 has no colons, so _KV never sees it and it
+# used to fall through to a plain sentence. A chunk is label + number + optional unit.
+_METRIC_CHUNK = re.compile(
+    r"^([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9]{0,7}?)\s*"
+    r"([\d][\d.,]*)\s*(%|％|万|亿|元|人|次|天|周|月|小时|分钟|ms|s|秒|倍|台|单|家|户|K|M|G|GB)?\s*$")
+_DATE_CHUNK = re.compile(r"^(20\d{2}|19\d{2})\s*年?|[Qq一二三四]\s*[度Q]|^\d{1,2}\s*月")
+_SPLIT_CHUNKS = re.compile(r"[，,、；;。]")
 
 
 def _numeric(v: str) -> bool:
     return bool(_NUMV.match((v or "").strip()))
+
+
+def _chunks(s: str) -> list[str]:
+    return [c.strip() for c in _SPLIT_CHUNKS.split(s) if c.strip()]
+
+
+def _timeline(s: str) -> tuple[str, list[dict]]:
+    """'2019 创业，2021 拿 A 轮，2024 上市' → dated milestones on an axis.
+
+    Needs ≥2 chunks that each open with a date, so a sentence that merely mentions a
+    year stays a statement. The date becomes the tick label; the rest is the event."""
+    out = []
+    for c in _chunks(s):
+        m = _DATE_CHUNK.search(c)
+        if not m:
+            continue
+        event = (c[:m.start()] + c[m.end():]).strip(" ：:，,、")
+        out.append({"k": m.group(0).strip(), "v": event})
+    if len(out) < 2:
+        return "", []
+    lead = _LEAD_LABEL.match(s)
+    title = lead.group(1).strip() if lead and not _DATE_CHUNK.search(lead.group(1)) else ""
+    return title, out[:6]
+
+
+def _kpis(s: str) -> tuple[str, list[dict]]:
+    """'日活 120 万，留存 45%，营收 3.2 亿' → metric cards.
+
+    Colon-free, so _KV never sees these. Cards rather than bars when the units differ:
+    120 万 and 45% are not comparable lengths, and normalizing them into one axis would
+    invent a ranking that the numbers don't support."""
+    out = []
+    for c in _chunks(s):
+        m = _METRIC_CHUNK.match(c)
+        if not m or _DATE_CHUNK.search(c):
+            return "", []                      # one non-metric chunk breaks the set
+        label, num, unit = m.group(1).strip(), m.group(2).strip(), (m.group(3) or "").strip()
+        if len(label) < 2:
+            return "", []
+        out.append({"k": label, "v": f"{num} {unit}".strip()})
+    if len(out) < 2:
+        return "", []
+    lead = _LEAD_LABEL.match(s)
+    title = lead.group(1).strip() if lead else ""
+    return title, out[:4]
 
 
 _STEP = re.compile(r"^(\S{1,6}?)\s*[：:]?\s*([-+]?[\d.,]+\s*\S{0,3})$")
@@ -301,7 +357,7 @@ class RulePlanner:
                     "slots": {"title": "", "rows": [{"k": k.strip(), "v": v.strip()} for k, v in pairs[:6]]}}
 
         lt, lst = _ladder_stages(s)
-        if lst:
+        if lst and _FUNNEL_MARK.search(s):
             return {"i": i, "kind": "funnel", "source": "rules:numeric-ladder",
                     "slots": {"title": lt, "stages": lst, "verbatim": True}}
 
@@ -323,6 +379,24 @@ class RulePlanner:
         if fnodes:
             return {"i": i, "kind": "flow", "source": "rules:arrow-chain",
                     "slots": {"title": ft, "nodes": fnodes, "verbatim": True}}
+
+        # V31d timeline: ≥2 dated milestones read as an axis, not as a sentence.
+        tt, tpts = _timeline(s)
+        if tpts:
+            return {"i": i, "kind": "timeline", "source": "rules:dated-milestones",
+                    "slots": {"title": tt, "rows": tpts, "verbatim": True}}
+
+        # V31d metric list without colons (「日活 120 万，留存 45%」) — _KV never sees it.
+        # Bare numbers of one kind are comparable → bars; mixed units are not, so they
+        # become KPI cards rather than bars whose lengths would imply a ranking.
+        kt, kcards = _kpis(s)
+        if kcards:
+            vals = [c["v"] for c in kcards]
+            if all(re.fullmatch(r"[\d.,]+", v) for v in vals) and len(set(vals)) >= 2:
+                return {"i": i, "kind": "bars", "source": "rules:metric-list",
+                        "slots": {"title": kt, "rows": kcards, "verbatim": True}}
+            return {"i": i, "kind": "kpi", "source": "rules:metric-list",
+                    "slots": {"title": kt, "rows": kcards, "verbatim": True}}
 
         # stat: a dominant number/percent/price token
         nums = [x.strip() for x in _NUM.findall(s) if any(c.isdigit() for c in x)]

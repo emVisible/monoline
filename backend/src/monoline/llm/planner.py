@@ -23,6 +23,8 @@ ALLOWED: dict[str, dict[str, str]] = {
     "list": {"items": "sl"},
     "table": {"rows": "kv"},
     "bars": {"title": "s", "rows": "kv"},
+    "kpi": {"title": "s", "rows": "kv"},
+    "timeline": {"title": "s", "rows": "kv"},
     "cards": {"title": "s", "rows": "kv"},
     "compare": {"a": "pair", "b": "pair"},
     "flow": {"nodes": "sl"},
