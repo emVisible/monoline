@@ -208,7 +208,12 @@ body {
 .s3-title { font-size:18px; color:var(--ink); } .s3-status { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); }
 .s3-status.succeeded { color:var(--accent); } .s3-status.failed { color:#e5484d; } .s3-status.running { color:var(--ink-muted); }
 .s3-body { display:grid; grid-template-columns: 260px 1fr 300px; gap:24px; align-items:start; }
-.s3-beats { display:flex; flex-direction:column; gap:2px; max-height:70vh; overflow-y:auto; border-top:1px solid var(--hairline); }
+.s3-beats { display:flex; flex-direction:column; gap:2px; max-height:70vh; overflow-y:auto; overflow-x:hidden; border-top:1px solid var(--hairline); }
+/* .beat-txt is the 1fr track; grid items default to min-width:auto (= min-content),
+   so a long beat forced the track past the panel and overflow:hidden clipped both the
+   text and the kind label. min-width:0 lets it shrink and wrap instead. */
+.beat-txt { font-size:13px; line-height:1.4; min-width:0; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.beat-kind { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); white-space:nowrap; }
 .beat { position:relative; display:grid; grid-template-columns:16px 20px 1fr auto; gap:10px; align-items:center; text-align:left;
   background:none; border:0; border-bottom:1px solid var(--hairline); padding:12px 8px; cursor:pointer; color:var(--ink-muted); font:inherit; overflow:hidden;
   transition:background .18s ease, opacity .18s ease, transform .18s ease; }
@@ -219,8 +224,6 @@ body {
 .beats-reorder { padding:10px 8px; font-size:12px; color:var(--ink-faint); }
 .beats-hint { padding:10px 8px; font-size:11px; color:var(--ink-faint); border-top:1px solid var(--hairline); letter-spacing:.02em; }
 .beat-i { font-size:12px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
-.beat-txt { font-size:13px; line-height:1.4; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-.beat-kind { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); }
 .beat-bar { position:absolute; left:0; bottom:0; height:2px; background:var(--accent); opacity:.5; }
 .s3-stage { display:flex; flex-direction:column; gap:16px; }
 .player-wrap { border:1px solid var(--hairline); border-radius:12px; overflow:hidden; background:#000; }
