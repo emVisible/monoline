@@ -1050,6 +1050,8 @@ def test_stat_ordinal_guard_and_age_unit_v39():
     k = lambda t: RulePlanner()._classify(0, t)["kind"]
 
     assert k("这是第10句用来撑拍数的话。") != "stat"
+    assert k("根本不像40多岁的人。") != "stat"            # 40多 is a range, not a figure
+    assert k("参会人数达到40人。") == "stat"              # the real figure still qualifies
     # a real quantity stays a stat — but the counter must travel with the number, not
     # get stranded in the label («全书一共讲了 个案例»)
     q = RulePlanner()._classify(0, "全书一共讲了7个案例。")
