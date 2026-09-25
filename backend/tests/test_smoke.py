@@ -1043,6 +1043,24 @@ def test_statement_frame_and_clean_headlines_v38():
     assert ".k-statement .top-rule" in html.split("<script>")[0]
 
 
+def test_stat_ordinal_guard_and_age_unit_v39():
+    """Found by rendering real stat beats from the corpus: 「这是第10句…」 became a giant
+    10, and 「40岁」 lost its 岁 into the label leaving 「不像多岁的人」."""
+    from monoline.pipeline.planner import RulePlanner
+    k = lambda t: RulePlanner()._classify(0, t)["kind"]
+
+    assert k("这是第10句用来撑拍数的话。") != "stat"
+    # a real quantity stays a stat — but the counter must travel with the number, not
+    # get stranded in the label («全书一共讲了 个案例»)
+    q = RulePlanner()._classify(0, "全书一共讲了7个案例。")
+    assert q["kind"] == "stat" and q["slots"]["value"] == "7个"
+    assert "个" not in q["slots"]["label"]
+    sc = RulePlanner()._classify(0, "他今年40岁。")
+    assert sc["kind"] == "stat" and sc["slots"]["value"] == "40岁"
+    assert "岁" not in sc["slots"]["label"]
+    assert k("它在 DeepSWE 基准上拿到 68.8%。") == "stat"   # the good case still works
+
+
 def test_composed_css_stays_balanced():
     """A single unbalanced paren inside a declaration makes the browser swallow the
     NEXT rule during error recovery — one bad `color-mix(...)` silently killed `.frame`

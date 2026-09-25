@@ -17,7 +17,7 @@ from ..ir.sceneplan import DIAGRAM_KINDS, KINDS
 from .segment import SentenceSegmenter  # noqa: F401  (re-export for callers)
 
 # Number + unit / arrow tokens that deserve a `stat` treatment.
-_NUM = re.compile(r"([↓↑]?\s*[\d][\d.,]*\s*(?:%|％|倍|万|亿|千|美元|美金|元|块|ms|s|秒|分钟|小时|天|周|月|年|K|M|G|GB|Token|token)?)")
+_NUM = re.compile(r"([↓↑]?\s*[\d][\d.,]*\s*(?:%|％|倍|万|亿|千|美元|美金|元|块|ms|s|秒|分钟|小时|天|周|月|年|岁|个|种|条|位|名|K|M|G|GB|Token|token)?)")
 _KV = re.compile(r"([\u4e00-\u9fa5A-Za-z][\w\u4e00-\u9fa5 ]{0,8})\s*[：:]\s*([^，,。；;！!？?]+)")
 _QUOTE_WRAP = re.compile(r"^[「“\"『《](.+?)[」”\"』》]$")
 _DEF = re.compile(r"^(.{2,10}?)\s*(?:是|是指|称为|叫做|即)\s*(.+)$")
@@ -95,6 +95,13 @@ def distill_keyword(text: str, *, max_len: int = 12) -> tuple[str, bool]:
     if len(s) <= max_len:
         return s, False  # whole sentence is already short → title card, no caption
     return s, False
+
+
+def _is_ordinal(s: str, num: str) -> bool:
+    """「这是第10句」 counts sentences; putting a giant 10 on screen turns a counter into
+    a claimed magnitude. Same for 「3步」「2章」 used as sequence labels."""
+    d = re.escape(num.strip())
+    return bool(re.search(r"[第]\s*" + d, s) or re.search(d + r"\s*[步章节条款次句]", s))
 
 
 def _strip_number(sentence: str) -> str:
@@ -519,7 +526,7 @@ class RulePlanner:
 
         # stat: a dominant number/percent/price token
         nums = [x.strip() for x in _NUM.findall(s) if any(c.isdigit() for c in x)]
-        if len(nums) == 1 and len(s) <= 44:
+        if len(nums) == 1 and len(s) <= 44 and not _is_ordinal(s, nums[0]):
             label = _strip_number(s) or s
             return {"i": i, "kind": "stat", "source": "rules:number",
                     "slots": {"value": nums[0], "unit": "", "label": label}}
