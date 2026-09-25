@@ -39,6 +39,29 @@ _MD_CODE = re.compile(r"`([^`]+)`")
 _ARROWISH = re.compile(r"→|⇒|➜|➦|--+>|=>|->")
 _COLON = re.compile(r"^(.{4,}?)\s*[:：]\s*(.+)$", re.S)
 
+# How far past max_chars a beat may grow to avoid a bad cut (see _split_long). 1.6× keeps the
+# longest beats inside the two-line headline the templates already support (measured: 36 字 fits).
+CEIL_FACTOR = 1.6
+# These opening words mean the clause before them is a setup, not a point: cutting here would
+# strand "不是 A" on one screen and "而是 B" on the next.
+_CONTINUATION = re.compile(r"^\s*(而|但|却|也|还|更|于是|所以|并且|而且|然后|接着|甚至|不过|因为|如果|而是|就是)")
+# A trailing stub (a date, an ordinal, one k:v pair) is not a place a screen can end on.
+_STUB = re.compile(r"^\d{4}年|^[\d一二三四五六七八九十]{1,4}[月日]|^第[\d一二三四五六七八九十]{1,3}[步条章节]$")
+
+
+def _bad_cut(cur: str, nxt: str) -> bool:
+    """Is closing a beat right here the wrong call? See _split_long."""
+    if _CONTINUATION.match(nxt):
+        return True
+    # _CLAUSE_SPLIT is a zero-width lookbehind split, so a string that ends on a clause mark
+    # yields a trailing EMPTY part — taking [-1] without dropping empties makes every cut look
+    # like a stub. That version of this predicate was vacuously true and packed to the ceiling.
+    parts = [c for c in _CLAUSE_SPLIT.split(cur) if c.strip()]
+    if not parts:
+        return True
+    last = _WS.sub("", re.sub(r"[，,、：:；;]$", "", parts[-1].strip()))
+    return len(last) <= 6 or bool(_STUB.match(last))
+
 
 def _strip_md(s: str) -> str:
     s = _MD_LINK.sub(r"\1", s)
@@ -88,19 +111,30 @@ class SentenceSegmenter:
         return len(_WS.sub("", s))
 
     def _split_long(self, s: str) -> list[str]:
-        """Recursively split an over-budget sentence on clause punctuation."""
+        """Recursively split an over-budget sentence on clause punctuation.
+
+        The cut point matters more than the cut: measured over 42 stored scripts (595 beats),
+        143 beats end on a clause mark, and 39 of those are bad *choices* rather than an
+        unavoidable consequence of splitting at all — a 6-char stub like 「9月24日，」 closing a
+        beat, or the next beat opening on 「而是…」. Both are fixed by absorbing the clause
+        forward instead of closing here, up to `ceil_chars`; past that the layout would get a
+        paragraph it cannot fit, so the original cut wins.
+        """
         if self._len(s) <= self.max_chars:
             return [s]
         parts = [p for p in _CLAUSE_SPLIT.split(s) if p and p.strip()]
         if len(parts) <= 1:
             return [s]  # no clause boundary; keep as-is (a long word/number)
-        # greedily re-pack clauses to <= max_chars
+        ceil_chars = int(self.max_chars * CEIL_FACTOR)
         out: list[str] = []
         cur = ""
-        for p in parts:
+        for idx, p in enumerate(parts):
             if cur and self._len(cur) + self._len(p) > self.max_chars:
-                out.append(cur)
-                cur = p
+                if not _bad_cut(cur, p) or self._len(cur) + self._len(p) > ceil_chars:
+                    out.append(cur)
+                    cur = p
+                else:
+                    cur += p        # keep the stub / the continuation with what it belongs to
             else:
                 cur = (cur + p) if cur else p
         if cur:

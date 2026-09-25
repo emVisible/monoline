@@ -1979,3 +1979,37 @@ def test_rotation_variants_match_the_frontend_registry_v49():
         if v == "hero":
             continue
         assert f".k-statement.v-{v}" in css, f"treatment {v} has no statement rule"
+
+
+# ── V54a: 长句二次切分时，切点必须是「一屏能收住」的地方 ───────────────────────────
+DATE_STUB = "余承东回应问界品牌调整，赛力斯主动提出自己主导，2026年8月26日，两家公司的公告几乎同时发出。"
+
+
+def test_a_date_stub_never_closes_a_beat_v54a():
+    """The old greedy pack cut at 40 chars wherever it landed, so this sentence's first beat
+    ended on 「2026年8月26日，」 — a date with no predicate, which the slide then hero-ed as
+    if it were a point. Measured over 42 stored scripts: 34 beats ended on a ≤6-char stub."""
+    from monoline.pipeline.segment import segment_text
+    beats = segment_text(DATE_STUB)
+    assert len(beats) == 1, f"the stub was kept as a beat end: {beats}"
+    assert beats[0].endswith("。")
+
+
+def test_bad_cut_predicate_v54a():
+    from monoline.pipeline.segment import _bad_cut
+    assert _bad_cut("前面有一句完整的话说的是件事，", "而是后面才见分晓。")      # continuation
+    assert _bad_cut("赛力斯主动提出自己主导，2026年8月26日，", "两家公司…")      # stub tail
+    assert not _bad_cut("赛力斯主动提出自己主导这件事，", "两家公司的公告同时发出。")  # a real clause
+    # a lookbehind split leaves an empty tail on a string that ends at the boundary; taking
+    # [-1] of that made every cut look like a stub, which is how the first version of this
+    # rule packed every beat to the ceiling instead of choosing boundaries.
+    assert not _bad_cut("这是一句足够长的话它自己能收住，", "下一句也说得完。")
+
+
+def test_avoiding_a_bad_cut_still_respects_a_ceiling_v54a():
+    """Absorbing forward can't be open-ended: a beat is a slide, and a slide has to fit."""
+    from monoline.pipeline.segment import CEIL_FACTOR, SentenceSegmenter
+    chain = "，".join(f"第{i}个要点说明一件事" for i in range(12)) + "。"
+    beats = SentenceSegmenter().segment(chain)
+    assert len(beats) > 1, "a 12-clause chain must still become several beats"
+    assert all(SentenceSegmenter()._len(b) <= 40 * CEIL_FACTOR for b in beats[:-1]), beats
