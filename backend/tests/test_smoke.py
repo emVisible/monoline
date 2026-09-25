@@ -693,6 +693,21 @@ def test_share_and_trend_kinds_v31e():
     assert "clipPath" in html                                               # the line wipes in
 
 
+def test_shape_kinds_are_derived_not_hand_listed():
+    """The last beat is normally turned into a `summary`; a kind that carries its own
+    picture must outrank that. A hand-maintained list went stale the moment new kinds
+    landed — a timeline ending a script silently became a summary."""
+    from monoline.ir.sceneplan import KINDS
+    from monoline.pipeline.planner import _SHAPE_KINDS, _TEXT_KINDS, plan_scenes
+
+    assert _SHAPE_KINDS | _TEXT_KINDS == set(KINDS)
+    assert not (_SHAPE_KINDS & _TEXT_KINDS)
+    assert {"bars", "kpi", "timeline", "share", "trend"} <= _SHAPE_KINDS
+
+    scenes = plan_scenes(["开场。", "中间说一句。", "2019 年创业，2021 年拿下 A 轮，2024 年上市。"])
+    assert scenes[-1]["kind"] == "timeline", scenes[-1]
+
+
 def test_count_up_parsing_contract():
     import json
     from pathlib import Path

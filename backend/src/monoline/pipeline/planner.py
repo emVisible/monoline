@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from typing import Protocol
 
-from ..ir.sceneplan import DIAGRAM_KINDS
+from ..ir.sceneplan import DIAGRAM_KINDS, KINDS
 from .segment import SentenceSegmenter  # noqa: F401  (re-export for callers)
 
 # Number + unit / arrow tokens that deserve a `stat` treatment.
@@ -41,7 +41,10 @@ _LEAD_LABEL = re.compile(r"^([^，,。；;]{2,10}?)\s*[:：]\s*(.+)$")
 
 
 # Kinds that carry their own picture — they outrank the positional summary rule.
-_SHAPE_KINDS = DIAGRAM_KINDS | {"stat", "table", "cards", "compare"}
+# Derived from the registry, because a hand-maintained list goes stale: a timeline on
+# the last beat was being turned into a summary by exactly this omission.
+_TEXT_KINDS = {"title", "statement", "section", "definition", "quote", "note", "summary"}
+_SHAPE_KINDS = {k for k in KINDS if k not in _TEXT_KINDS}
 
 
 class ScenePlanner(Protocol):
