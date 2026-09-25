@@ -45,7 +45,7 @@ def test_segmenter_keeps_semicolon_kv_line_intact():
     assert segment_text(line) == [line]          # one beat, not three
     # classify as a non-first beat (index 0 would be forced to title by plan())
     scene = RulePlanner()._classify(1, line)
-    assert scene["kind"] == "table"
+    assert scene["kind"] == "bars"          # three comparable rates → compared by length (V31d)
     assert [r["k"] for r in scene["slots"]["rows"]] == ["命中", "覆盖", "准确"]
 
 
@@ -563,6 +563,41 @@ def test_stat_scene_renders_delta_and_spark():
     assert "class=\"delta" not in plain and 'class="spark"' not in plain
 
 
+def test_bars_kind_v31d():
+    """V31d: unrelated numeric metrics become a bar chart — not a table, and not a
+    funnel. A decreasing list alone is not a flow losing population."""
+    import json
+    import re
+    from pathlib import Path
+    from monoline.ir.sceneplan import KINDS, ScenePlan, Theme
+    from monoline.ir.timings import Timings
+    from monoline.compose.engine import render_composition
+    from monoline.pipeline.planner import plan_scenes
+
+    assert "bars" in KINDS
+    cases = [
+        ("速度：120，功耗：45，成本：30", "bars"),          # decreasing, but three metrics
+        ("曝光：12000，点击：3400，下单：520", "funnel"),   # decreasing AND one flow
+        ("价格：下调一半；能力：提升三倍", "table"),          # not numeric
+        ("甲：10，乙：10，丙：10", "table"),                # no ranking to show
+    ]
+    for text, want in cases:
+        got = [s for s in plan_scenes(["开场。", text], brand="Monoline") if s["i"] == 1][0]
+        assert got["kind"] == want, (text, got["kind"], want)
+
+    theme = Theme(id="mono-ink", tokens=json.loads((Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    t = Timings.from_durations(["速度 120，功耗 45，成本 30"], [4.0])
+    plan = ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "bars", "slots": {
+        "title": "三项指标", "rows": [{"k": "速度", "v": "120"}, {"k": "功耗", "v": "45"}, {"k": "成本", "v": "30"}],
+        "verbatim": True}}])
+    html = render_composition(t, plan)
+    widths = [float(w) for w in re.findall(r'class="bfill[^"]*"\s+style="width:([\d.]+)%"', html)]
+    assert widths == [100.0, 37.5, 25.0]                    # normalized to the max
+    assert html.count('class="brow"') == 3
+    assert 'class="bfill top"' in html                      # the leader carries the accent
+    assert "bfill" in html and 'class="btrack"' in html
+
+
 def test_count_up_parsing_contract():
     import json
     from pathlib import Path
@@ -595,11 +630,11 @@ def test_row_stagger_for_nested_table_cards():
     html = render_composition(t, plan)
     # the block entrance excludes the nested .rows container, and each scene gets a per-row tween
     assert ".term,.q,.rows)" in html
-    assert html.count('.row", { opacity: 0, x: -24') == 2   # one per table/cards scene
+    assert html.count('.brow", { opacity: 0, x: -24') == 2   # one per table/cards scene
     # a narrative scene must NOT get the row tween (no .row elements)
     t2 = Timings.from_durations(["陈述。"], [3.0])
     plan2 = ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "statement", "slots": {"headline": "陈述"}}])
-    assert '.row", { opacity: 0, x: -24' not in render_composition(t2, plan2)
+    assert '.brow", { opacity: 0, x: -24' not in render_composition(t2, plan2)
 
 
 # ── V27: diagram kinds — content that renders as graphics, not as a line of text ──
@@ -874,9 +909,10 @@ def test_planner_sees_a_stack_a_ring_and_a_funnel():
     assert c["kind"] == "cycle" and c["slots"]["nodes"] == ["内容", "流量", "信任"]   # loop closes, dup dropped
     a = kind_of("这套平台分为接入层、服务层、存储层三层")
     assert a["kind"] == "arch" and a["slots"]["layers"] == ["接入层", "服务层", "存储层"]
-    # an open chain is still a line, and a non-monotone percent set is still a table
+    # an open chain is still a line, and a non-monotone percent set is a comparison
+    # of three unrelated rates — a bar chart, not a table (V31d) and not a funnel.
     assert kind_of("需求→设计→开发→测试→上线")["kind"] == "flow"
-    assert kind_of("命中率：68%，覆盖率：42%，准确率：91%")["kind"] == "table"
+    assert kind_of("命中率：68%，覆盖率：42%，准确率：91%")["kind"] == "bars"
 
 
 def test_new_diagram_kinds_render_their_shapes():

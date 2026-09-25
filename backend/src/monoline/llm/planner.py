@@ -22,6 +22,7 @@ ALLOWED: dict[str, dict[str, str]] = {
     "quote": {"q": "s"},
     "list": {"items": "sl"},
     "table": {"rows": "kv"},
+    "bars": {"title": "s", "rows": "kv"},
     "cards": {"title": "s", "rows": "kv"},
     "compare": {"a": "pair", "b": "pair"},
     "flow": {"nodes": "sl"},

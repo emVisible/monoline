@@ -283,6 +283,19 @@
         border: 1px solid color-mix(in oklab, var(--accent) 32%, var(--hairline)); }
       .k-funnel .frow:first-child .fbar { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
       .k-funnel .fv { font-size: 34px; color: var(--ink-muted); min-width: 200px; font-variant-numeric: tabular-nums; }
+      /* kind: bars — unrelated metrics compared by length; the leader carries the accent */
+      .k-bars { width: 1240px; max-width: 100%; }
+      .k-bars .d-title { margin-bottom: 42px; text-align: left; }
+      .k-bars .brows { display: flex; flex-direction: column; gap: 26px; }
+      .k-bars .brow { display: grid; grid-template-columns: 250px 1fr 170px; align-items: center; gap: 26px; }
+      .k-bars .bk { font-size: 40px; font-weight: 600; color: var(--ink); text-align: right; }
+      .k-bars .btrack { display: block; height: 36px; border-radius: 8px; overflow: hidden;
+        background: color-mix(in oklab, var(--ink) 9%, transparent); }
+      .k-bars .bfill { display: block; height: 100%; border-radius: 8px;
+        background: color-mix(in oklab, var(--ink) 42%, transparent); }
+      .k-bars .bfill.top { background: var(--accent); }
+      .k-bars .bv { font-size: 40px; font-weight: 700; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+      .k-bars .brow:first-child .bv { color: var(--ink); }
       /* aspect-aware: fill the tall/narrow frame instead of letterboxing a 16:9 slide */
       body[data-aspect="portrait"] { --scene-scale: 1.24; }
       body[data-aspect="square"] { --scene-scale: 1.12; }
@@ -296,6 +309,10 @@
       body[data-aspect="portrait"] .d-title { font-size: 46px; }
       body[data-aspect="portrait"] .k-radial .hubmap { --map-h: 900px; }
       body[data-aspect="portrait"] .k-flow .link { width: 34px; margin: 0 6px; }
+      body[data-aspect="portrait"] .k-bars { width: 100%; }
+      body[data-aspect="portrait"] .k-bars .brow { grid-template-columns: 150px 1fr 120px; gap: 16px; }
+      body[data-aspect="portrait"] .k-bars .bk, body[data-aspect="portrait"] .k-bars .bv { font-size: 32px; }
+      body[data-aspect="portrait"] .k-bars .btrack { height: 30px; }
 
       /* ── V11 layout presets — whole-deck composition style ── */
       /* editorial: magazine-style left-aligned column (breaks the centered "text-flow" feel) */
@@ -383,7 +400,7 @@
       {# entrance: stagger the scene's icon / media / secondary content (icon→eyebrow→sub→rows…).
          Data kinds slide in from the left (x) to match their horizontal push transition;
          narrative kinds rise (y). Steady state is identical either way (both end at 0). #}
-      {%- set data_kind = scene.kind in ['stat','list','table','cards','compare'] %}
+      {%- set data_kind = scene.kind in ['stat','list','table','cards','compare','bars'] %}
       {%- set diagram = scene.kind in ['flow','radial','steps','arch','cycle','funnel'] %}
       {%- if diagram %}
       {#- V27 diagrams assemble themselves: title drops, then pills pop in reading order
@@ -418,8 +435,8 @@
       {%- endif %}
       {# V16 row-by-row reveal for table/cards (their rows are nested in .rows, so the block
          entrance above excludes .rows and each row staggers in from the left instead). #}
-      {%- if scene.kind in ['table','cards'] %}
-      tl.fromTo("#scene-{{ seg.i }} .row", { opacity: 0, x: -24 },
+      {%- if scene.kind in ['table','cards','bars'] %}
+      tl.fromTo("#scene-{{ seg.i }} .row, #scene-{{ seg.i }} .brow", { opacity: 0, x: -24 },
         { opacity: 1, x: 0, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.11 }, {{ (seg.start + 0.12)|round(3) }});
       {%- endif %}
       {# V9-3 kinetic headline: the display text wipes in left→right (clip-path) + settles,
@@ -432,7 +449,7 @@
       {# V9-5 data-viz draw-in: ring strokes in from empty, table bars grow left→right.
          stroke/scaleX only → deterministic; .from() reads each element's authored end value. #}
       tl.from("#scene-{{ seg.i }} .ring-fill", { strokeDashoffset: 263.894, duration: 0.9, ease: "power2.out" }, {{ (seg.start + 0.2)|round(3) }});
-      tl.from("#scene-{{ seg.i }} .tbar", { scaleX: 0, transformOrigin: "left center", duration: 0.7, ease: "power2.out", stagger: 0.08 }, {{ (seg.start + 0.28)|round(3) }});
+      tl.from("#scene-{{ seg.i }} .tbar, #scene-{{ seg.i }} .bfill", { scaleX: 0, transformOrigin: "left center", duration: 0.7, ease: "power2.out", stagger: 0.08 }, {{ (seg.start + 0.28)|round(3) }});
       {%- if show_cap %}
       tl.fromTo("#scene-{{ seg.i }} .cap > .inner", { opacity: 0, y: 16 },
         { opacity: 1, y: 0, duration: {{ capenter }}, ease: "power2.out" }, {{ seg.start }});

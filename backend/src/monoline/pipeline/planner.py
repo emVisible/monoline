@@ -173,6 +173,11 @@ _LOOP_MARK = re.compile(r"(循环|闭环|反馈环|周而复始|反复|回流|�
 # "…监控四层" — the count belongs to the sentence, not to the last node's name.
 _TAIL_COUNT = re.compile(r"[一二三四五六七八九十\d]+(层|个|项|种|部分|方面|模块|环节|步骤|维度|级)$")
 _LAYER_MARK = re.compile(r"([一二三四五六七八九十\d]层|分层|堆叠|层次|底层|顶层|中层)")
+# A funnel is one flow losing population. Without one of these words a decreasing
+# number list is just a comparison of unrelated metrics (速度/功耗/成本), which is a
+# bar chart — drawing it as a funnel would claim a relationship that isn't there.
+_FUNNEL_MARK = re.compile(
+    r"(漏斗|转化|转化率|链路|留存|流失|曝光|点击|加购|下单|成交|付费|线索|商机|试用|注册|报名|筛选)")
 
 
 def _numeric(v: str) -> bool:
@@ -269,21 +274,32 @@ class RulePlanner:
             return {"i": i, "kind": "note", "source": "rules:note-mark",
                     "slots": {"marker": "!", "body": s, "verbatim": True}}
 
-        # table: ≥2 explicit k:v pairs
+        # ≥2 k:v pairs: a numeric comparison is a chart, everything else is a table.
+        # Ordered funnel → bars → table: a non-increasing ladder reads as conversion,
+        # other all-numeric sets read as comparison, mixed text needs the table.
         pairs = _KV.findall(s)
         if len(pairs) >= 2:
+            pv = [_num_of(v) for _k, v in pairs]
+            allnum = len(pv) >= 2 and all(_numeric(v) for _k, v in pairs) and all(x is not None for x in pv)
+            ladder = allnum and len(pairs) >= 3 and all(b <= a for a, b in zip(pv, pv[1:]))
+            # A decreasing numeric list is only a funnel if the beat is actually about
+            # one flow losing people. 「速度 120 / 功耗 45 / 成本 30」 also decreases —
+            # that is a comparison of three metrics, and drawing it as a funnel is a lie.
+            if ladder and _FUNNEL_MARK.search(s):
+                ft = _LEAD_LABEL.match(s)
+                return {"i": i, "kind": "funnel", "source": "rules:numeric-ladder",
+                        "slots": {"title": (ft.group(1).strip() if ft else ""),
+                                  "stages": [{"k": k.strip(), "v": v.strip()} for k, v in pairs[:5]],
+                                  "verbatim": True}}
+            if allnum and len(set(pv)) >= 2:
+                bt = _LEAD_LABEL.match(s)
+                return {"i": i, "kind": "bars", "source": "rules:numeric-compare",
+                        "slots": {"title": (bt.group(1).strip() if bt else ""),
+                                  "rows": [{"k": k.strip(), "v": v.strip()} for k, v in pairs[:6]],
+                                  "verbatim": True}}
             return {"i": i, "kind": "table", "source": "rules:kv-pairs",
                     "slots": {"title": "", "rows": [{"k": k.strip(), "v": v.strip()} for k, v in pairs[:6]]}}
 
-        # funnel: ≥3 numeric pairs (k:v or "词 数字") is a conversion ladder, not a table
-        pv = [_num_of(v) for _k, v in pairs]
-        if len(pairs) >= 3 and all(_numeric(v) for _k, v in pairs) \
-                and all(x is not None for x in pv) and all(b <= a for a, b in zip(pv, pv[1:])):
-            ft = _LEAD_LABEL.match(s)
-            return {"i": i, "kind": "funnel", "source": "rules:numeric-ladder",
-                    "slots": {"title": (ft.group(1).strip() if ft else ""),
-                              "stages": [{"k": k.strip(), "v": v.strip()} for k, v in pairs[:5]],
-                              "verbatim": True}}
         lt, lst = _ladder_stages(s)
         if lst:
             return {"i": i, "kind": "funnel", "source": "rules:numeric-ladder",

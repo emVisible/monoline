@@ -8,7 +8,7 @@ type Artifact = { kind: string; size_bytes: number; state: string };
 type Job = { id: string; slug: string; title: string; status: string; total_duration: number | null; config_json?: string | null; canvas_json?: string | null; error: string | null };
 type Hydration = { job: Job; stages: Stage[]; segments: Seg[]; artifacts: Artifact[]; plan: { scenes: Scene[] } | null; events: any[] };
 
-const KINDS = ["title", "statement", "section", "definition", "stat", "table", "cards", "compare", "quote", "list", "note", "summary", "image", "flow", "radial", "steps", "arch", "cycle", "funnel"];
+const KINDS = ["title", "statement", "section", "definition", "stat", "table", "cards", "compare", "quote", "list", "note", "summary", "image", "flow", "radial", "steps", "arch", "cycle", "funnel", "bars"];
 const STAGE_ORDER = ["script", "tts", "assemble", "plan", "fonts", "compose", "gate", "render", "deliver"];
 const STAGE_LABEL: Record<string, string> = {
   script: "切分", tts: "语音合成", assemble: "拼接旁白", plan: "分镜规划", fonts: "字体子集",
@@ -20,6 +20,7 @@ const SCALAR_SLOTS: Record<string, string[]> = {
   section: ["index", "title"], definition: ["term", "gloss"], stat: ["value", "unit", "label", "delta", "trend"],
   table: ["title"], cards: ["title", "tagline"], quote: ["q", "attr"], list: ["title"], note: ["marker", "body"],
   compare: ["pivot"], image: ["headline"], flow: ["title"], steps: ["title"], radial: ["hub"], arch: ["title"], cycle: ["title"], funnel: ["title"],
+  bars: ["title"],
 };
 // kind → the string-array slot its editor exposes (list items / diagram nodes / timeline steps)
 const LIST_SLOT: Record<string, string> = { list: "items", flow: "nodes", radial: "nodes", steps: "steps", arch: "layers", cycle: "nodes" };
@@ -278,7 +279,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
   const changeKind = (kind: string) => {
     if (!draft) return;
     const slots = { ...draft.slots };
-    if ((kind === "table" || kind === "cards") && !Array.isArray(slots.rows)) slots.rows = [{ k: "", v: "" }, { k: "", v: "" }];
+    if ((kind === "table" || kind === "cards" || kind === "bars") && !Array.isArray(slots.rows)) slots.rows = [{ k: "", v: "" }, { k: "", v: "" }];
     if (kind === "list" && !Array.isArray(slots.items)) slots.items = ["", "", ""];
     if ((kind === "flow" || kind === "radial") && !Array.isArray(slots.nodes)) slots.nodes = ["", "", ""];
     if (kind === "steps" && !Array.isArray(slots.steps)) slots.steps = ["", "", ""];
