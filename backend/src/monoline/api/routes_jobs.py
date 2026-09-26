@@ -68,9 +68,12 @@ async def create_job(body: CreateJob, request: Request) -> dict:
     # lang is derived from the voice so the phonemizer can never drift from it
     config = {"voice": body.voice, "lang": voice_lang(body.voice), "speed": body.speed,
               "quality": quality, "format": fmt, "layout": layout, "llm_plan": bool(body.llm_plan)}
-    for key, val in (("brand", body.brand), ("theme", body.theme), ("accent", body.accent)):
+    # brand goes through its own setter: an empty string is a choice, so the old `if val:`
+    # (which dropped the key and let the identity default win) is exactly the bug.
+    _apply_brand_config(config, body.brand)
+    for key, val in (("theme", body.theme), ("accent", body.accent)):
         if val:
-            config[key] = val.strip() if isinstance(val, str) else val
+            config[key] = val
     brand.apply_to_config(m.settings, config)      # user identity fills what's missing
     logo = config.pop("logo", "")
     jid = await m.create_job(script=body.script, config=config, canvas={"width": w, "height": h, "fps": body.fps},
@@ -317,6 +320,16 @@ class ReorderBody(BaseModel):
     order: list[int]
 
 
+def _apply_brand_config(config: dict, value: str | None) -> None:
+    """`brand` carries two different states that the old `if val:` / `or "Monoline"` folded
+    into one: None means "the user never said" (leave the key unset so the identity default
+    can fill it), while "" means "the user cleared the box" — an explicit no-wordmark choice.
+    Both write paths go through here so they cannot drift apart again."""
+    if value is None:
+        return
+    config["brand"] = value.strip()
+
+
 @router.post("/{jid}/plan/scenes/{i}/suggest")
 async def suggest_scene(jid: str, i: int, request: Request) -> dict:
     """Ask the model about ONE beat and return its verdict **without applying it**.
@@ -561,7 +574,7 @@ async def patch_config(jid: str, body: ConfigPatch, request: Request) -> dict:
     if body.accent is not None:
         config["accent"] = body.accent if body.accent.strip() else None
     if body.brand is not None:
-        config["brand"] = body.brand.strip() or "Monoline"
+        _apply_brand_config(config, body.brand)
     if body.layout is not None:
         if body.layout not in _LAYOUTS:
             raise HTTPException(422, f"unknown layout {body.layout!r}")

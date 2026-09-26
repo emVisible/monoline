@@ -93,6 +93,35 @@ def ends_open(text: object) -> bool:
     return bool(t) and t[-1] in _OPEN_END
 
 
+# 用户要的「突出呈现不需要标点」是全局的，不只是尾部：句中残留的「，」在 116px 大字上读起来
+# 像没排完。标点一律换成**空格**而不是删掉——删掉会把「深海，发光」焊成「深海发光」，那是改文案。
+# 三处必须放过：千分位、小数点、英文缩写撇号。它们不是停顿，是数字/词的一部分。
+_PUNCT_RUN = re.compile(
+    r"[。，,、．.：:；;！!？?…—–\-·~～\"'“”‘’«»「」『』（）()《》〈〉【】\[\]{}]+"
+)
+_PROTECT = re.compile(r"(?<=\d)[,.](?=\d)|(?<=[A-Za-z])['’](?=[A-Za-z])|(?<=\d)%(?![0-9])")
+_MULTI_SPACE = re.compile(r"[ \t]{2,}")
+
+
+def detonate(text: object) -> str:
+    """One visible string → the same words with no punctuation. Never rewrites wording."""
+    t = str(text or "")
+    if not t.strip():
+        return ""
+    held: list[str] = []
+
+    def hold(m: re.Match[str]) -> str:
+        held.append(m.group())
+        return f"\x00{len(held) - 1}\x00"
+
+    t = _PROTECT.sub(hold, t)
+    t = _PUNCT_RUN.sub(" ", t)
+    t = _MULTI_SPACE.sub(" ", t).strip()
+    for i, s in enumerate(held):
+        t = t.replace(f"\x00{i}\x00", s)
+    return t
+
+
 def tidy(text: object, *, hero: bool = True) -> str:
     """One display string → what may be painted. Never rewrites wording."""
     t = str(text or "").strip()
@@ -105,7 +134,7 @@ def tidy(text: object, *, hero: bool = True) -> str:
     t = balance_quotes(t)
     if hero:
         t = t.rstrip(_STRIP_END)
-    return t.strip()
+    return detonate(t)
 
 
 def tidy_slots(kind: str, slots: dict) -> dict:

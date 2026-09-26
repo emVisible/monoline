@@ -108,6 +108,7 @@ def render_composition(timings: Timings, plan: ScenePlan, *, title: str = "", vo
         theme=plan.theme,
         brand=plan.brand,
         captions=plan.captions,
+        folio=plan.folio,
         vo_src=vo_src,
         title=title or (plan.scenes[0].slots.get("headline") if plan.scenes else "") or "Monoline",
     )

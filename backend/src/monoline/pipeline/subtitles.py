@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from .display_text import detonate
+
 
 def _ts(seconds: float, *, comma: bool) -> str:
     """Seconds → HH:MM:SS,mmm (SRT) or HH:MM:SS.mmm (VTT)."""
@@ -22,7 +24,9 @@ def _ts(seconds: float, *, comma: bool) -> str:
 def _cues(segments: Sequence[dict]) -> list[tuple[int, float, float, str]]:
     out = []
     for n, seg in enumerate(segments, start=1):
-        text = (seg.get("text") or "").strip()
+        # same policy as the slide: no punctuation in the caption track either, replaced by a
+        # space so a two-clause line never welds into one word
+        text = detonate(seg.get("text"))
         if not text:
             continue
         start = float(seg.get("start") or 0.0)

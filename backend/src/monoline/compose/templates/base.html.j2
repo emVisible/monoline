@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width={{ canvas.width }}, height={{ canvas.height }}" />
-    <title>{{ brand.label }} — {{ title }}</title>
+    <title>{% if brand.label %}{{ brand.label }} — {% endif %}{{ title }}</title>
     <script src="vendor/gsap.min.js"></script>
     <style>
       @font-face {
@@ -612,8 +612,7 @@
       <div id="glow" aria-hidden="true"></div>
       <div id="grain" aria-hidden="true"></div>
       <div id="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-      <div id="brand">{% if brand.logo %}<img class="brand-logo" src="{{ brand.logo }}" alt="">{% endif %}<span class="a">{{ brand.label }}</span></div>
-      <div id="progress"><span id="progress-fill"></span></div>
+      {% if brand.label or brand.logo %}<div id="brand">{% if brand.logo %}<img class="brand-logo" src="{{ brand.logo }}" alt="">{% endif %}{% if brand.label %}<span class="a">{{ brand.label }}</span>{% endif %}</div>{% endif %}      <div id="progress"><span id="progress-fill"></span></div>
       <audio id="vo" src="{{ vo_src }}" data-start="0" data-duration="{{ total }}"></audio>
 
       {%- for seg in segments %}
@@ -633,7 +632,7 @@
           {% include "kinds/" + scene.kind + ".html.j2" %}
           {%- if scene.kind in ["title", "statement", "summary", "section", "definition", "quote", "note"] %}<span class="accent-rule"></span>{% endif %}
         </div></div>
-        <div class="folio"><span class="f-now">{{ '%02d' % (seg.i + 1) }}</span><span class="f-sep">/</span><span>{{ '%02d' % (segments | length) }}</span></div>
+        {% if folio %}<div class="folio"><span class="f-now">{{ '%02d' % (seg.i + 1) }}</span><span class="f-sep">/</span><span>{{ '%02d' % (segments | length) }}</span></div>{% endif %}
         {%- if show_cap %}
         <div class="cap"><div class="inner">{{ seg.text }}</div></div>
         {%- endif %}

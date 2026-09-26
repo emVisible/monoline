@@ -84,6 +84,10 @@ class ScenePlan(BaseModel):
     theme: Theme
     brand: Brand = Field(default_factory=Brand)
     captions: Captions = Field(default_factory=Captions)
+    # The page number in the corner ("07 / 24").  A deck-style affordance, so it is a
+    # preference, not a fact — an empty brand works the same way: `Brand(label="")` means
+    # "no wordmark", which is different from the field never being set.
+    folio: bool = True
     scenes: list[Scene] = Field(default_factory=list)
 
     def validate_against(self, n_segments: int) -> list[str]:
