@@ -20,6 +20,7 @@ eating a character they typed is a worse surprise than the mark itself.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 # marks that may never END a display line. ASCII '.' is deliberately absent so "v1.2" and
 # "3.5" survive, and ？ ！ … are absent because they carry the line's meaning (GB/T B.4);
@@ -73,6 +74,10 @@ def kinetic_chunks(text: object, *, min_groups: int = 3, group: int = 2,
     t = " ".join(str(text or "").split())
     if len(t) < min_chars:
         return []
+    if has_math(t):
+        # A formula must arrive as one unit: a reveal box cutting `$\frac{1}{2}$` in half
+        # paints a broken span, and KaTeX never sees it. Plain wipe instead.
+        return []
     parts = [p for p in _UNIT.findall(t) if p]
     if len(parts) >= min_groups:
         return parts if len(parts) <= max_groups else []
@@ -102,12 +107,47 @@ _PUNCT_RUN = re.compile(
 _PROTECT = re.compile(r"(?<=\d)[,.](?=\d)|(?<=[A-Za-z])['’](?=[A-Za-z])|(?<=\d)%(?![0-9])")
 _MULTI_SPACE = re.compile(r"[ \t]{2,}")
 
+# A `$…$` / `$$…$$` span is a formula: its braces, commas and digits are notation, so every
+# rule in this module (and the planner's numeric rules) must treat it as one opaque atom.
+# Deliberately conservative, because a false positive costs more than a miss — `售价 $100 起`
+# and `$100与$200` are money, not math, and masking them would hide a real statistic. So a
+# span only counts as math when it holds no CJK character and at least one math mark.
+_MATH_CANDIDATE = re.compile(r"\$\$[^$\n]+?\$\$|\$(?![\s$])[^$\n]+?\$")
+_CJK_CHAR = re.compile(r"[　-〿一-鿿＀-￯]")
+_MATH_MARK = re.compile(r"[=^_\\{}%]")
 
-def detonate(text: object) -> str:
-    """One visible string → the same words with no punctuation. Never rewrites wording."""
+
+def is_math_span(span: str) -> bool:
+    body = span[2:-2] if span.startswith("$$") else span[1:-1]
+    return bool(body) and not _CJK_CHAR.search(body) and bool(_MATH_MARK.search(body))
+
+
+def has_math(text: object) -> bool:
+    return any(is_math_span(m.group()) for m in _MATH_CANDIDATE.finditer(str(text or "")))
+
+
+def outside_math(text: object, fn: "Callable[[str], str]") -> str:
+    """Apply `fn` to every run that is not a formula; the formulas pass through untouched."""
     t = str(text or "")
-    if not t.strip():
-        return ""
+    out: list[str] = []
+    pos = 0
+    for m in _MATH_CANDIDATE.finditer(t):
+        if not is_math_span(m.group()):
+            continue
+        out.append(fn(t[pos:m.start()]))
+        out.append(m.group())
+        pos = m.end()
+    out.append(fn(t[pos:]))
+    return "".join(out)
+
+
+def mask_math(text: object, repl: str = "▮") -> str:
+    """Formulas replaced by one block glyph — for DETECTION only, never for display."""
+    return _MATH_CANDIDATE.sub(lambda m: repl if is_math_span(m.group()) else m.group(),
+                               str(text or ""))
+
+
+def _detonate_run(t: str) -> str:
     held: list[str] = []
 
     def hold(m: re.Match[str]) -> str:
@@ -116,10 +156,18 @@ def detonate(text: object) -> str:
 
     t = _PROTECT.sub(hold, t)
     t = _PUNCT_RUN.sub(" ", t)
-    t = _MULTI_SPACE.sub(" ", t).strip()
+    t = _MULTI_SPACE.sub(" ", t)
     for i, s in enumerate(held):
         t = t.replace(f"\x00{i}\x00", s)
     return t
+
+
+def detonate(text: object) -> str:
+    """One visible string → the same words with no punctuation. Never rewrites wording."""
+    t = str(text or "")
+    if not t.strip():
+        return ""
+    return outside_math(t, _detonate_run).strip()
 
 
 def tidy(text: object, *, hero: bool = True) -> str:

@@ -2759,3 +2759,30 @@ def test_a_markdown_heading_becomes_a_divider_beat_v64b():
     # without the script, nothing is claimed — the old behaviour stays intact for pasted prose
     plain = RulePlanner().plan(segment_text(script))
     assert all(s["source"] != "rules:md-heading" for s in plain)
+
+
+def test_a_formula_is_notation_not_a_statistic_v65b():
+    """`能量守恒写作 $E=mc^2$。` is a sentence about a law, not a number card. The digits
+    inside `$…$` are notation: feeding them to the numeric rules produced a giant "2"
+    (rules:number) and a sparkline of [1,2,2] (rules:number-series) on the measured run,
+    and `_strip_number` then ate the exponent out of the label, so the LaTeX itself broke."""
+    from monoline.pipeline.display_text import detonate, kinetic_chunks, mask_math, tidy
+    from monoline.pipeline.planner import RulePlanner
+
+    assert mask_math("能量守恒写作 $E=mc^2$。") == "能量守恒写作 ▮。"
+    kind = lambda b: RulePlanner().plan(["引入", b])[1]["kind"]  # noqa: E731
+    src = lambda b: RulePlanner().plan(["引入", b])[1]["source"]  # noqa: E731
+    assert kind("能量守恒写作 $E=mc^2$。") != "stat"
+    assert src("$E_k = \\frac{1}{2}mv^2$ 与 $E_p = mgh$。") != "rules:number-series"
+    assert kind("$E_k = \\frac{1}{2}mv^2$ 与 $E_p = mgh$。") not in {"stat", "trend", "bars", "kpi"}
+    # the guard must stay narrow: a price is a real statistic, and `$` alone is not a formula
+    assert src("效率高达 92%。") == "rules:number"
+    assert src("售价 $100 起。") == "rules:number", "落单的 $ 是货币符号，不是公式"
+
+    # display rules may not touch the markup: \frac{1}{2} is braces and digits, not punctuation
+    assert detonate("能量守恒写作 $\\frac{1}{2}mv^2$。") == "能量守恒写作 $\\frac{1}{2}mv^2$"
+    assert tidy("由 $a_{1,2}$ 给出。") == "由 $a_{1,2}$ 给出"
+    slots = RulePlanner().plan(["引入", "动能公式 $E_k = \\frac{1}{2}mv^2$，占比 40%。"])[1]["slots"]
+    assert slots["value"] == "40%" and "\\frac{1}{2}" in slots["label"], slots
+    # a per-character reveal box would shred the span it splits
+    assert kinetic_chunks("动能公式 $E_k = \\frac{1}{2}mv^2$ 与势能之和保持恒定") == []

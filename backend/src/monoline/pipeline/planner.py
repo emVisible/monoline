@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 
 from ..ir.sceneplan import DIAGRAM_KINDS, KINDS
-from .display_text import tidy_slots
+from .display_text import mask_math, outside_math, tidy_slots
 from .rotation import rebalance
 from .segment import SentenceSegmenter  # noqa: F401  (re-export for callers)
 
@@ -108,7 +108,9 @@ def _not_a_statistic(s: str, num: str) -> bool:
 
 
 def _strip_number(sentence: str) -> str:
-    s = _NUM.sub("", sentence)
+    # outside a formula: `\frac{1}{2}` has digits that belong to the notation, and deleting
+    # them would hand the template LaTeX that no renderer can parse
+    s = outside_math(sentence, lambda r: _NUM.sub("", r))
     s = re.sub(r"[，,、：:\s]+$", "", s).strip("，,、：: ")
     return s
 
@@ -492,6 +494,13 @@ class RulePlanner:
 
     def _classify(self, i: int, b: str) -> dict:
         s = self._clean(b)
+        # `$…$` is notation, not a magnitude. A beat whose only digits sit inside a formula
+        # used to become a giant "2" (rules:number) or a three-point sparkline of the
+        # fraction exponents (rules:number-series). `figures` gates every number-driven rule
+        # and `sm` owns the one that has to pick the value; `s` still supplies display text,
+        # LaTeX intact, so masking can never paint a ▮.
+        sm = mask_math(s)
+        figures = any(c.isdigit() for c in sm)
 
         # source boilerplate first: it must never reach the screen as a display headline
         if _SOURCE_JUNK.search(s):
@@ -535,7 +544,7 @@ class RulePlanner:
             return {"i": i, "kind": "table", "source": "rules:kv-pairs",
                     "slots": {"title": "", "rows": [{"k": k.strip(), "v": v.strip()} for k, v in pairs[:6]]}}
 
-        lt, lst = _ladder_stages(s)
+        lt, lst = _ladder_stages(s) if figures else ("", [])
         if lst and _FUNNEL_MARK.search(s):
             return {"i": i, "kind": "funnel", "source": "rules:numeric-ladder",
                     "slots": {"title": lt, "stages": lst, "verbatim": True}}
@@ -560,7 +569,7 @@ class RulePlanner:
                     "slots": {"title": ft, "nodes": fnodes, "verbatim": True}}
 
         # V31d timeline: ≥2 dated milestones read as an axis, not as a sentence.
-        tt, tpts = _timeline(s)
+        tt, tpts = _timeline(s) if figures else ("", [])
         if tpts:
             return {"i": i, "kind": "timeline", "source": "rules:dated-milestones",
                     "slots": {"title": tt, "rows": tpts, "verbatim": True}}
@@ -574,7 +583,7 @@ class RulePlanner:
 
         # V31e share: percentages that add up to one whole → a ring. Ahead of kpi
         # because a share set is also a labelled metric list.
-        st, sparts = _share(s)
+        st, sparts = _share(s) if figures else ("", [])
         if sparts:
             return {"i": i, "kind": "share", "source": "rules:part-of-whole",
                     "slots": {"title": st, "rows": sparts, "verbatim": True}}
@@ -582,7 +591,7 @@ class RulePlanner:
         # V31d metric list without colons (「日活 120 万，留存 45%」) — _KV never sees it.
         # Bare numbers of one kind are comparable → bars; mixed units are not, so they
         # become KPI cards rather than bars whose lengths would imply a ranking.
-        kt, kcards = _kpis(s)
+        kt, kcards = _kpis(s) if figures else ("", [])
         if kcards:
             vals = [c["v"] for c in kcards]
             if all(re.fullmatch(r"[\d.,]+", v) for v in vals) and len(set(vals)) >= 2:
@@ -592,14 +601,15 @@ class RulePlanner:
                     "slots": {"title": kt, "rows": kcards, "verbatim": True}}
 
         # V31e trend: a run of numbers (or an explicit 从…到…) reads as a line, not a list.
-        rt, rseries = _trend(s)
+        rt, rseries = _trend(s) if figures else ("", [])
         if rseries:
             return {"i": i, "kind": "trend", "source": "rules:number-series",
                     "slots": {"title": rt, "series": rseries, "verbatim": True}}
 
-        # stat: a dominant number/percent/price token
-        nums = [x.strip() for x in _NUM.findall(s) if any(c.isdigit() for c in x)]
-        if len(nums) == 1 and len(s) <= 44 and not _not_a_statistic(s, nums[0]):
+        # stat: a dominant number/percent/price token. Read from the masked copy: the hero
+        # figure must be a number the script claims, not a formula's exponent.
+        nums = [x.strip() for x in _NUM.findall(sm) if any(c.isdigit() for c in x)]
+        if len(nums) == 1 and len(s) <= 44 and not _not_a_statistic(sm, nums[0]):
             label = _strip_number(s) or s
             return {"i": i, "kind": "stat", "source": "rules:number",
                     "slots": {"value": nums[0], "unit": "", "label": label}}
