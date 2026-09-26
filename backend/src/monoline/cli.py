@@ -18,11 +18,27 @@ import typer
 import uvicorn
 
 from .doctor import run_doctor
+from . import instance
 from .settings import get_settings
 from .supervisor import SidecarSupervisor
 from .voices import DEFAULT_VOICE
 
 app = typer.Typer(add_completion=False, help="Monoline — paste a script, get a film.")
+
+
+def _refuse_shared_data_dir(settings) -> None:
+    """Two servers on one data directory hijack each other's jobs: `start` resumes whatever
+    the DB says is running, and the other process is usually still inside that very job."""
+    other = instance.live_instance(settings)
+    if not other:
+        return
+    typer.echo(
+        f"✗ Monoline is already serving this data directory: pid {other['pid']} "
+        f"on http://{settings.host}:{other.get('port')}\n"
+        f"  data dir: {settings.app_dir}\n"
+        f"  Stop that one first, or point this one somewhere else with MONOLINE_APP_DIR.",
+        err=True)
+    raise typer.Exit(2)
 
 
 @app.command()
@@ -32,7 +48,13 @@ def serve(
     reload: bool = typer.Option(False, "--reload"),
 ) -> None:
     settings = get_settings()
-    uvicorn.run("monoline.api.app:app", host=host, port=port or settings.port, reload=reload)
+    settings.port = port or settings.port
+    _refuse_shared_data_dir(settings)
+    instance.claim(settings)
+    try:
+        uvicorn.run("monoline.api.app:app", host=host, port=settings.port, reload=reload)
+    finally:
+        instance.release(settings)
 
 
 @app.command()
@@ -43,7 +65,10 @@ def start(
     """Build-if-missing, spawn the sidecar, open the browser, serve the API."""
     settings = get_settings()
     port = port or settings.port
+    settings.port = port
+    _refuse_shared_data_dir(settings)
     _ensure_frontend_built(settings)
+    instance.claim(settings)
 
     async def _main() -> None:
         sup = SidecarSupervisor(settings)
@@ -60,6 +85,7 @@ def start(
             await uvicorn.Server(uvicorn.Config("monoline.api.app:app", host="127.0.0.1", port=port)).serve()
         finally:
             await sup.stop()
+            instance.release(settings)
 
     asyncio.run(_main())
 

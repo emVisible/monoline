@@ -248,6 +248,65 @@ def test_a_run_that_is_waiting_for_the_worker_is_a_queued_job_v71():
     asyncio.run(run())
 
 
+def test_a_second_live_instance_cannot_share_one_data_dir_v73():
+    """`monoline start` re-queues every job the DB says is `running` — which is right after a
+    crash and destructive when another live process is the one running it. Measured: a second
+    instance came up on the same app_dir, hijacked a 377s film, and rendered a duplicate while
+    the first was still muxing it. The guard therefore requires evidence of life — a live pid
+    AND a port that answers — so a crashed run (stale lock) or a recycled pid still starts."""
+    import json
+    import subprocess
+    import sys
+    import tempfile
+    from pathlib import Path
+    from monoline.settings import Settings
+    from monoline import instance
+
+    s = Settings()
+    s.app_dir = Path(tempfile.mkdtemp(prefix="monoline-inst-"))
+    s.ensure_dirs()
+    lock = instance.lock_path(s)
+
+    assert instance.live_instance(s) is None, "no lock file must not block startup"
+
+    # a crashed run: the recorded pid is gone
+    lock.write_text(json.dumps({"pid": 999999, "port": 8932, "started": "x"}))
+    assert instance.live_instance(s) is None, "a stale lock must not lock the tool out"
+
+    # a real second instance: a process that exists and accepts on its recorded port
+    peer = subprocess.Popen(
+        [sys.executable, "-c",
+         "import socket,time\n"
+         "s=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)\n"
+         "s.bind(('127.0.0.1',0));s.listen(1);print(s.getsockname()[1],flush=True)\n"
+         "time.sleep(30)"],
+        stdout=subprocess.PIPE, text=True)
+    try:
+        port = int(peer.stdout.readline().strip())
+        lock.write_text(json.dumps({"pid": peer.pid, "port": port, "started": "x"}))
+        assert instance.live_instance(s)["pid"] == peer.pid, "a live peer on its port must be refused"
+
+        # pid reuse: the pid is alive but that port is not its server
+        lock.write_text(json.dumps({"pid": peer.pid, "port": 1, "started": "x"}))
+        assert instance.live_instance(s) is None, "pid liveness alone false-positives on reuse"
+
+        # claiming is ours, and our own pid is never 'another instance'
+        lock.unlink()
+        instance.claim(s)
+        assert json.loads(lock.read_text())["port"] == s.port
+        assert instance.live_instance(s) is None, "self must not block self"
+        instance.release(s)
+        assert not lock.exists(), "release must leave no lock behind"
+
+        # never drop somebody else's lock
+        lock.write_text(json.dumps({"pid": peer.pid, "port": port, "started": "x"}))
+        instance.release(s)
+        assert lock.exists(), "release must not clear another instance's lock"
+    finally:
+        peer.kill()
+        peer.wait(timeout=5)
+
+
 def test_llm_prompt_build_and_clean():
     from monoline.llm.client import build_messages, _clean
     msgs = build_messages("深海发光", tone="punchy", length="short", lang="zh")
