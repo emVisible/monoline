@@ -51,6 +51,7 @@ def _env() -> Environment:
         return {"prefix": prefix, "num": num, "dec": dec, "suffix": suffix}
 
     env.globals["count_up"] = count_up
+    from ..pipeline.display_text import kinetic_chunks as _kinetic
     from .icons import svg as _icon_svg
     from .viz import (argmax as _argmax, delta as _delta, donut as _donut, funnel_widths as _funnel_w,
                       highlight as _highlight, max_drop as _max_drop, pct as _pct, peak_marker as _peak,
@@ -70,6 +71,7 @@ def _env() -> Environment:
     env.globals["max_drop"] = _max_drop
     env.globals["donut"] = _donut
     env.globals["delta"] = _delta
+    env.globals["kinetic_chunks"] = _kinetic
     return env
 
 

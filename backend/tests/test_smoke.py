@@ -2111,3 +2111,36 @@ def test_docs_surface_matches_the_app_v53():
     # (`monoline serve`, `run-script <script.txt>`), so match word by word
     named = {w for span in re.findall(r"`([^`]+)`", prose.group(0)) for w in span.split() if w in commands}
     assert named == commands, f"docs list {sorted(named)}, cli registers {sorted(commands)}"
+
+
+def test_kinetic_headline_reveal_v52b():
+    """V52b: a statement headline now rises out of per-chunk masks spread across the beat's
+    dwell, instead of one wipe that finishes a second after the narration starts. The chunks
+    must be lossless (a masked line cannot afford to drop a character or a space), and the
+    plain path must survive for lines too short or too long to pace."""
+    import json
+    from pathlib import Path
+    from monoline.pipeline.display_text import kinetic_chunks
+    from monoline.ir.timings import Timings
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.compose.engine import render_composition
+
+    long_line = "在漆黑的深海，超过九成的生物都能自己发光"
+    chunks = kinetic_chunks(long_line)
+    assert chunks and "".join(chunks) == long_line, chunks
+    assert 3 <= len(chunks) <= 24
+    assert kinetic_chunks("效率很高") == []                    # too short to pace
+    assert kinetic_chunks("字" * 90) == []                     # too many units → plain wipe
+    assert "".join(kinetic_chunks("a b, c d, e f")) == "a b, c d, e f"   # spaces preserved
+
+    theme = Theme(id="mono-ink", tokens=json.loads(
+        (Path(__file__).parents[2] / "design/tokens/mono-ink.json").read_text())["tokens"])
+    scenes = [{"i": 0, "kind": "statement", "slots": {"headline": long_line, "verbatim": long_line}},
+              {"i": 1, "kind": "statement", "slots": {"headline": "短句", "verbatim": "短句"}}]
+    html = render_composition(Timings.from_durations(["a", "b"], [5.0, 4.0]),
+                              ScenePlan(theme=theme, scenes=scenes))
+    assert 'class="headline kinetic"' in html and html.count('<span class="ch">') == len(chunks)
+    assert 'class="headline"' in html, "a short headline must keep the plain (wiped) markup"
+    assert ".headline.kinetic .ch > i" in html, "the kinetic tween is missing"
+    assert ".headline:not(.kinetic)" in html, "the wipe now also animates kinetic lines"
+    assert "yPercent: 118" in html

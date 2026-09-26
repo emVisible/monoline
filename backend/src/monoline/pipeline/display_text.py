@@ -55,6 +55,31 @@ def balance_quotes(t: str) -> str:
     return t
 
 
+_UNIT = re.compile(r"[^\s，、：；,;]+[，、：；,;]*\s*")
+
+
+def kinetic_chunks(text: object, *, min_groups: int = 3, group: int = 2,
+                   max_groups: int = 24, min_chars: int = 8) -> list[str]:
+    """Reveal units for the kinetic headline, or [] to leave the plain wipe in place.
+
+    Clause first — that is where the narration breathes. When a line is one long clause the
+    text falls back to fixed 2-character groups: per character on a 20-char headline reads
+    as a typewriter crawl, and no split at all is just a fade. Joining the result always
+    reproduces the input, so the markup cannot lose a character or a space.
+
+    [] above `max_groups` units: past ~24 masked boxes the DOM costs more than the effect
+    buys, and a crawl is what the audience would see anyway.
+    """
+    t = " ".join(str(text or "").split())
+    if len(t) < min_chars:
+        return []
+    parts = [p for p in _UNIT.findall(t) if p]
+    if len(parts) >= min_groups:
+        return parts if len(parts) <= max_groups else []
+    out = [t[i:i + group] for i in range(0, len(t), group)]
+    return out if len(out) <= max_groups else []
+
+
 def tidy(text: object, *, hero: bool = True) -> str:
     """One display string → what may be painted. Never rewrites wording."""
     t = str(text or "").strip()
