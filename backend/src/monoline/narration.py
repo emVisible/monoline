@@ -44,9 +44,62 @@ GAP_TAIL = 0.24
 TRAIL_KEEP = 0.05
 
 
+# ── V65e: LaTeX read aloud ────────────────────────────────────────────────────────────────
+# `$E=mc^2$` used to reach the model as `E=mc2` (every one of `$ ^ \` is in _SPELL below),
+# i.e. a formula was pronounced as a typo. This turns the markup into Chinese word order —
+# denominator first for `\frac`, 次方 for exponents, 小于等于 for `\le` — and nothing else.
+# Unknown commands keep their letters (`\sin` → sin) rather than vanishing silently.
+_TEX = {
+    "alpha": "阿尔法", "beta": "贝塔", "gamma": "伽马", "delta": "德尔塔", "Delta": "德尔塔",
+    "epsilon": "艾普西隆", "zeta": "泽塔", "eta": "伊塔", "theta": "西塔", "kappa": "卡帕",
+    "lambda": "拉姆达", "Lambda": "拉姆达", "mu": "缪", "nu": "纽", "xi": "克西",
+    "pi": "派", "Pi": "派", "rho": "柔", "sigma": "西格玛", "Sigma": "西格玛", "tau": "陶",
+    "phi": "斐", "varphi": "斐", "Phi": "斐", "chi": "希", "psi": "普西", "omega": "欧米伽",
+    "Omega": "欧米伽", "times": "乘", "cdot": "乘", "div": "除以", "pm": "正负",
+    "approx": "约等于", "equiv": "等价于", "neq": "不等于", "le": "小于等于", "leq": "小于等于",
+    "ge": "大于等于", "geq": "大于等于", "ll": "远小于", "gg": "远大于", "infty": "无穷",
+    "partial": "偏导", "nabla": "梯度", "sum": "求和", "prod": "连乘", "int": "积分",
+    "quad": "", "qquad": "", "left": "", "right": "", "mathrm": "", "text": "", "sim": "约等于",
+}
+_FRAC = re.compile(r"\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
+_SUP_SQ = re.compile(r"\^\{?([23])\}?")
+_SUP_N = re.compile(r"\^\{?(-?\w+)\}?")
+_SUB = re.compile(r"_\{?[^{}\s]+\}?")
+_CMD = re.compile(r"\\([A-Za-z]+|[,;:!\\\\ ])")
+
+
+def _power(f: re.Match[str]) -> str:
+    v = f.group(1)
+    return f" 的 负 {v[1:]} 次方" if v.startswith("-") else f" 的 {v} 次方"
+
+
+def speak_math(text: str) -> str:
+    """`$…$` spans → words. Everything outside a span is returned untouched."""
+    from .pipeline.display_text import MATH_SPAN, is_math_span, math_body
+
+    def one(m: re.Match[str]) -> str:
+        if not is_math_span(m.group(0)):
+            return m.group(0)                     # a price, not a formula
+        b = math_body(m.group(0))
+        for _ in range(2):                        # \frac{\frac{a}{b}}{c} resolves outside-in
+            b = _FRAC.sub(lambda f: f"{f.group(2)} 分之 {f.group(1)}", b)
+        b = _SUP_SQ.sub(lambda f: " 的平方" if f.group(1) == "2" else " 的立方", b)
+        b = _SUP_N.sub(_power, b)
+        b = _SUB.sub("", b)
+        b = _CMD.sub(lambda f: _TEX.get(f.group(1).strip(), f.group(1)), b)
+        b = b.replace("=", " 等于 ").replace("+", " 加 ").replace("<", " 小于 ").replace(">", " 大于 ")
+        b = re.sub(r"(?<![\d.])-(?![\d])", " 减 ", b)
+        b = re.sub(r"[{}()\[\]|\\]", " ", b)
+        return " " + re.sub(r"\s{2,}", " ", b).strip() + " "
+
+    return MATH_SPAN.sub(one, text)
+
+
 def clean(text: str) -> str:
     """Strip everything that would be spelled out; turn dashes/arrows into pauses."""
-    s = _FW_PCT.sub("%", text or "")
+    s = speak_math(text or "")
+    s = re.sub(r"\s+([。，、！？；：])", r"\1", s)   # the read-aloud gap never belongs before a stop
+    s = _FW_PCT.sub("%", s)
     s = _LONGISH.sub("……", s)
     s = _SHORTISH.sub("，", s)
     s = _EMOJI.sub("", s)

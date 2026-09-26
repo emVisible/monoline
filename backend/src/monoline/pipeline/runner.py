@@ -14,7 +14,7 @@ import shutil
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
-from ..compose.engine import render_composition
+from ..compose.engine import render_composition, vendor_composition_assets
 from ..db.repo import Repo, now_iso
 from ..fonts.subset import collect_glyphs, subset_font
 from ..hf.cli import HF
@@ -286,9 +286,8 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
         html = render_composition(timings, plan, title=job["title"] or "", vo_src=vo_src,
                                   layout=config.get("layout", "minimal"))
         ws.index_html.write_text(html, encoding="utf-8")
-        # vendor gsap + scaffold project files (relative paths only)
-        shutil.copy(settings.vendor_dir / "gsap.min.js", ws.comp_vendor / "gsap.min.js")
-        shutil.copy(settings.vendor_dir / "gsap-LICENSE.txt", ws.comp_vendor / "gsap-LICENSE.txt")
+        # vendor gsap (+ katex when the piece shows a formula) and scaffold the project
+        vendor_composition_assets(ws, settings.vendor_dir, html)
         _write_hf_project(ws.composition, job_id, job["title"] or "monoline", settings)
         await repo.add_artifact(job_id, kind="composition_html", stage_key="compose",
                                 rel_path="composition/index.html", abs_path=str(ws.index_html),

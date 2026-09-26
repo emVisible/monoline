@@ -112,18 +112,23 @@ _MULTI_SPACE = re.compile(r"[ \t]{2,}")
 # Deliberately conservative, because a false positive costs more than a miss — `售价 $100 起`
 # and `$100与$200` are money, not math, and masking them would hide a real statistic. So a
 # span only counts as math when it holds no CJK character and at least one math mark.
-_MATH_CANDIDATE = re.compile(r"\$\$[^$\n]+?\$\$|\$(?![\s$])[^$\n]+?\$")
+MATH_SPAN = re.compile(r"\$\$[^$\n]+?\$\$|\$(?![\s$])[^$\n]+?\$")
 _CJK_CHAR = re.compile(r"[　-〿一-鿿＀-￯]")
 _MATH_MARK = re.compile(r"[=^_\\{}%]")
 
 
+def math_body(span: str) -> str:
+    """The formula itself, without its `$` delimiters."""
+    return span[2:-2] if span.startswith("$$") else span[1:-1]
+
+
 def is_math_span(span: str) -> bool:
-    body = span[2:-2] if span.startswith("$$") else span[1:-1]
+    body = math_body(span)
     return bool(body) and not _CJK_CHAR.search(body) and bool(_MATH_MARK.search(body))
 
 
 def has_math(text: object) -> bool:
-    return any(is_math_span(m.group()) for m in _MATH_CANDIDATE.finditer(str(text or "")))
+    return any(is_math_span(m.group()) for m in MATH_SPAN.finditer(str(text or "")))
 
 
 def outside_math(text: object, fn: "Callable[[str], str]") -> str:
@@ -131,7 +136,7 @@ def outside_math(text: object, fn: "Callable[[str], str]") -> str:
     t = str(text or "")
     out: list[str] = []
     pos = 0
-    for m in _MATH_CANDIDATE.finditer(t):
+    for m in MATH_SPAN.finditer(t):
         if not is_math_span(m.group()):
             continue
         out.append(fn(t[pos:m.start()]))
@@ -143,7 +148,7 @@ def outside_math(text: object, fn: "Callable[[str], str]") -> str:
 
 def mask_math(text: object, repl: str = "▮") -> str:
     """Formulas replaced by one block glyph — for DETECTION only, never for display."""
-    return _MATH_CANDIDATE.sub(lambda m: repl if is_math_span(m.group()) else m.group(),
+    return MATH_SPAN.sub(lambda m: repl if is_math_span(m.group()) else m.group(),
                                str(text or ""))
 
 

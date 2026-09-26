@@ -5,6 +5,7 @@ fail-closed determinism assertion.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -14,6 +15,24 @@ from ..ir.timings import Timings
 from .assert_determinism import assert_determinism
 
 _TEMPLATES = Path(__file__).parent / "templates"
+
+
+def vendor_composition_assets(ws, vendor_dir: Path, html: str) -> None:
+    """Copy in every file index.html references by relative path.
+
+    One function because this is the composition's file contract, and it had already drifted:
+    the pipeline stage copied GSAP's license, the recompose path silently did not. KaTeX is
+    600 KB of fonts, so it only travels with a composition that actually shows a formula.
+    """
+    import shutil
+
+    shutil.copy(vendor_dir / "gsap.min.js", ws.comp_vendor / "gsap.min.js")
+    shutil.copy(vendor_dir / "gsap-LICENSE.txt", ws.comp_vendor / "gsap-LICENSE.txt")
+    if "vendor/katex/" in html:
+        dst = ws.comp_vendor / "katex"
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(vendor_dir / "katex", dst)
 
 
 def _env() -> Environment:
@@ -103,7 +122,7 @@ def render_composition(timings: Timings, plan: ScenePlan, *, title: str = "", vo
     # Compose is where "no punctuation on screen" stops being a generation-time habit and
     # becomes a guarantee: a plan saved before V62b still holds the old text in its slots.
     # The plan on disk stays exactly what its author saved — these are copies.
-    from ..pipeline.display_text import tidy_slots
+    from ..pipeline.display_text import has_math, tidy_slots
     from ..pipeline.rotation import label_sections
     scenes = [s.model_copy(update={"slots": tidy_slots(s.kind, s.slots)}) for s in plan.scenes]
     # Section labels are derived here, not when the rules first ran: a divider beat marked by
@@ -115,7 +134,13 @@ def render_composition(timings: Timings, plan: ScenePlan, *, title: str = "", vo
     segments = timings.segments
     w, h = plan.canvas.width, plan.canvas.height
     aspect = "portrait" if h > w * 1.1 else ("square" if abs(h - w) <= w * 0.1 else "landscape")
+    # KaTeX costs 600 KB of vendored assets and a DOM walk, so it only ships when a beat
+    # really carries `$…$`. Probed on the FINAL display text: a span the punctuation rules
+    # already dissolved must not pull the renderer in.
+    probe = json.dumps([s.slots for s in scenes], ensure_ascii=False)
+    probe += "".join(g.text for g in segments)
     html = tmpl.render(
+        math=has_math(probe),
         canvas=plan.canvas,
         aspect=aspect,
         layout=layout if layout in ("minimal", "editorial", "bold") else "minimal",

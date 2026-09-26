@@ -24,6 +24,9 @@ _WS = re.compile(r"\s+")
 # Stripped so the marker never leaks into a headline/caption/TTS and "2. x" isn't misread
 # as a stat. Requires trailing whitespace → leaves "3.14", "-10%" and "C#" intact.
 _LIST_MARK = re.compile(r"^\s*(?:#{1,6}|[-*+•·‣⁃]|\d+[.)、])\s+")
+# Anything a voice could actually say. Rules written with the delimiter only (`---`, `***`)
+# are markup, not content; `_` is deliberately excluded so `___` is not read as a word.
+_WORD = re.compile(r"[0-9A-Za-z\u4e00-\u9fff]")
 
 # Markdown inline syntax people paste (from docs / LLM output) → keep the visible text,
 # drop the markup so it never leaks onto the slide or into TTS.
@@ -153,10 +156,16 @@ class SentenceSegmenter:
         return [head, tail]
 
     def segment(self, text: str) -> list[str]:
+        from .markdown import normalize
+
         raw: list[tuple[str, bool]] = []
-        for line in text.splitlines():
+        for line in normalize(text).splitlines():
             stripped = line.strip()
             if not stripped:
+                continue
+            # A line with no word in it has nothing for the voice to read — `---`, `***`, a
+            # stray `~~~`. One such beat failed an entire job at rc=1, so it never becomes one.
+            if not _WORD.search(stripped):
                 continue
             # a line that started with a list/header marker is a deliberate item — it must
             # stay its own beat even when short (otherwise stripping the marker would let

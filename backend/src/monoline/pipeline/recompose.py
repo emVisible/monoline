@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import shutil
 
-from ..compose.engine import render_composition
+from ..compose.engine import render_composition, vendor_composition_assets
 from ..db.repo import Repo
 from ..fonts.subset import collect_glyphs, subset_font
 from ..hf.cli import HF
@@ -50,7 +49,7 @@ async def recompose(repo: Repo, settings: Settings, job_id: str) -> dict:
     html = render_composition(timings, plan, title=job["title"] or "", vo_src=vo_src,
                               layout=config.get("layout", "minimal"))
     ws.index_html.write_text(html, encoding="utf-8")
-    shutil.copy(settings.vendor_dir / "gsap.min.js", ws.comp_vendor / "gsap.min.js")
+    vendor_composition_assets(ws, settings.vendor_dir, html)
 
     # lint (non-fatal; surfaced as warnings)
     hf = HF(settings)

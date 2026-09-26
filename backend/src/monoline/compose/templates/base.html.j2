@@ -5,6 +5,12 @@
     <meta name="viewport" content="width={{ canvas.width }}, height={{ canvas.height }}" />
     <title>{% if brand.label %}{{ brand.label }} — {% endif %}{{ title }}</title>
     <script src="vendor/gsap.min.js"></script>
+    {%- if math %}
+    <!-- LaTeX ships only for a beat that carries a formula: vendored, offline, no CDN -->
+    <link rel="stylesheet" href="vendor/katex/katex.min.css" />
+    <script src="vendor/katex/katex.min.js"></script>
+    <script src="vendor/katex/auto-render.min.js"></script>
+    {%- endif %}
     <style>
       @font-face {
         font-family: "ExplainerCJK";
@@ -81,6 +87,13 @@
       .sec-tag { position: absolute; top: 60px; right: var(--gutter-x); z-index: 40;
         font-size: 21px; letter-spacing: .16em; color: var(--ink-muted); }
       body[data-aspect="portrait"] .sec-tag { top: 64px; right: calc(var(--gutter-x) * 0.8); font-size: 19px; }
+      {%- if math %}
+      /* KaTeX defaults: red on a parse error, and 1em margins on display blocks. Neither
+         belongs in a monochrome slide — an unparseable formula must fall back to its own
+         source text in the scene's ink colour, and stay where the layout put it. */
+      .katex .katex-error { color: inherit !important; }
+      .katex-display { margin: 0; text-align: inherit; }
+      {%- endif %}
       /* icon plate: a bare glyph reads as an orphan; the same glyph in a soft
          accent ring reads as an intentional mark. */
       .scene-icon { display: flex; align-items: center; justify-content: center;
@@ -645,6 +658,12 @@
       </section>
       {%- endfor %}
     </div>
+    {%- if math %}
+    <script>
+      // before the timeline is built, so GSAP resolves its targets against the final DOM
+      renderMathInElement(document.body, { throwOnError: false });
+    </script>
+    {%- endif %}
     <script>
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });

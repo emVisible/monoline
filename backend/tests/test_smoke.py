@@ -2786,3 +2786,107 @@ def test_a_formula_is_notation_not_a_statistic_v65b():
     assert slots["value"] == "40%" and "\\frac{1}{2}" in slots["label"], slots
     # a per-character reveal box would shred the span it splits
     assert kinetic_chunks("动能公式 $E_k = \\frac{1}{2}mv^2$ 与势能之和保持恒定") == []
+
+
+def test_katex_is_vendored_offline_and_travels_only_with_a_formula_v65c(tmp_path):
+    """The renderer has no network and no CDN — same rule as GSAP — so every byte KaTeX
+    needs must be in `backend/vendor/katex`. The vendored CSS was rewritten to drop its
+    .woff/.ttf fallbacks, and a rewrite that deletes a file it still points at fails
+    silently at render time (the glyph just falls back), so the reference is what we check."""
+    import re
+    from pathlib import Path
+    from monoline.compose.engine import vendor_composition_assets
+
+    root = Path(__file__).resolve().parents[1] / "vendor" / "katex"
+    assert (root / "katex.min.js").exists() and (root / "auto-render.min.js").exists()
+    assert "MIT" in (root / "katex-LICENSE.txt").read_text(), "许可证要跟着字体一起走"
+    css = (root / "katex.min.css").read_text()
+    assert not re.search(r"url\((?:https?:)?//", css), "不许引 CDN"
+    refs = re.findall(r"url\(([^)\"']+)\)", css)
+    assert refs, "CSS 里应当仍有字体引用"
+    missing = [r for r in refs if not (root / r).exists()]
+    assert not missing, f"CSS 引用了不存在的文件：{missing[:4]}"
+
+    # and it only ships when the piece actually shows math
+    class _Ws:
+        def __init__(self, base: Path) -> None:
+            self.comp_vendor = base / "vendor"
+            self.comp_vendor.mkdir(parents=True)
+
+    ws = _Ws(tmp_path)
+    vendor_composition_assets(ws, root.parent, '<script src="vendor/gsap.min.js"></script>')
+    assert not (ws.comp_vendor / "katex").exists()
+    assert (ws.comp_vendor / "gsap-LICENSE.txt").exists(), "recompose 路径此前漏拷的许可证"
+
+    ws2 = _Ws(tmp_path / "b")
+    vendor_composition_assets(ws2, root.parent, '<link href="vendor/katex/katex.min.css" />')
+    assert (ws2.comp_vendor / "katex" / "fonts" / "KaTeX_Main-Regular.woff2").exists()
+
+
+def test_a_formula_beat_pulls_katex_into_the_composition_v65c():
+    import json
+    from pathlib import Path
+    from monoline.compose.engine import render_composition
+    from monoline.ir.sceneplan import Brand, Captions, ScenePlan, Theme
+    from monoline.ir.timings import Timings
+
+    theme = Theme(id="mono-ink", tokens=json.loads(
+        (Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+
+    def render(headline: str) -> str:
+        beats = [headline]
+        t = Timings.from_durations(beats, [3.0])
+        return render_composition(t, ScenePlan(theme=theme, brand=Brand(label="Acme"),
+                                               captions=Captions(), scenes=[
+            {"i": 0, "kind": "statement", "slots": {"headline": headline}}]), title="x")
+
+    assert "katex" not in render("深海生物大多能自己发光"), "没有公式的片子不许多出 600 KB 依赖"
+    math = render("能量守恒写作 $E=mc^2$")
+    assert 'href="vendor/katex/katex.min.css"' in math
+    assert "renderMathInElement" in math
+    assert "$E=mc^2$" in math, "公式原文必须进产物，由浏览器端 KaTeX 换成排版"
+
+
+def test_a_markdown_table_becomes_one_beat_and_a_rule_is_not_a_beat_v65d():
+    """Measured on a real paste: a GFM table reached the screen as `--- ---` and the TTS
+    stage answered `rc=1`, killing the job. A table is structure the beat model has no
+    container for (1 beat = 1 scene), so it has to become ONE line the planner already
+    knows how to read — k：v pairs — and a thematic break has to become nothing at all."""
+    import re
+    from monoline.pipeline.planner import RulePlanner
+    from monoline.pipeline.segment import segment_text
+
+    script = ("## 三种颜色\n\n| 波长 | 穿透 |\n| --- | --- |\n"
+              "| 蓝光 | 200 米 |\n| 绿光 | 90 米 |\n| 红光 | 10 米 |\n")
+    assert segment_text(script) == ["三种颜色", "蓝光：200 米，绿光：90 米，红光：10 米"]
+    kinds = [(s["kind"], s["source"]) for s in RulePlanner().plan(segment_text(script), script=script)]
+    assert kinds[0] == ("section", "rules:md-heading"), kinds
+    assert kinds[1][0] in {"bars", "table", "kpi", "funnel"}, kinds
+
+    # a header is the only source of keys when there is one data row
+    assert segment_text("| 项 | 值 |\n| --- | --- |\n| 留存 | 45% |\n") == ["留存：45%"]
+    # and a one-column table is a list, not a chart
+    assert segment_text("| 成员 |\n| --- |\n| 阿明 |\n| 阿强 |\n") == ["阿明、阿强"]
+
+    # nothing speakable means no beat: a beat the voice cannot read fails the whole job
+    for junk in ("---", "***", "___", "| --- | --- |", "~~~", "......"):
+        assert segment_text(f"深海里的生物大多能自己发光。\n\n{junk}\n\n每一次闪光都要付出代价。") == \
+            ["深海里的生物大多能自己发光。", "每一次闪光都要付出代价。"], junk
+    assert not [b for b in segment_text("段落。\n\n***\n\n段落二。")
+                if not re.search(r"[0-9A-Za-z一-鿿]", b)]
+
+
+def test_a_formula_is_said_in_words_not_spelled_v65e():
+    """The voice path strips `^` and `\\` as "symbols a G2P would spell out", so `$E=mc^2$`
+    arrived at the model as `E=mc2` and `$1.2\\times10^{-3}$` as a run of letters. A formula
+    has to be *read*: Chinese word order, `分之` with the denominator first, and nothing left
+    of the markup itself."""
+    from monoline.narration import clean
+
+    assert clean("能量守恒写作 $E=mc^2$。") == "能量守恒写作 E 等于 mc 的平方。"
+    assert clean("半径 $\\frac{1}{2}mv^2$ 之内。") == "半径 2 分之 1mv 的平方 之内。"
+    assert clean("$\\pi r^2$ 是面积。") == "派 r 的平方 是面积。"
+    assert clean("$a \\le b$ 恒成立。") == "a 小于等于 b 恒成立。"
+    # a price is not a formula, and must keep the behaviour it had before this rule existed
+    assert clean("售价 $100 起。") == "售价 $100 起。"
+    assert clean("在 $100与$200 之间。") == "在 $100与$200 之间。"
