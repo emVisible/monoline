@@ -272,6 +272,16 @@ V53 穿插进行，但**文档 shuffle 放在最后**，否则前面的改动会
    落在这一层，不在换 kind 这一层。
 3. **不要先补 `_ALTERNATIVES` 构造器**（见下面的不做清单）。
 
+**第 1 步的可执行细节**（改段数会牵动 TTS 与 plan 版本，别半落）：
+代码在 `backend/src/monoline/pipeline/segment.py`（模块名是 `segment`，**不叫** segmenter）——
+`_SENT_SPLIT` 在 :19，公开入口 `segment_text()` 在 :207，两个 `segment()` 实现在 :75 / :155。
+要消灭的是「以读点结尾」的拍（并回后续子句，或此处禁止断开）；读点词表的唯一 owner 已经是
+`pipeline/display_text.py:89` 的 `ends_open()`，复用它、不要再抄一份字符集。
+**基线与判据**：`uv run --directory backend python scripts/measure_runs.py --replan` 当前报
+**超出 `MAX_RUN=2` 的拍 = 47**、V61b 的「切分器劈开」分桶 = 13 拍/28%；改完两者必须同时下降。
+**回归红线**：V54b 的 lead-in 排版不能被弄坏（那 13 拍里有些正靠它才不难看）、
+**1 拍 = 1 段 = 1 场景** 不变量不许破（跑一次端到端作业核对段数==场景数）、`make test`（含 tsc）必须绿。
+
 ## 不做清单（续，V60/V61 补）
 
 | 不做 | 理由（实测） |
