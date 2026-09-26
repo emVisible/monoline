@@ -212,9 +212,13 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
                 await log("plan", f"分镜判定：{target.model}")
                 scenes, llm = await upgrade(settings, beats, scenes, target=target)
                 if llm.get("batches"):
+                    # "rejected" alone read as a broken feature; the model declining is a verdict
                     await log("plan", f"逐批判定的结果：{llm.get('asked', 0)} 拍分 {llm['batches']} 批，"
-                                      f"升格 {llm.get('upgraded', 0)} 拍"
-                                      + (f"；{llm['failed_batches']} 批失败，这些拍按规则保留"
+                                      f"升格 {llm.get('upgraded', 0)} 拍，"
+                                      f"模型认为保持纯文字 {llm.get('declined', 0)} 拍，"
+                                      f"形状不可用 {llm.get('rejected', 0)} 拍"
+                                      + (f"（{'；'.join(llm['why'])}）" if llm.get("why") else "")
+                                      + (f"；{llm['failed_batches']} 批请求失败，这些拍按规则保留"
                                          if llm.get("failed_batches") else ""))
                 apply_icons(scenes, beats)      # promoted beats need the new kind's icon
                 number_sections(scenes)

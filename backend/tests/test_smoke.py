@@ -1761,13 +1761,17 @@ def test_llm_upgrade_keeps_rules_where_the_model_is_wrong():
     assert len(out) == len(beats)                    # the invariant survives a bad model reply
     assert [s["kind"] for s in out] == ["title", "flow", "radial", "summary"]
     assert out[1]["source"] == "llm:upgrade" and out[1]["slots"]["nodes"][0] == "需求"
-    assert stats == {"asked": 2, "upgraded": 2, "rejected": 0}
+    assert stats == {"asked": 2, "upgraded": 2, "declined": 0, "bad_kind": 0, "bad_slots": 0,
+                     "rejected": 0}
     # invented copy, illegal kind, and a dropped beat are all refused, beat by beat
     bad = [{"i": 1, "kind": "flow", "slots": {"nodes": ["需求", "融资", "上线"]}},      # 融资 not in beat
            {"i": 2, "kind": "mindmap", "slots": {"hub": "平台", "nodes": ["网关", "计算"]}}]  # no such kind
     out2, st2 = merge(beats, scenes, bad)
     assert [s["kind"] for s in out2] == ["title", "statement", "statement", "summary"]
-    assert st2 == {"asked": 2, "upgraded": 0, "rejected": 2}
+    # V55: the two failure modes are counted apart, and each names itself
+    assert st2["asked"] == 2 and st2["upgraded"] == 0 and st2["declined"] == 0
+    assert (st2["bad_slots"], st2["bad_kind"], st2["rejected"]) == (1, 1, 2)
+    assert any("mindmap" in w for w in st2["why"]) and any("flow" in w for w in st2["why"])
     # a short-but-not-grounded value ("3倍" vs "3 倍") still counts as grounded after punctuation folds
     ok = [{"i": 1, "kind": "stat", "slots": {"value": "3倍", "label": "需求"}}]
     out3, st3 = merge(["开场。", "需求 3 倍完成"], [{"i": 0, "kind": "title", "slots": {}},
@@ -2144,3 +2148,23 @@ def test_kinetic_headline_reveal_v52b():
     assert ".headline.kinetic .ch > i" in html, "the kinetic tween is missing"
     assert ".headline:not(.kinetic)" in html, "the wipe now also animates kinetic lines"
     assert "yPercent: 118" in html
+
+
+def test_upgrade_stats_separate_declined_from_unusable_v55():
+    """`rejected=15` looked like a broken feature for four runs straight; 13 of those were the
+    model correctly answering "this beat stays plain text". A verdict and a failure must not
+    share a counter, and a failure must carry a reason."""
+    from monoline.llm.planner import merge
+
+    beats = ["这款模型的参数是 70 亿，价格是 300 万", "第二拍只是叙述", "第三拍也没数字"]
+    scenes = [{"i": i, "kind": "statement", "slots": {}, "source": "rules"} for i in range(3)]
+    payload = {"scenes": [
+        {"i": 0, "kind": "stat", "slots": {"value": "70 亿", "label": "参数"}},   # lands
+        {"i": 1, "kind": "statement", "slots": {}},                              # declined
+        {"i": 2, "kind": "cards", "slots": {"title": "第三拍也没数字"}},          # cards wants rows
+    ]}
+    out, st = merge(beats, scenes, payload)
+    assert out[0]["kind"] == "stat" and out[1]["kind"] == "statement"
+    assert (st["upgraded"], st["declined"], st["bad_slots"], st["bad_kind"]) == (1, 1, 1, 0), st
+    assert st["rejected"] == st["bad_kind"] + st["bad_slots"]
+    assert st["why"] and "cards" in st["why"][0], st

@@ -131,7 +131,9 @@ async def chat(messages: list[dict], *, target: Target | None = None, temperatur
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(t.base_url.rstrip("/") + "/chat/completions", json=body, headers=headers)
     except httpx.HTTPError as e:
-        raise LLMError(f"LLM 请求失败：{e}") from e
+        # the class name, not just str(e): httpx raises ConnectError with an empty message,
+        # and "LLM 请求失败：" alone is what the UI showed while the real cause was no listener
+        raise LLMError(f"LLM 请求失败：{type(e).__name__}: {e}") from e
     if resp.status_code >= 400:
         raise LLMError(f"LLM 返回 {resp.status_code}：{resp.text[:200]}")
     data = resp.json()

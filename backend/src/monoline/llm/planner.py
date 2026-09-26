@@ -124,8 +124,17 @@ def _clean_slots(kind: str, slots: object, beat: str) -> dict | None:
 
 
 def merge(beats: list[str], scenes: list[dict], payload: object) -> tuple[list[dict], dict]:
-    """Fold validated model verdicts into the rule plan. Never changes the scene count."""
-    stats = {"asked": 0, "upgraded": 0, "rejected": 0}
+    """Fold validated model verdicts into the rule plan. Never changes the scene count.
+
+    `rejected` used to cover three different facts, which is how a working feature looked
+    broken: measured on a real 15-beat script, 4 runs all reported `upgraded=0 rejected=15`,
+    and 13 of those 15 were the model correctly saying "this one stays plain text". Now the
+    three are counted apart — `declined` (the model agrees with the rules: a verdict, not a
+    failure), `bad_kind` (it named a type we never offered) and `bad_slots` (it named one it
+    could not fill — e.g. `cards` with a title and no rows, which is what the 4B model does
+    most often). `why` carries one example so the number can be read without re-running.
+    """
+    stats = {"asked": 0, "upgraded": 0, "declined": 0, "bad_kind": 0, "bad_slots": 0}
     by_index = {}
     for item in list_as(payload):
         if isinstance(item, dict) and isinstance(item.get("i"), int):
@@ -137,16 +146,26 @@ def merge(beats: list[str], scenes: list[dict], payload: object) -> tuple[list[d
         stats["asked"] += 1
         verdict = by_index.get(i)
         kind = (verdict or {}).get("kind") if verdict else None
+        if kind == out[i]["kind"]:                  # "leave it as text" is an answer
+            stats["declined"] += 1
+            continue
         if kind not in ALLOWED:
-            stats["rejected"] += 1
+            stats["bad_kind"] += 1
+            stats.setdefault("why", []).append(f"#{i} kind={kind!r} 不在候选类型里")
             continue
         slots = _clean_slots(kind, (verdict or {}).get("slots"), beat)
         if slots is None:
-            stats["rejected"] += 1
+            stats["bad_slots"] += 1
+            stats.setdefault("why", []).append(
+                f"#{i} {kind} 槽位填不上（要 {'/'.join(ALLOWED[kind])}，给了 "
+                f"{sorted((verdict or {}).get('slots') or {})}）")
             continue
         out[i] = {"i": i, "kind": kind, "source": "llm:upgrade",
                   "slots": tidy_slots(kind, slots)}
         stats["upgraded"] += 1
+    if isinstance(stats.get("why"), list):
+        stats["why"] = stats["why"][:3]
+    stats["rejected"] = stats["bad_kind"] + stats["bad_slots"]
     return out, stats
 
 
