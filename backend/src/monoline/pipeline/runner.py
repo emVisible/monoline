@@ -201,7 +201,9 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
         segs = await repo.get_segments(job_id)
         theme = resolve_theme(settings, config)
         beats = [s["text"] for s in segs]
-        scenes = RulePlanner().plan(beats, brand=config.get("brand", "Monoline"))
+        job_row = await repo.get_job(job_id)
+        scenes = RulePlanner().plan(beats, brand=config.get("brand", "Monoline"),
+                                    script=(job_row or {}).get("script_text", ""))
         source, llm = "rules", {}
         if config.get("llm_plan", True):
             from ..llm.client import detect

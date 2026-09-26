@@ -397,8 +397,35 @@ def _layers(s: str) -> tuple[str, list[str]]:
     return rt, rnodes
 
 
+def md_heading_texts(script: str) -> set[str]:
+    """Normalized text of every markdown heading in the source (markdown-it, commonmark).
+
+    Parsing with a real markdown parser rather than a regex is the point: `#` inside code
+    fences, setext underlines and `## 标题  ` all behave differently, and a wrong match here
+    silently turns a sentence into a divider page.
+    """
+    from markdown_it import MarkdownIt
+    try:
+        toks = MarkdownIt("commonmark").parse(script or "")
+    except Exception:
+        return set()
+    out: set[str] = set()
+    for i, t in enumerate(toks):
+        if t.type == "heading_open" and i + 1 < len(toks) and toks[i + 1].type == "inline":
+            norm = _NORM(toks[i + 1].content)
+            if norm:
+                out.add(norm)
+    return out
+
+
+def _NORM(s: str) -> str:
+    """Case/punctuation-folded text, so the heading 「机制」 meets the beat 「机制。」."""
+    return re.sub(r"[\s。，,、：:；;！!？?「」『』“”‘’()（）\.·\-—]", "", str(s or "")).lower()
+
+
 class RulePlanner:
-    def plan(self, beats: list[str], *, brand: str = "Monoline", date_eyebrow: str = "") -> list[dict]:
+    def plan(self, beats: list[str], *, brand: str = "Monoline", date_eyebrow: str = "",
+             script: str = "") -> list[dict]:
         n = len(beats)
         scenes: list[dict] = []
         for i, b in enumerate(beats):
@@ -417,6 +444,7 @@ class RulePlanner:
                                    "slots": {"eyebrow": "In short", "headline": ts["headline"], "verbatim": ts["verbatim"]}})
             else:
                 scenes.append(self._classify(i, b))
+        scenes = self._mark_md_headings(scenes, beats, script)
         scenes = rebalance(scenes, beats)      # whole-piece view: no 12-beat run of one layout
         # (section labels are derived at compose time so manual and model paths get them too)
         for s in scenes:
@@ -431,6 +459,27 @@ class RulePlanner:
     def _text_slots(self, b: str) -> dict:
         kw, clean = distill_keyword(b)
         return {"headline": kw, "verbatim": (not clean)}
+
+    def _mark_md_headings(self, scenes: list[dict], beats: list[str], script: str) -> list[dict]:
+        """A markdown heading in the source becomes a divider beat, whatever the prose rules said.
+
+        The segmenter strips `# ` (V20), so the marker is already gone by beat time — structure
+        has to be read from the raw script and matched back to the beat that came from it.
+        """
+        heads = md_heading_texts(script)
+        if not heads:
+            return scenes
+        out = []
+        for sc, b in zip(scenes, beats):
+            if _NORM(b) in heads:
+                s = dict(sc)
+                s["kind"] = "section"
+                s["source"] = "rules:md-heading"
+                s["slots"] = {"title": b.strip(" 。.，,、"), "verbatim": False}
+                out.append(s)
+            else:
+                out.append(sc)
+        return out
 
     def _title(self, b: str, brand: str, date_eyebrow: str) -> dict:
         if _SECTION_MARK.match(b.strip()):

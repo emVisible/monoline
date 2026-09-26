@@ -2737,3 +2737,25 @@ def test_a_section_beat_labels_every_beat_until_the_next_one_v64():
     from monoline.pipeline.planner import RulePlanner
     first = RulePlanner().plan(["第一部分 开场。", "深海会发光。"])
     assert first[0]["kind"] == "section" and first[0]["source"] == "rules:section-mark", first[0]
+
+
+def test_a_markdown_heading_becomes_a_divider_beat_v64b():
+    """The user's structure, not a guess: a `##` line in the source is an explicit chapter mark,
+    so it must land as a divider beat and then carry the beats after it.  Parsed with
+    markdown-it rather than a regex because `#` inside a code fence is not a heading, and a
+    false positive here silently turns a sentence into a chapter page."""
+    from monoline.pipeline.planner import RulePlanner, md_heading_texts
+    from monoline.pipeline.segment import segment_text
+
+    script = "## 机制\n\n荧光素酶催化了这一步。\n\n### 代价\n\n这一步很慢。"
+    assert md_heading_texts(script) == {"机制", "代价"}
+    assert md_heading_texts("# 标题\n\n```\n# 这不是标题\n```\n") == {"标题"}, "代码块里的 # 不算标题"
+    assert md_heading_texts("") == set()
+
+    scenes = RulePlanner().plan(segment_text(script), script=script)
+    got = [(s["kind"], s["source"]) for s in scenes]
+    assert got[0] == ("section", "rules:md-heading"), got
+    assert ("section", "rules:md-heading") in got[2:], got
+    # without the script, nothing is claimed — the old behaviour stays intact for pasted prose
+    plain = RulePlanner().plan(segment_text(script))
+    assert all(s["source"] != "rules:md-heading" for s in plain)
