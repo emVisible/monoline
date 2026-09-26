@@ -1114,6 +1114,21 @@ def test_resume_cannot_downgrade_a_shaped_plan_v41():
     assert keep_richer_plan(None, "rules") is False                 # first run
 
 
+def test_force_re_renders_but_never_re_authors_a_manual_plan_v69b():
+    """`?force=1` is the 'the template changed, paint it again' button. On job 001a0dd8
+    it also deleted the outline's two-picture showcase, because the keep-plan branch was
+    gated on `not force`: a forced run went straight to the rules planner and the user's
+    storyboard became title/statement. Force may re-derive a machine plan (that is what
+    a re-plan means); it may not discard a human one."""
+    from monoline.pipeline.runner import keep_richer_plan
+
+    assert keep_richer_plan({"source": "manual"}, "rules", forced=True) is True
+    assert keep_richer_plan({"source": "manual"}, "llm", forced=True) is True
+    assert keep_richer_plan({"source": "llm"}, "rules", forced=True) is False
+    assert keep_richer_plan({"source": "llm"}, "llm", forced=True) is False
+    assert keep_richer_plan({"source": "rules"}, "rules", forced=True) is False
+
+
 def test_source_boilerplate_never_becomes_a_headline_v42():
     """Gap 11a: 4 beats in the real corpus were a bare URL / 链接： / a republication
     notice rendered at 116px display size. Three hard shapes, 0 measured false positives."""

@@ -192,3 +192,39 @@ def test_the_outline_is_where_the_two_unreachable_kinds_get_triggered():
         ghost = [dict(e) for e in out["entries"]]
         ghost[1]["kind"], ghost[1]["image"] = "image", f"assets/{'0' * 16}.png"
         assert c.patch(f"/api/jobs/{jid}/outline", json={"entries": ghost}).status_code == 422
+
+
+def test_two_pictures_turn_a_beat_into_the_other_unreachable_kind():
+    """`showcase` is the second kind no rule can reach (H3). Two attached pictures are its
+    only honest trigger — one is `image`, so the count is what decides, and a single-image
+    showcase is refused rather than rendered as a row of empty placeholders."""
+    import hashlib
+
+    script = "深海里的生物大多能自己发光。\n\n这不是反射阳光，而是一场发生在体内的化学反应。\n"
+    def png(rgb):
+        import struct, zlib
+        raw = b"".join(b"\x00" + bytes(rgb * 4) for _ in range(4))
+        ck = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+        return (b"\x89PNG\r\n\x1a\n" + ck(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 6, 0, 0, 0))
+                + ck(b"IDAT", zlib.compress(raw, 9)) + ck(b"IEND", b""))
+    with TestClient(app) as c:
+        jid = c.post("/api/jobs", json={"script": script, "llm_plan": False}).json()["job_id"]
+        out = c.post(f"/api/jobs/{jid}/outline").json()
+        rels = []
+        for n, rgb in enumerate([(20, 200, 120), (200, 60, 20)]):
+            blob = png(rgb)
+            r = c.post(f"/api/jobs/{jid}/assets", files={"file": (f"s{n}.png", blob, "image/png")})
+            assert r.status_code == 200
+            rels.append(r.json()["rel"])
+            assert r.json()["rel"] == f"assets/{hashlib.sha1(blob).hexdigest()[:16]}.png"
+
+        edits = [dict(e) for e in out["entries"]]
+        edits[1]["kind"], edits[1]["images"] = "showcase", rels
+        after = c.patch(f"/api/jobs/{jid}/outline", json={"entries": edits}).json()
+        assert after["entries"][1]["kind"] == "showcase" and after["entries"][1]["images"] == rels
+        plan = c.get(f"/api/jobs/{jid}").json()["plan"]["scenes"][1]
+        assert [r["img"] for r in plan["slots"]["rows"]] == rels, plan
+
+        one = [dict(e) for e in out["entries"]]
+        one[1]["kind"], one[1]["images"] = "showcase", rels[:1]
+        assert c.patch(f"/api/jobs/{jid}/outline", json={"entries": one}).status_code == 422

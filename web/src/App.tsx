@@ -70,7 +70,7 @@ function useHydration(id: string | null) {
 // paid for. This panel is that review: every beat, its storyboard kind, its section and its
 // share of the runtime — editable in place, and what the run then follows.
 type OutlineRow = { i: number; text: string; kind: string; ruleKind?: string;
-  source: string; section: string; seconds: number; image?: string };
+  source: string; section: string; seconds: number; image?: string; images?: string[] };
 // Kinds a beat can be pinned to from its own words. A chart kind needs rows the text may not
 // contain, and inventing them would put numbers on screen the script never said — that choice
 // stays in Studio, where the slots are editable.
@@ -95,7 +95,12 @@ function OutlinePanel({ jid, data, busy, onBack, onRecut, onConfirm }: {
       const r = await fetch(`/api/jobs/${jid}/assets`, { method: "POST", body: form });
       const d = await r.json().catch(() => ({} as any));
       if (!r.ok || !d.rel) return;
-      setRows((rs) => rs.map((x, i) => (i === n ? { ...x, image: d.rel, kind: "image" } : x)));
+      // one picture is `image`, two or more is `showcase` — the two kinds no rule can reach
+      setRows((rs) => rs.map((x, i) => {
+        if (i !== n) return x;
+        const pics = [...(x.images || (x.image ? [x.image] : [])), d.rel];
+        return { ...x, images: pics, image: pics[0], kind: pics.length > 1 ? "showcase" : "image" };
+      }));
     } finally {
       setBusyRow(null);
     }
@@ -134,14 +139,18 @@ function OutlinePanel({ jid, data, busy, onBack, onRecut, onConfirm }: {
                   onChange={(e) => set(n, { kind: e.target.value })}>
                   {/* the rule's own verdict stays visible even when it is not a pinnable kind —
                       a select that reads `statement` over a `table` beat would lie */}
-                  {Array.from(new Set([r.kind, ...(r.image ? ["image"] : []), ...PINNABLE]))
+                  {Array.from(new Set([r.kind,
+                    ...(r.images && r.images.length > 1 ? ["showcase"] : []),
+                    ...(r.image ? ["image"] : []), ...PINNABLE]))
                     .map((k) => <option key={k} value={k}>{k}</option>)}
                 </select>
                 <span className="ol-rule" title={r.source}>
                   {r.ruleKind}{r.kind !== r.ruleKind ? ` → ${r.kind}` : ""}
                 </span>
                 {r.section && <span className="ol-sec">{r.section}</span>}
-                {r.image && <span className="ol-img">{r.image.split("/").pop()}</span>}
+                {!!r.images?.length && (
+                  <span className="ol-img">{r.images.length} 图 · {r.images[0].split("/").pop()}</span>
+                )}
                 <span className="ol-dur">{r.seconds.toFixed(1)}s</span>
               </div>
             </div>
@@ -157,9 +166,13 @@ function OutlinePanel({ jid, data, busy, onBack, onRecut, onConfirm }: {
           </li>
         ))}
       </ul>
-      <input ref={fileRef} type="file" hidden
+      <input ref={fileRef} type="file" hidden multiple
         accept="image/png,image/jpeg,image/webp,image/gif"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) attach(f); e.target.value = ""; }} />
+        onChange={(e) => {
+          const fs = Array.from(e.target.files || []);
+          e.target.value = "";
+          fs.forEach((f) => attach(f));   // 逐张上传：第二张起这一拍自动变成 showcase
+        }} />
       <div className="ol-foot">
         <button className="ghost" onClick={onBack}>{t("← 返回改文稿")}</button>
         <button className="ghost" onClick={onRecut} disabled={busy}>{busy ? t("切分中…") : t("重新切分")}</button>

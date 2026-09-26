@@ -13,7 +13,7 @@
       {%- else %}
       <div class="sc-ph">未配图</div>
       {%- endif %}
-      <figcaption>
+      <figcaption{% if not r.k and not r.v %} class="empty"{% endif %}>
         <span class="sc-name">{{ r.k }}</span>
         {%- if r.v %}<span class="sc-note">{{ r.v }}</span>{% endif %}
       </figcaption>

@@ -29,19 +29,24 @@ Progress = Callable[[str, dict], Awaitable[None]]
 STAGES = ["script", "tts", "assemble", "plan", "fonts", "compose", "gate", "render", "deliver"]
 
 
-def keep_richer_plan(prior: dict | None, new_source: str) -> bool:
+def keep_richer_plan(prior: dict | None, new_source: str, *, forced: bool = False) -> bool:
     """True when an already-stored storyboard must survive this run of the plan stage.
 
     A human-shaped plan (the outline panel and Studio both write `source="manual"`) is never
-    re-derived over: the whole point of reviewing the outline first is that the run follows it.
-    Beyond that, only an LLM-shaped plan is worth protecting, and only against a run that
-    failed to produce one — the rules path is what a resume falls back to when the upgrade
-    returns nothing, and it is strictly less shaped than what the user already saw."""
+    re-derived over: the whole point of reviewing the outline first is that the run follows it,
+    and `?force=1` means "the template changed, repaint it" — not "delete what I typed"
+    (job 001a0dd8 lost a two-picture showcase to exactly that). Beyond the human case, only an
+    LLM-shaped plan is worth protecting, and only against a run that failed to produce one —
+    the rules path is what a resume falls back to when the upgrade returns nothing, and it is
+    strictly less shaped than what the user already saw. A forced run is an explicit request to
+    re-plan, so it may re-derive a machine plan."""
     if not prior:
         return False
     src = prior.get("source")
     if src == "manual":
         return True
+    if forced:
+        return False
     return src == "llm" and new_source != "llm"
 
 _MIME = {"mp4": "video/mp4", "webm": "video/webm", "mov": "video/quicktime"}
@@ -208,6 +213,22 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
         segs = await repo.get_segments(job_id)
         theme = resolve_theme(settings, config)
         beats = [s["text"] for s in segs]
+        prior = await repo.get_plan(job_id)
+        if prior and prior.get("source") == "manual":
+            # Checked before the planner, not after: a run that is going to throw the result
+            # away should not pay for the LLM round-trips that produce it.
+            kept = ScenePlan.model_validate_json(prior["plan_json"])
+            if len(kept.scenes) == len(beats):
+                await log("plan", "沿用大纲/Studio 的手动分镜（强制重跑只重画，不重写）", level="warn")
+                (ws.ir / "scene_plan.json").write_text(kept.model_dump_json(indent=2), encoding="utf-8")
+                mk: dict[str, int] = {}
+                for sc in kept.scenes:
+                    mk[sc.kind] = mk.get(sc.kind, 0) + 1
+                return {"scenes": len(kept.scenes), "plan_version": prior["version"], "kinds": mk,
+                        "warnings": kept.validate_against(len(beats)), "source": "manual:kept", "llm": {}}
+            await log("plan", f"已存分镜 {len(kept.scenes)} 镜与当前 {len(beats)} 拍不符，按文稿重新分镜",
+                      level="warn")
+            prior = None      # it cannot be kept; don't let the second guard log this twice
         job_row = await repo.get_job(job_id)
         scenes = RulePlanner().plan(beats, brand=config.get("brand", "Monoline"),
                                     script=(job_row or {}).get("script_text", ""))
@@ -236,8 +257,7 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
                 number_sections(scenes)
                 source = "llm" if llm.get("upgraded") else "rules"
         if source != "llm":
-            prior = await repo.get_plan(job_id)
-            if keep_richer_plan(prior, source) and not force:
+            if keep_richer_plan(prior, source, forced=force):
                 # Measured on job 001a0d863e: v1(source=llm) shaped four beats into
                 # flow/steps/definition, a resume then re-ran the stage, got zero
                 # promotions, and its v2(rules) silently became the live storyboard.

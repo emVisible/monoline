@@ -252,8 +252,11 @@
         font-size: 27px; color: var(--ink-muted); }
       .k-poster .p-dash { width: 58px; height: 2px; flex: none; background: var(--ink-faint); }
 
-      /* kind: showcase — a row of image cards (each card owns its asset). */
-      .k-showcase { width: 100%; }
+      /* kind: showcase — a row of image cards (each card owns its asset).
+         The width must be a length, not 100%: `.sbody` centres its children, so a
+         percentage resolves against a shrink-to-fit box and each card collapses to
+         the natural width of its own PNG (measured: 66px on a 1920 canvas). */
+      .k-showcase { width: 1240px; max-width: 100%; }
       .k-showcase .sc-title { font-size: 44px; font-weight: 700; color: var(--ink);
         margin-bottom: 36px; text-align: left; }
       .k-showcase .sc-row { display: flex; gap: 32px; align-items: flex-start; }
@@ -269,6 +272,9 @@
       .k-showcase .sc-name { font-size: 30px; font-weight: 650; color: var(--ink); }
       .k-showcase .sc-note { display: block; margin-top: 4px; font-size: 22px; line-height: 1.45;
         color: var(--ink-muted); }
+      /* An outline-built showcase carries no per-image name; the caption then costs
+         16px of gap plus a line box for nothing. */
+      .k-showcase figcaption.empty { display: none; }
 
       /* kind: split — two-column text slide, the rotation fallback when a beat carries
          neither a quotation nor key:value pairs. Left rail holds, right rail explains. */

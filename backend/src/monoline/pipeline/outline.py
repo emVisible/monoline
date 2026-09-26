@@ -52,9 +52,13 @@ def _entries(segs: list[dict], scenes: list[dict]) -> list[dict]:
     for i, seg in enumerate(segs):
         sc = scenes[i] if i < len(scenes) else {}
         label = labels[i].get("section", "") if i < len(labels) else ""
+        slots = sc.get("slots") or {}
+        pics = ([slots["image"]] if slots.get("image") else
+                [r.get("img", "") for r in slots.get("rows") or []
+                 if isinstance(r, dict) and r.get("img")])
         out.append({"i": i, "text": seg["text"], "kind": sc.get("kind", "statement"),
                     "source": sc.get("source", ""), "section": label,
-                    "image": (sc.get("slots") or {}).get("image", ""),
+                    "image": pics[0] if pics else "", "images": pics,
                     "seconds": estimate(seg["text"])})
     return out
 
@@ -154,7 +158,11 @@ async def apply(repo, settings, job_id: str, edits: list[dict]) -> dict:
         if not text:
             continue
         beats.append(text)
-        wanted.append((str(e.get("kind") or ""), str(e.get("image") or "")))
+        # `images` wins when it carries anything; the singular `image` is what a one-picture
+        # beat sends. An empty `images: []` must not shadow it — that is how a pinned `image`
+        # beat silently stayed a statement.
+        pics = [str(x) for x in (e.get("images") or ([str(e["image"])] if e.get("image") else []))]
+        wanted.append((str(e.get("kind") or ""), pics))
     if not beats:
         raise ValueError("大纲是空的：至少留一拍")
     if len(beats) > HARD_CAP:
@@ -167,16 +175,29 @@ async def apply(repo, settings, job_id: str, edits: list[dict]) -> dict:
     from ..pipeline.workspace import Workspace
 
     comp = Workspace(settings.workspaces_dir / job_id).composition
+
+    def checked(img: str) -> str:
+        # this string ends up in an <img src>, so only the shape `POST /assets` mints passes
+        if not _ASSET.match(img) or not (comp / img).exists():
+            raise ValueError(f"这一拍的图片不可用：{img[:40]}")
+        return img
+
     pinned = images = 0
-    for sc, (want, img) in zip(scenes, wanted):
-        if want == "image" and img:
+    for sc, (want, pics) in zip(scenes, wanted):
+        slots = sc.setdefault("slots", {})
+        if want == "image" and pics:
             # `image` and `showcase` are the two kinds no rule can ever reach (审计 H3): a
             # picture is not something a sentence admits to. This is their trigger.
-            if not _ASSET.match(img) or not (comp / img).exists():
-                raise ValueError(f"这一拍的图片不可用：{img[:40]}")
+            slots["image"] = checked(pics[0])
+            slots["verbatim"] = True
             sc["kind"], sc["source"] = "image", "manual:outline"
-            sc.setdefault("slots", {})["image"] = img
-            sc["slots"]["verbatim"] = True
+            images += 1
+        elif want == "showcase" and pics:
+            if len(pics) < 2:
+                raise ValueError("组图至少要两张图；只有一张请用「图」这一类")
+            slots["rows"] = [{"img": checked(p), "k": "", "v": ""} for p in pics[:4]]
+            slots["verbatim"] = True
+            sc["kind"], sc["source"] = "showcase", "manual:outline"
             images += 1
         elif want and want in KINDS and want != sc["kind"] and want in _TEXT_KINDS:
             sc["kind"] = want
