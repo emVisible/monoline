@@ -661,6 +661,12 @@
           the scene transitions out (0.28 lead-in + 0.7 tween), and by 2.6s so a long
           chapter beat doesn't crawl. -#}
       {%- set sd = [[0.22, [seg.dur * 0.34, seg.dur - 1.15] | min] | max, 2.6] | min | round(3) %}
+      {#- V56: the seam is a 0.75s blur+opacity crossfade (measured: the scene is 28% opaque and
+          still blurred 13px at +0.25s, legible only at +0.75s), while content used to start at
+          +0.0…0.06s — so roughly half of every entrance ran where the viewer could not see it,
+          and the headline arrived already half-wiped.  Builds now start once the slide is up;
+          short beats keep a tight lead-in so the reveal still settles before the exit. -#}
+      {%- set e0 = 0.34 if seg.dur >= 3.0 else 0.16 %}
       {%- if diagram %}
       {#- V27 diagrams assemble themselves: title drops, then pills pop in reading order
           while their connectors surface one beat behind the node they lead to. -#}
@@ -681,7 +687,7 @@
         { opacity: 1, x: 0, duration: 0.34, ease: "power2.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.34)|round(3) }});
       {%- elif scene.kind == 'cycle' %}
       tl.fromTo("#scene-{{ seg.i }} .hub-mark", { opacity: 0, scale: 0.7 },
-        { opacity: 1, scale: 1, duration: 0.6, ease: "{{ eease }}" }, {{ (seg.start + 0.06)|round(3) }});
+        { opacity: 1, scale: 1, duration: 0.6, ease: "{{ eease }}" }, {{ (seg.start + e0)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .arc, #scene-{{ seg.i }} .arc-tip", { opacity: 0 },
         { opacity: 1, duration: 0.4, ease: "power1.out", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.55)|round(3) }});
       {%- endif %}
@@ -690,7 +696,7 @@
       {%- else %}
       tl.fromTo("#scene-{{ seg.i }} .scene-icon, #scene-{{ seg.i }} .scene-media, #scene-{{ seg.i }} .inner > *:not(.headline,.s-title,.term,.q,.rows)",
         { opacity: 0, {% if data_kind %}x: -30{% else %}y: 24{% endif %} },
-        { opacity: 1, {% if data_kind %}x: 0{% else %}y: 0{% endif %}, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.09 }, {{ seg.start }});
+        { opacity: 1, {% if data_kind %}x: 0{% else %}y: 0{% endif %}, duration: {{ enter }}, ease: "{{ eease }}", stagger: 0.09 }, {{ (seg.start + e0)|round(3) }});
       {%- endif %}
       {# V16 row-by-row reveal for table/cards (their rows are nested in .rows, so the block
          entrance above excludes .rows and each row staggers in from the left instead). #}
@@ -729,7 +735,7 @@
          a distinct signature motion for the focal line vs the fade/rise of secondary content. #}
       tl.fromTo("#scene-{{ seg.i }} .headline:not(.kinetic), #scene-{{ seg.i }} .s-title:not(.kinetic), #scene-{{ seg.i }} .term, #scene-{{ seg.i }} .q",
         { clipPath: "inset(-12% 100% -12% 0)", opacity: 0.001 },
-        { clipPath: "inset(-12% 0% -12% 0)", opacity: 1, duration: {{ (enter + 0.28)|round(3) }}, ease: "{{ eease }}" }, {{ (seg.start + 0.06)|round(3) }});
+        { clipPath: "inset(-12% 0% -12% 0)", opacity: 1, duration: {{ (enter + 0.28)|round(3) }}, ease: "{{ eease }}" }, {{ (seg.start + e0)|round(3) }});
       {#- V52b kinetic typography: a `.kinetic` headline rises out of per-chunk masks, the
           chunks spread across the beat's own dwell (same `sd` budget as item reveals), so the
           text arrives roughly as fast as the narration reads it. One signature motion per
@@ -737,7 +743,7 @@
           0.12em of padding with a matching negative margin: line-height 1.1 clips glyph tops
           otherwise (the same reason the wipe uses inset(-12%)). -#}
       tl.fromTo("#scene-{{ seg.i }} .headline.kinetic .ch > i, #scene-{{ seg.i }} .s-title.kinetic .ch > i", { yPercent: 118, opacity: 0.001 },
-        { yPercent: 0, opacity: 1, duration: 0.46, ease: "{{ eease }}", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.06)|round(3) }});
+        { yPercent: 0, opacity: 1, duration: 0.46, ease: "{{ eease }}", stagger: { amount: {{ sd }} } }, {{ (seg.start + e0)|round(3) }});
       {# V9-4 accent rule draws in under the hero (signature PPT flourish), transform-only #}
       tl.fromTo("#scene-{{ seg.i }} .top-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "{{ eease }}" }, {{ (seg.start + 0.24)|round(3) }});
       tl.fromTo("#scene-{{ seg.i }} .accent-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.55, ease: "{{ eease }}" }, {{ (seg.start + 0.42)|round(3) }});
