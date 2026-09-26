@@ -2075,3 +2075,39 @@ def test_no_unused_css_classes_in_the_spa_stylesheet_v53():
     dead = sorted({c for c in re.findall(r"\.([A-Za-z][\w-]*)", re.sub(r"/\*.*?\*/", "", css, flags=re.S))
                    if c not in sources})
     assert not dead, f"{len(dead)} CSS classes no markup can produce: {dead}"
+
+
+def test_docs_surface_matches_the_app_v53():
+    """docs/CONFIG.md is the single list of what the tool can do. It is compared against the
+    running app's own registry in both directions, so a doc line cannot outlive the code it
+    describes — the failure mode that made docs/ROADMAP.md wrong about kinds, icons, voices,
+    test counts and even whether the repo was git-tracked."""
+    import re
+    from pathlib import Path
+    from monoline.api.app import app
+
+    doc = (Path(__file__).parents[2] / "docs/CONFIG.md").read_text()
+    paths = app.openapi()["paths"]
+    VERBS = r"(?:GET|POST|PATCH|DELETE)(?:\|(?:GET|POST|PATCH|DELETE))*"
+    documented = set()
+    for verb, path in re.findall(rf"`({VERBS}) (/api/[^`\s]+|/w/\{{job_id\}}/\{{rel\}})`", doc):
+        for v in verb.split("|"):
+            documented.add((v, path.split("?")[0]))   # `?fmt=srt|vtt` documents a param, not a route
+    real = {(m.upper(), p) for p, ops in paths.items() for m in ops}
+    assert documented, "the endpoint regex matched nothing — the gate itself is broken"
+    missing = sorted(real - documented)
+    ghost = sorted(documented - real)
+    assert not ghost, f"docs advertise endpoints the app does not have: {ghost}"
+    assert not missing, f"endpoints with no doc line: {missing}"
+
+    # same derivation test_document_metadata_v53 uses (typer leaves .name None for
+    # name-inferred commands, so reading the registry gives a set with None in it)
+    cli_src = (Path(__file__).resolve().parents[2] / "backend/src/monoline/cli.py").read_text()
+    commands = set(re.findall(r'@app\.command\("([a-z-]+)"\)', cli_src)) | \
+        {n.replace("_", "-") for n in re.findall(r"@app\.command\(\)\ndef (\w+)", cli_src)}
+    prose = re.search(r"`monoline serve`[^\n]*", doc)
+    assert prose, "the CLI section lost its command line"
+    # a code span may carry the literal word monoline or an argument
+    # (`monoline serve`, `run-script <script.txt>`), so match word by word
+    named = {w for span in re.findall(r"`([^`]+)`", prose.group(0)) for w in span.split() if w in commands}
+    assert named == commands, f"docs list {sorted(named)}, cli registers {sorted(commands)}"
