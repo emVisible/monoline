@@ -204,8 +204,11 @@ body {
 .s3-head { display:flex; align-items:center; gap:16px; margin-bottom:20px; }
 .s3-title { font-size:18px; color:var(--ink); } .s3-status { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); }
 .s3-status.succeeded { color:var(--accent); } .s3-status.failed { color:#e5484d; } .s3-status.running { color:var(--ink-muted); }
-.s3-body { display:grid; grid-template-columns: 260px 1fr 300px; gap:24px; align-items:start; }
-.s3-beats { display:flex; flex-direction:column; gap:2px; max-height:70vh; overflow-y:auto; overflow-x:hidden; border-top:1px solid var(--hairline); }
+/* 左右双栏：左=视频，右=节拍列表(上)+编辑面板(下)。用 grid areas 而不是搬 DOM，
+   这样 DOM/Tab 顺序仍是「列表→视频→面板」，改的只有视觉位置。 */
+.s3-body { display:grid; grid-template-columns: minmax(0,1fr) 420px; grid-template-rows: auto minmax(0,1fr);
+  grid-template-areas: "stage beats" "stage insp"; gap:20px 24px; align-items:start; }
+.s3-beats { grid-area:beats; display:flex; flex-direction:column; gap:2px; max-height:52vh; overflow-y:auto; overflow-x:hidden; border-top:1px solid var(--hairline); }
 /* .beat-txt is the 1fr track; grid items default to min-width:auto (= min-content),
    so a long beat forced the track past the panel and overflow:hidden clipped both the
    text and the kind label. min-width:0 lets it shrink and wrap instead. */
@@ -227,7 +230,8 @@ body {
 .beats-hint { padding:10px 8px; font-size:11px; color:var(--ink-faint); border-top:1px solid var(--hairline); letter-spacing:.02em; }
 .beat-i { font-size:12px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
 .beat-bar { position:absolute; left:0; bottom:0; height:2px; background:var(--accent); opacity:.5; }
-.s3-stage { display:flex; flex-direction:column; gap:16px; }
+/* 视频栏 sticky：右侧列表/面板比视频长时，滚到下面编辑仍然看得到画面 */
+.s3-stage { grid-area:stage; display:flex; flex-direction:column; gap:16px; position:sticky; top:24px; }
 .player-wrap { border:1px solid var(--hairline); border-radius:12px; overflow:hidden; background:#000; }
 .player-empty { padding:8px; }
 /* V51: the row has to wrap as a unit and each button keeps its label on one
@@ -235,7 +239,7 @@ body {
 .s3-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px 16px; }
 .s3-actions .ghost { flex:none; white-space:nowrap; }
 .s3-hint { color:var(--ink-faint); font-size:13px; }
-.s3-inspector { display:flex; flex-direction:column; gap:12px; max-height:70vh; overflow-y:auto; border-left:1px solid var(--hairline); padding-left:20px; }
+.s3-inspector { grid-area:insp; display:flex; flex-direction:column; gap:12px; min-height:0; overflow-y:auto; border-top:1px solid var(--hairline); padding-top:16px; }
 .fld-lbl { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); margin-bottom:4px; }
 .fld-lbl-row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
 .fld-lbl-row .fld-lbl { margin-bottom:0; }
@@ -255,7 +259,14 @@ body {
 .link-btn { background:none; border:0; color:var(--ink); font:inherit; font-size:12px; text-decoration:underline; cursor:pointer; padding:0; }
 .ghost:disabled { opacity:.55; cursor:progress; }
 .muted { color:var(--ink-faint); }
-@media (max-width:1100px){ .s3-body { grid-template-columns:1fr; } .s3-inspector{border-left:0;padding-left:0;border-top:1px solid var(--hairline);padding-top:16px;} }
+/* 窄屏：改成上下堆叠，但**视频仍在第一屏**（areas 重排，不动 DOM）；
+   右侧栏在宽屏是 420px，窄屏铺满。 */
+@media (max-width:1100px){
+  .s3-body { grid-template-columns:1fr; grid-template-rows:auto auto auto;
+             grid-template-areas:"stage" "beats" "insp"; }
+  .s3-stage { position:static; }
+  .s3-beats { max-height:44vh; }
+}
 
 /* ---- P2 narration editing ---- */
 .fld.narration { resize:vertical; min-height:64px; line-height:1.5; }
