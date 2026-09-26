@@ -87,6 +87,8 @@ def _env() -> Environment:
     env.globals["donut"] = _donut
     env.globals["delta"] = _delta
     env.globals["kinetic_chunks"] = _kinetic
+    from ..pipeline.display_text import ends_open as _ends_open
+    env.globals["ends_open"] = _ends_open
     return env
 
 

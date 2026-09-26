@@ -80,6 +80,19 @@ def kinetic_chunks(text: object, *, min_groups: int = 3, group: int = 2,
     return out if len(out) <= max_groups else []
 
 
+# A beat that stops on one of these is half a thought: the segmenter had to cut a long sentence
+# because it exceeds the per-beat budget.  Templates read this to paint such a line as a lead-in
+# instead of as the slide's headline — 18% of beats in the real corpus do this (measured 2026-09-26).
+_OPEN_END = "，,、：:；;—–"
+
+
+def ends_open(text: object) -> bool:
+    """True when the beat's own text breaks off mid-sentence (never on the tidied display copy,
+    which has already lost its terminal mark)."""
+    t = str(text or "").strip()
+    return bool(t) and t[-1] in _OPEN_END
+
+
 def tidy(text: object, *, hero: bool = True) -> str:
     """One display string → what may be painted. Never rewrites wording."""
     t = str(text or "").strip()

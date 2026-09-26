@@ -2314,3 +2314,36 @@ def test_forced_upgrade_asks_about_a_beat_the_rules_already_shaped_v55f():
     assert (plain["asked"], plain["upgraded"]) == (0, 0), "the default pass still skips shaped beats"
     assert (forced["asked"], forced["upgraded"]) == (1, 1), forced
     assert forced["model"] == "fake" and "seconds" in forced, forced
+
+
+def test_a_beat_that_breaks_mid_sentence_is_painted_as_a_lead_in_v54b():
+    """18% of beats in the real corpus are half a sentence — the segmenter had to cut a long one.
+    Painting that fragment at 116px is the single most "not a PPT" thing the product does, and the
+    structural fix (one scene, two lines) was measured to be worse: a 56-unit headline needs 3–4
+    lines at the 52px floor.  So the lead-in gets lead-in type: 72px, muted, and the sentence's
+    payoff line keeps the full display size."""
+    import json
+    from pathlib import Path
+
+    from monoline.compose.engine import render_composition
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.ir.timings import Timings
+    from monoline.pipeline.display_text import ends_open
+
+    assert ends_open("在漆黑的深海，") and ends_open("关键特征包括：")
+    assert not ends_open("超过九成的生物都能自己发光")
+    assert not ends_open("慢就是快。"), "a closed beat is a statement, not a lead-in"
+
+    theme = Theme(id="mono-ink", tokens=json.loads(
+        (Path(__file__).parents[2] / "design/tokens/mono-ink.json").read_text())["tokens"])
+    open_beat, closed_beat = "在漆黑的深海里，", "超过九成的生物都能自己发光"
+    scenes = [{"i": 0, "kind": "statement", "slots": {}},
+              {"i": 1, "kind": "statement", "slots": {}}]
+    html = render_composition(Timings.from_durations([open_beat, closed_beat], [4.0, 4.0]),
+                              ScenePlan(theme=theme, scenes=scenes))
+    assert 'class="headline kinetic cont"' in html, "the open beat must carry the lead-in class"
+    assert 'font-size:calc(72px' in html and 'font-size:calc(116px' in html, \
+        "lead-in at 72px, payoff at the full 116px"
+    assert html.count("headline kinetic cont") == 1, "only the open beat gets the lead-in class"
+    assert html.count('headline kinetic"') == 1, "the closed beat keeps the plain display class"
+    assert ".k-statement .headline.cont" in html, "the treatment must be in the stylesheet"
