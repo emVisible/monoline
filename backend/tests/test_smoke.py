@@ -2347,3 +2347,41 @@ def test_a_beat_that_breaks_mid_sentence_is_painted_as_a_lead_in_v54b():
     assert html.count("headline kinetic cont") == 1, "only the open beat gets the lead-in class"
     assert html.count('headline kinetic"') == 1, "the closed beat keeps the plain display class"
     assert ".k-statement .headline.cont" in html, "the treatment must be in the stylesheet"
+
+
+def test_the_corpus_audit_counts_one_plan_per_job_v57():
+    """`scene_plans` keeps every version, so a job re-planned three times used to contribute its
+    beats three times to every distribution I quoted — the statement count read 420 when the
+    corpus holds 159.  The audit script must take the newest plan per job and drop dev scripts."""
+    import importlib.util
+    import json
+    import sqlite3
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "measure_shapes", Path(__file__).parents[1] / "scripts" / "measure_shapes.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE scene_plans (id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT, "
+                 "plan_json TEXT)")
+
+    def scene(kind, headline):
+        return json.dumps({"scenes": [{"kind": kind, "slots": {"headline": headline}}]})
+
+    # job A was re-planned three times; job B once.  Newest row wins per job.
+    conn.executemany("INSERT INTO scene_plans (job_id, plan_json) VALUES (?, ?)", [
+        ("A", scene("statement", "最早的一版")),
+        ("A", scene("stat", "68.8%")),
+        ("A", scene("statement", "这是第1句用来撑拍数的话")),
+        ("B", scene("statement", "这不是反射阳光，而是一场发生在体内的化学反应")),
+    ])
+    conn.commit()
+    plans = mod.latest_plans(conn)
+    assert len(plans) == 2, "one plan per job, not one per version"
+    beats = mod.statement_beats(plans)
+    assert beats == ["这不是反射阳光，而是一场发生在体内的化学反应"], beats
+    kinds = [sc["kind"] for p in plans for sc in p["scenes"]]
+    assert len(kinds) == 2 and "stat" not in kinds, "superseded versions must not be counted"
+    assert mod.SHAPES["对比 不是…而是 / A而B"][1].search(beats[0])
