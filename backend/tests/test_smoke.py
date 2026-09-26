@@ -2901,3 +2901,89 @@ def test_a_formula_is_said_in_words_not_spelled_v65e():
     # a price is not a formula, and must keep the behaviour it had before this rule existed
     assert clean("售价 $100 起。") == "售价 $100 起。"
     assert clean("在 $100与$200 之间。") == "在 $100与$200 之间。"
+
+
+MD_TORTURE = """# 深海的发光
+
+这是一段被硬换行折断的段落，它在源码里跨了三行，
+所以按行切分会把一句完整的话劈成
+三截，画面就变成半句。
+
+## 一个引用
+
+> 「我们还没弄清它为什么是蓝色的。」
+> —— 一位研究者
+
+- [ ] 待办一
+- [x] 待办二
+1. 第一步
+2. 第二步
+
+看代码 `print(1)` 和 ~~删除线~~，还有 ![示意图](assets/x.png) 与 [链接](https://a.b)。
+
+```python
+def f(x):
+    return x * 2
+```
+
+设置标题
+======
+
+| 阶段 | 耗时 |
+|:--|---:|
+| 切分 | 0.4 秒 |
+| 渲染 | 12 秒 |
+
+脚注引用[^1]。
+
+[^1]: 这是脚注内容。
+"""
+
+
+def test_a_pasted_markdown_doc_becomes_blocks_not_source_lines_v67():
+    """「MD 格式的输入以及解析需要全功能支持」—— measured on a document that covers the syntax
+    people actually paste (GitHub README / LLM output). Before the block rewrite this produced
+    20 beats from 9 blocks: a soft-wrapped paragraph arrived as three half-sentences, `>` `[ ]`
+    `~~` ` ``` ` and `[^1]` leaked into the slide text, a code fence became three beats and
+    welded the following setext heading onto one of them, and the footnote number was promoted
+    to a giant `stat`. The root cause was one: the segmenter was reading SOURCE lines."""
+    from monoline.pipeline.planner import RulePlanner
+    from monoline.pipeline.segment import segment_text
+
+    beats = segment_text(MD_TORTURE)
+    scenes = RulePlanner().plan(beats, script=MD_TORTURE)
+    kinds = {(s["kind"], s["source"]) for s in scenes}
+
+    # ① no markdown markup survives into a beat — the crisp version of "全功能支持".  Code
+    # CONTENT (`def f(x)`) is content, not markup, so it is checked under ④/⑤ instead.
+    leaked = [b for b in beats if any(m in b for m in
+            ("> ", "[ ]", "[x]", "~~", "```", "![", "](", "[^", "^1"))]
+    assert not leaked, f"标记漏进拍里：{leaked[:3]}"
+
+    # ② a hard-wrapped paragraph is ONE statement: text from line 1 and line 2 shares a beat
+    joined = [b for b in beats if "它在源码里跨了三行" in b]
+    assert joined and "所以按行切分" in joined[0], joined
+
+    # ③ headings are dividers — including the setext one, which used to weld onto the code block
+    dividers = [s["slots"]["title"] for s in scenes if s["kind"] == "section"]
+    assert {"深海的发光", "一个引用", "设置标题"} <= set(dividers), dividers
+
+    # ④ a 2-item ordered list is not two chapter pages, and code is not a statistic
+    by_text = {b: s["kind"] for b, s in zip(beats, scenes)}
+    assert all(by_text.get(b) != "section" for b in beats if b in ("第一步", "第二步")), beats
+    code = [b for b in beats if "print(1)" in b or "x * 2" in b]
+    assert all(by_text.get(b) != "stat" for b in code), code
+    assert len([b for b in beats if "return" in b or "def " in b]) <= 1, "代码块应当是一拍，不是三拍"
+
+    # ⑤ the table is one beat and reads as a table
+    tbl = [s for s in scenes if "0.4" in str(s["slots"])]
+    assert len(tbl) == 1 and tbl[0]["kind"] in {"table", "bars", "kpi"}, tbl
+
+    # ⑥ plain prose is untouched by all of this
+    assert segment_text("深海会发光。这并非阳光反射。") == ["深海会发光。", "这并非阳光反射。"]
+
+    # ⑦ a • bullet is not a CommonMark marker, so it used to be read as a paragraph
+    #    continuation and welded onto the item above it (V18 regression guard)
+    assert segment_text("- 快速启动整套部署流程\n• 稳定支撑每秒十万并发\n2. 显著降低运维成本") == \
+        ["快速启动整套部署流程", "稳定支撑每秒十万并发", "显著降低运维成本"]
+    assert segment_text("-10% 是可接受的误差") == ["-10% 是可接受的误差"]

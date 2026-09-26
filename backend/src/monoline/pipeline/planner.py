@@ -24,8 +24,17 @@ _QUOTE_WRAP = re.compile(r"^[「“\"『《](.+?)[」”\"』》]$")
 _DEF = re.compile(r"^(.{2,10}?)\s*(?:是|是指|称为|叫做|即)\s*(.+)$")
 _DEF_BAD_TERM = re.compile(r"[不没也都很这那它谁啥什]")  # 是 is too common; reject pronoun/negation terms
 _ENUM = re.compile(r"、")  # true enumeration uses 、 (not the general ，)
-_SECTION_MARK = re.compile(r"^(首先|其次|然后|接着|最后|第一|第二|第三|下面|接下来|先看|再看)")
+# A divider beat announces a CHAPTER. 「第一」 alone is an enumeration ("第一步，打开终端"),
+# which is a step, not a section — and an ordered markdown list used to become one divider
+# page per item. Only 部分/章/节 count as structural after 第N.
+_SECTION_MARK = re.compile(
+    r"^(首先|其次|然后|接着|最后|下面|接下来|先看|再看|第[一二三四五六七八九十]+(?:部分|章|节))")
 _NOTE_MARK = re.compile(r"(但|需要注意|注意|提醒|以官方为准|口径不一|存疑)")
+# A beat that reads as source code is not a statistic: a call, a keyword or an arrow is syntax,
+# and the digits inside it are literals. Markdown code spans arrive as plain text by then, so
+# the shape is the only signal left. Prose with a bracket — 「同比 (vs 去年)」 — never matches:
+# the identifier must sit directly against the parenthesis.
+_CODEISH = re.compile(r"[A-Za-z_]\w*\s*\(|\b(?:def|return|import|class)\b|=>|\{\{|\}\}")
 
 # ── V27: content that should render as a diagram (nodes + connectors), not as text ──
 # Longest arrow spellings first so "-->" can't be re-split by "->".
@@ -101,10 +110,13 @@ def _not_a_statistic(s: str, num: str) -> bool:
 
     「这是第10句」 counts sentences and 「根本不像40多岁的人」 approximates an age — a giant
     10 or 40 turns a counter or a fuzzy range into a magnitude the script never claimed,
-    and strands the leftover 句/多岁 in the label."""
+    and strands the leftover 句/多岁 in the label.  Code is the same trap: a markdown code
+    span arrives as plain text, and `def f(x): return x * 2` was being promoted to a giant 2.
+    """
     d = re.escape(num.strip())
     return bool(re.search(r"[第]\s*" + d, s)
-                or re.search(d + r"\s*(?:[步章节条款次句]|[多来几]|左右|上下)", s))
+                or re.search(d + r"\s*(?:[步章节条款次句]|[多来几]|左右|上下)", s)
+                or _CODEISH.search(s))
 
 
 def _strip_number(sentence: str) -> str:
