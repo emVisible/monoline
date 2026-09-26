@@ -1349,15 +1349,18 @@ def test_long_script_segments_and_llm_batches_v47():
             out, stats = await planner.upgrade(None, b, s, target=SimpleNamespace(ok=True, model="fake"))
             # the budgets come from settings, so a small local context can shrink them
             asked.clear()
-            tight = SimpleNamespace(llm_batch_beats=3, llm_batch_chars=900)
+            tight = SimpleNamespace(llm_batch_beats=2, llm_batch_chars=900)
             out2, stats2 = await planner.upgrade(tight, b, s, target=SimpleNamespace(ok=True, model="fake"))
         finally:
             planner.chat = real
         assert len(out) == 40 and all(o["kind"] in ("statement", "definition") for o in out)
         assert stats["upgraded"] > 0, "one failed batch must not cancel the others"
-        assert stats["batches"] == 4 and stats["failed_batches"] == 1
-        assert len(out2) == 40 and stats2["batches"] == 14
-        assert sum(len(a) for a in asked) == 40 and all(len(a) <= 3 for a in asked), \
+        # Batch counts derived from the constants: this assertion went stale the day the default
+        # moved from 12 beats to 3 (measured: a 12-beat batch cannot finish on a ~1 char/s model).
+        assert stats["batches"] == -(-40 // planner.BATCH_BEATS) and stats["failed_batches"] == 1
+        assert len(out2) == 40 and stats2["batches"] == -(-40 // 2)
+        assert stats2["batches"] > stats["batches"], "settings must actually shrink the batches"
+        assert sum(len(a) for a in asked) == 40 and all(len(a) <= 2 for a in asked), \
             "settings must drive the batch size"
 
     asyncio.run(run())
@@ -1761,8 +1764,8 @@ def test_llm_upgrade_keeps_rules_where_the_model_is_wrong():
     assert len(out) == len(beats)                    # the invariant survives a bad model reply
     assert [s["kind"] for s in out] == ["title", "flow", "radial", "summary"]
     assert out[1]["source"] == "llm:upgrade" and out[1]["slots"]["nodes"][0] == "需求"
-    assert stats == {"asked": 2, "upgraded": 2, "declined": 0, "bad_kind": 0, "bad_slots": 0,
-                     "rejected": 0}
+    assert stats == {"asked": 2, "upgraded": 2, "declined": 0, "missing": 0, "bad_kind": 0,
+                     "bad_slots": 0, "rejected": 0}
     # invented copy, illegal kind, and a dropped beat are all refused, beat by beat
     bad = [{"i": 1, "kind": "flow", "slots": {"nodes": ["需求", "融资", "上线"]}},      # 融资 not in beat
            {"i": 2, "kind": "mindmap", "slots": {"hub": "平台", "nodes": ["网关", "计算"]}}]  # no such kind
@@ -1772,6 +1775,14 @@ def test_llm_upgrade_keeps_rules_where_the_model_is_wrong():
     assert st2["asked"] == 2 and st2["upgraded"] == 0 and st2["declined"] == 0
     assert (st2["bad_slots"], st2["bad_kind"], st2["rejected"]) == (1, 1, 2)
     assert any("mindmap" in w for w in st2["why"]) and any("flow" in w for w in st2["why"])
+    # An empty answer is NOT the model refusing.  Measured: both batches timed out and merge
+    # reported bad_kind=22 — "the model answered 22 times with an invalid type" — which sent me
+    # looking for a classifier bug that did not exist.  A beat with no verdict is `missing`.
+    _, st3 = merge(beats, scenes, [])
+    assert (st3["asked"], st3["missing"], st3["rejected"], st3["upgraded"]) == (2, 2, 0, 0), st3
+    # and the reason names the slot and the rule that fired, not just "slots didn't fit"
+    _, st4 = merge(beats, scenes, [{"i": 1, "kind": "flow", "slots": {"nodes": ["需求", "融资"]}}])
+    assert any("融资" in w and "连续文字" in w for w in st4["why"]), st4["why"]
     # a short-but-not-grounded value ("3倍" vs "3 倍") still counts as grounded after punctuation folds
     ok = [{"i": 1, "kind": "stat", "slots": {"value": "3倍", "label": "需求"}}]
     out3, st3 = merge(["开场。", "需求 3 倍完成"], [{"i": 0, "kind": "title", "slots": {}},
@@ -2213,3 +2224,33 @@ def test_prompt_shows_parsable_slot_skeletons_v55c():
         filled = json.loads(skeleton)
         assert set(filled) == set(ALLOWED[kind]), f"{kind}: prompt shows {sorted(filled)}"
     assert "每个键都填上" in prompt, "the fill-every-key rule is what the skeletons are for"
+
+
+def test_upgrade_stops_asking_when_the_wall_clock_runs_out_v55d(monkeypatch):
+    """Measured on the local 7.5B q4 model: ~1 character/second of decode, so a beat with a
+    real answer costs ~70s and a 12-beat batch never finishes — 22 weak beats burned two
+    240-second timeouts and landed 0 upgrades.  The pass now stops at a budget and reports the
+    batches it never asked about, instead of pretending the model refused them."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from monoline.llm import planner
+    from monoline.llm.client import Target
+
+    calls: list[int] = []
+
+    async def slow(msgs, **kw):
+        calls.append(1)
+        await asyncio.sleep(0.5)
+        return '{"scenes":[]}'
+
+    monkeypatch.setattr(planner, "chat", slow)
+    s = SimpleNamespace(llm_batch_beats=1, llm_batch_chars=900, llm_plan_seconds=0.1)
+    beats = [f"第 {i} 句是一句足够长的口播用来看预算生效" for i in range(6)]
+    scenes = [{"i": i, "kind": "statement", "slots": {}} for i in range(len(beats))]
+    out, st = asyncio.run(planner.upgrade(s, beats, scenes, target=Target(source="test", ok=True,
+                                                                          model="fake")))
+    assert st["batches"] == 6 and st["skipped_batches"] == 5, st
+    assert len(calls) == 1 and st["asked_batches"] == 1, st
+    assert st["missing"] == 6 and st["upgraded"] == 0, st
+    assert [o["kind"] for o in out] == ["statement"] * 6, "the rule plan survives untouched"

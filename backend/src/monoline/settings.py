@@ -52,8 +52,11 @@ class Settings:
     llm_model: str = _env("MONOLINE_LLM_MODEL", "gpt-4o-mini")
     # --- a small local model degrades on long prompts (and can OOM the host), so the ----
     # --- storyboard upgrade walks the weak beats in batches under both budgets. ---------
-    llm_batch_beats: int = int(_env("MONOLINE_LLM_BATCH_BEATS", "12"))
+    llm_batch_beats: int = int(_env("MONOLINE_LLM_BATCH_BEATS", "3"))
     llm_batch_chars: int = int(_env("MONOLINE_LLM_BATCH_CHARS", "900"))
+    # --- and the whole storyboard pass gets a wall-clock ceiling: a local model at ~1 char/s ----
+    # --- otherwise costs 240s per timed-out batch inside the `plan` stage. ----------------------
+    llm_plan_seconds: int = int(_env("MONOLINE_LLM_PLAN_SECONDS", "150"))
 
     @property
     def llm_ready(self) -> bool:

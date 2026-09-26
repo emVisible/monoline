@@ -39,8 +39,9 @@
 | `MONOLINE_LLM_BASE_URL` | `https://api.openai.com/v1` | OpenAI 兼容端点；本地 Ollama 填 `http://127.0.0.1:11434/v1` |
 | `MONOLINE_LLM_API_KEY` | 空 | localhost 端点免 key（见 `llm_ready`） |
 | `MONOLINE_LLM_MODEL` | `gpt-4o-mini` | 写稿与分镜升格用的模型名 |
-| `MONOLINE_LLM_BATCH_BEATS` | `12` | 分镜升格每批拍数上限（小本地模型不被整篇压垮） |
+| `MONOLINE_LLM_BATCH_BEATS` | `3` | 分镜升格每批拍数上限（小本地模型不被整篇压垮）。实测 7.5B q4 解码约 1 字/秒，一拍真答案 ≈70 秒，12 拍的批永远跑不完 |
 | `MONOLINE_LLM_BATCH_CHARS` | `900` | 每批字符上限，与上一条共同决定分批 |
+| `MONOLINE_LLM_PLAN_SECONDS` | `150` | 整轮分镜升格的墙钟预算；用尽后剩下的批**不问**，那些拍按规则保留并在日志里记为 `skipped_batches` |
 | `MONOLINE_NODE_BIN` | 空=自动解析 | 显式指定 node 22 可执行文件 |
 | `MONOLINE_PYTHON` | 当前解释器 | TTS/字体子集用的 Python（必须 3.11，kokoro-onnx 无 3.14 wheel） |
 
