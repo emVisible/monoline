@@ -98,14 +98,14 @@ def ends_open(text: object) -> bool:
     return bool(t) and t[-1] in _OPEN_END
 
 
-# 用户要的「突出呈现不需要标点」是全局的，不只是尾部：句中残留的「，」在 116px 大字上读起来
-# 像没排完。标点一律换成**空格**而不是删掉——删掉会把「深海，发光」焊成「深海发光」，那是改文案。
-# 三处必须放过：千分位、小数点、英文缩写撇号。它们不是停顿，是数字/词的一部分。
-_PUNCT_RUN = re.compile(
-    r"[。，,、．.：:；;！!？?…—–\-·~～\"'“”‘’«»「」『』（）()《》〈〉【】\[\]{}]+"
-)
-_PROTECT = re.compile(r"(?<=\d)[,.](?=\d)|(?<=[A-Za-z])['’](?=[A-Za-z])|(?<=\d)%(?![0-9])")
-_MULTI_SPACE = re.compile(r"[ \t]{2,}")
+# ── V66: 上屏「去虫」而不是「去标点」（用户 2026-09-26 纠正 V62b 的表述）────────────────────
+# 之前做成「所有标点换成空格」，把标题里的「？」、引号、破折号一起抹掉了 —— 那些是表达本身。
+# 现在的边界只有一条：**只清首尾**。首尾的逗号/句号/顿号/冒号是切分与复制留下的虫；句中的
+# 标点原样留着。至于「该不该被听见」，那是 `narration.clean` 的职责（标点变停顿，不念出名字），
+# 与画面上有没有它无关。
+_EDGE = _STRIP_END
+_DUP_RUN = re.compile(r"([，、：；])\s*(?:[，、：；]\s*)+")
+_WS_RUN = re.compile(r"[ \t]{2,}| *\n *")
 
 # A `$…$` / `$$…$$` span is a formula: its braces, commas and digits are notation, so every
 # rule in this module (and the planner's numeric rules) must treat it as one opaque atom.
@@ -149,30 +149,24 @@ def outside_math(text: object, fn: "Callable[[str], str]") -> str:
 def mask_math(text: object, repl: str = "▮") -> str:
     """Formulas replaced by one block glyph — for DETECTION only, never for display."""
     return MATH_SPAN.sub(lambda m: repl if is_math_span(m.group()) else m.group(),
-                               str(text or ""))
-
-
-def _detonate_run(t: str) -> str:
-    held: list[str] = []
-
-    def hold(m: re.Match[str]) -> str:
-        held.append(m.group())
-        return f"\x00{len(held) - 1}\x00"
-
-    t = _PROTECT.sub(hold, t)
-    t = _PUNCT_RUN.sub(" ", t)
-    t = _MULTI_SPACE.sub(" ", t)
-    for i, s in enumerate(held):
-        t = t.replace(f"\x00{i}\x00", s)
-    return t
+                         str(text or ""))
 
 
 def detonate(text: object) -> str:
-    """One visible string → the same words with no punctuation. Never rewrites wording."""
+    """One visible string → the same sentence with its EDGE punctuation de-bugged.
+
+    Mid-sentence marks survive on purpose: 「这不是反射阳光，而是一场化学反应」 painted without
+    its comma reads as two unrelated claims, and a title's 「？」 is the point of the slide.
+    """
     t = str(text or "")
     if not t.strip():
         return ""
-    return outside_math(t, _detonate_run).strip()
+    t = outside_math(t, lambda r: _WS_RUN.sub(" ", r))
+    t = _DUP_RUN.sub(r"\1", t)
+    t = _LEAD.sub("", t)
+    t = balance_quotes(t)          # orphan quote left behind by the segmenter
+    t = t.rstrip(_EDGE)
+    return t.strip()
 
 
 def tidy(text: object, *, hero: bool = True) -> str:

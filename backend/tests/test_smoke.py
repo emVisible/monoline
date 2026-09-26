@@ -1374,20 +1374,19 @@ def test_display_text_contract_v48():
     from monoline.pipeline.display_text import tidy, tidy_slots
     from monoline.pipeline.planner import RulePlanner
 
-    # V62b supersedes two of V48's carve-outs at the user's request ("其它地方也不要出现标点"):
-    # mid-line quotes and the ？！… exception are now replaced by a space too.  What V48 still
-    # owns is the *wording* guarantee — no character is ever deleted, only the mark becomes a
-    # space, and numbers/decimals/percentages are untouched.
+    # V62b replaced every mid-line mark with a space; V66 walks that back at the user's
+    # correction ("不是完全删掉，而是朗读时不需要读出来"). So now: edges go, the middle stays —
+    # including the ？！… carve-out GB/T B.4 always granted and the quotes that name a term.
     assert tidy("中美双方同意将原定于11月10日到期的“贸易休战”协议延长两个月，") == \
-        "中美双方同意将原定于11月10日到期的 贸易休战 协议延长两个月"
+        "中美双方同意将原定于11月10日到期的“贸易休战”协议延长两个月"
     assert tidy("探寻在经济领域可以取得哪些成果”") == "探寻在经济领域可以取得哪些成果"
     assert tidy("我们还是支持他们。”") == "我们还是支持他们"
     assert tidy("延长“贸易休战”协议两个月，将让双方“有更多时间,") == \
-        "延长 贸易休战 协议两个月 将让双方 有更多时间"
+        "延长“贸易休战”协议两个月，将让双方“有更多时间"
     assert tidy("……魅力得自己去挣") == "魅力得自己去挣"
-    assert tidy("成本，，很高。。") == "成本 很高"
+    assert tidy("成本，，很高。。") == "成本，很高"        # 重复标点折叠，句中那个逗号留下
     # what must survive: numbers, decimals, percentages — meaning, not punctuation
-    assert tidy("这到底是为什么？") == "这到底是为什么"
+    assert tidy("这到底是为什么？") == "这到底是为什么？"   # 问句的问号就是这张片子的重点
     assert tidy("版本 v1.2") == "版本 v1.2"
     assert tidy("增长 3.5%") == "增长 3.5%"
     assert tidy("") == "" and tidy(None) == ""
@@ -1410,8 +1409,8 @@ def test_display_text_contract_v48():
             v = sc["slots"].get(k)
             if isinstance(v, str) and v:
                 assert not v.endswith(("。", "，", "、", "：", "；", ",")), (sc["kind"], k, v)
-    assert not any("？" in (sc["slots"].get("headline") or "") for sc in scenes), \
-        "V62b supersedes V48's ？ carve-out: no punctuation reaches the screen at all"
+    assert any("？" in (sc["slots"].get("headline") or "") for sc in scenes), \
+        "V66：问句标题的问号必须留在画面上（V62b 一度把它当标点抹掉）"
 
 
 def test_rotation_breaks_long_text_runs_v49():
@@ -2577,31 +2576,41 @@ def test_brand_block_and_folio_disappear_when_turned_off_v62():
     assert off.count("<section") == 2, "turning overlays off must not change the scene count"
 
 
-def test_punctuation_becomes_a_space_everywhere_visible_v62b():
-    """"突出呈现的地方不需要标点" is a global policy, not a trailing-strip rule: a 「，」left
-    inside a 116px headline reads as an unfinished line.  Punctuation is replaced with a
-    SPACE, never deleted — deleting welds 「深海，发光」 into 「深海发光」, which changes the
-    wording.  The three cases that must NOT be touched are the ones a naive regex eats:
-    thousands separators, decimals, and latin contractions."""
+def test_painted_text_loses_only_its_edge_punctuation_v66():
+    """V62b over-reached: it replaced EVERY mark with a space, so a title's 「？」, a quoted
+    term and a dash all vanished from the slide. The user corrected the wording on 2026-09-26:
+    punctuation is not to be deleted, it only must not be SPOKEN. So the display rule is now
+    「去虫」— clean the EDGES (where the segmenter and pasting leave crumbs) and keep the middle.
+    Whether a mark is voiced is `narration.clean`'s decision, taken from the same raw beat."""
+    from monoline.narration import clean
     from monoline.pipeline.display_text import detonate, tidy
     from monoline.pipeline.subtitles import to_srt
 
-    assert detonate("深海，发光。") == "深海 发光"
-    assert detonate("他们。”") == "他们"
-    assert detonate("“引用”结束") == "引用 结束"
-    assert detonate("目标：提升 30% 的效率——明年") == "目标 提升 30% 的效率 明年"
-    # protected: these are not pauses, they are parts of numbers/words
+    assert detonate("深海，发光。") == "深海，发光"          # 句中逗号留下，尾部句号是虫
+    assert detonate("透露哪些信息？") == "透露哪些信息？"      # 问句的？就是这张幻灯片的重点
+    assert detonate("“引用”结束") == "“引用”结束"            # 成对引号是内容
+    assert detonate("目标：提升 30% 的效率——明年") == "目标：提升 30% 的效率——明年"
+    assert detonate("他们。”") == "他们"                    # 被切分劈开的孤立引号仍然是虫
+    assert detonate("，先这样") == "先这样"
     assert detonate("1,000 台 与 3.14 米") == "1,000 台 与 3.14 米"
     assert detonate("don't stop") == "don't stop"
-    assert detonate("学习率 0.001，很低") == "学习率 0.001 很低"
-
-    # the display path goes through tidy, so the policy must apply there too, not only in
-    # the new helper (an unreferenced helper is how a rule becomes a rumour)
-    assert "，" not in tidy("学习率，0.001，很低")
-    assert "。" not in tidy("这是结论。")
+    assert "，" in tidy("学习率，0.001，很低"), "tidy 不许再把句中标点抹掉"
+    assert tidy("这是结论。") == "这是结论"
 
     srt = to_srt([{"i": 0, "text": "第一句，第二句。", "start": 0.0, "end": 2.0}])
-    assert "第一句 第二句" in srt and "，" not in srt and "。" not in srt
+    assert "第一句，第二句" in srt, "字幕按可读文本走，句中标点保留"
+
+    # and the same beat still loses nothing but the SOUND of its marks:
+    assert clean("深海，发光。") == "深海，发光。" or "，" in clean("深海，发光。")
+    assert not any(ch in clean("目标：提升 30%。") for ch in "$\\_"), "标记符号不许进旁白"
+
+
+def _edge_crumb(x: str) -> bool:
+    """A painted node may not OPEN or CLOSE on a crumb — the exact contract detonate promises
+    (leading marks and orphan quotes, trailing 逗号/句号/顿号/冒号/破折号).  It deliberately does
+    not test marks nobody claimed to remove, so a failure means the rule leaked, not that the
+    wording is debatable."""
+    return bool(x) and (x[0] in "。，、：；”’" or x[-1] in "。，、：；·—–")
 
 
 def test_the_rendered_artifact_carries_no_punctuation_even_from_a_stale_plan_v63():
@@ -2627,11 +2636,10 @@ def test_the_rendered_artifact_carries_no_punctuation_even_from_a_stale_plan_v63
 
     body = re.sub(r"<style.*?</style>|<script.*?</script>", "", html, flags=re.S)
     nodes = [x.strip() for x in re.findall(r">([^<>]+)<", body) if x.strip()]
-    P = re.compile(r"[。，、：；！？“”‘」（）,.!?;:]")
-    dirty = [x for x in nodes if P.search(x)]
-    assert not dirty, f"标点漏进产物：{dirty[:6]}"
-    assert "透露哪些信息" in html and "贸易休战" in html, "去标点不许把字也去掉"
-    assert "1,000" not in html or True  # numbers are protected inside detonate, not here
+    dirty = [x for x in nodes if _edge_crumb(x)]
+    assert not dirty, f"首尾的虫漏进产物：{dirty[:6]}"
+    assert "透露哪些信息？" in html, "标题里的问号是表达本身，不许被去虫顺带吃掉"
+    assert "第一，第二，第三" in html, "句中标点必须留在画面上（V66 纠正 V62b 的过度删除）"
 
 
 def test_every_text_kind_that_falls_back_to_the_beat_stays_clean_v63b():
@@ -2660,9 +2668,8 @@ def test_every_text_kind_that_falls_back_to_the_beat_stays_clean_v63b():
 
     body = re.sub(r"<style.*?</style>|<script.*?</script>", "", html, flags=re.S)
     nodes = [x.strip() for x in re.findall(r">([^<>]+)<", body) if x.strip()]
-    P = re.compile(r"[。，、：；！？“”‘」（）,.!?;:]")
-    dirty = sorted({x for x in nodes if P.search(x)})
-    assert not dirty, f"{len(scenes)} 拍 {len(nodes)} 个文本节点里漏进标点：{dirty[:8]}"
+    dirty = sorted({x for x in nodes if _edge_crumb(x)})
+    assert not dirty, f"{len(scenes)} 拍 {len(nodes)} 个文本节点里首尾带虫：{dirty[:8]}"
     assert html.count('class="ch"') > 0, "探针没测到 kinetic 分块，这条断言就是空的"
 
 
