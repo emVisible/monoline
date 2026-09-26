@@ -660,8 +660,16 @@
     </div>
     {%- if math %}
     <script>
-      // before the timeline is built, so GSAP resolves its targets against the final DOM
-      renderMathInElement(document.body, { throwOnError: false });
+      // before the timeline is built, so GSAP resolves its targets against the final DOM.
+      // `$…$` is NOT in auto-render's default delimiter set (it ships without it so a
+      // dollar amount never becomes a formula), so it has to be named here.
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false }
+        ],
+        throwOnError: false
+      });
     </script>
     {%- endif %}
     <script>

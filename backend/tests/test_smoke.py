@@ -2844,6 +2844,10 @@ def test_a_formula_beat_pulls_katex_into_the_composition_v65c():
     math = render("能量守恒写作 $E=mc^2$")
     assert 'href="vendor/katex/katex.min.css"' in math
     assert "renderMathInElement" in math
+    # auto-render ships WITHOUT `$…$` (so a dollar amount never becomes a formula): naming the
+    # delimiter is what makes the pipeline's own `$…$` form render at all. Verified in-browser:
+    # without it the call returns 0 `.katex` nodes and the slide shows raw LaTeX.
+    assert '{ left: "$", right: "$"' in math, "必须显式声明单 $ 分隔符"
     assert "$E=mc^2$" in math, "公式原文必须进产物，由浏览器端 KaTeX 换成排版"
 
 
