@@ -272,7 +272,10 @@
       .k-stat .ring-track { stroke: var(--hairline); }
       .k-stat .ring-fill { stroke: var(--accent); }
       .k-stat .ring-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-      .k-stat .value.in-ring { font-size: 108px; }
+      /* The number inside the ring must not be the same ink as the ring: at 108px accent green
+         it nearly touches the arc on both sides and reads as part of the chart. The ring carries
+         the accent; the figure reads as the slide's own text. */
+      .k-stat .value.in-ring { font-size: 108px; color: var(--ink); }
       .k-stat .unit { font-size: 60px; color: var(--ink-muted); }
       .k-stat .label { font-size: 44px; color: var(--ink); margin-top: 24px; }
       /* ── V31c data-viz kit: delta chip, sparkline, donut ──
