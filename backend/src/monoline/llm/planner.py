@@ -53,7 +53,7 @@ BATCH_CHARS = 900
 PLAN_BUDGET_SECONDS = 150
 # Part of every per-beat suggestion cache key: bump it whenever the prompt or the slot rules
 # change, and every stale verdict falls out without a migration.
-SUGGEST_SCHEMA = "v1"
+SUGGEST_SCHEMA = "v2"
 # Beats whose rule verdict is "just text" — the only ones worth asking about.
 WEAK_KINDS = {"statement"}
 _PUNCT = re.compile(r"[\s，,。.、：:；;！!？?“”\"'『」（）()《》\-—→…·*_#>❶-❿]")
@@ -75,8 +75,8 @@ _SPEC_LINES = "\n".join(
 
 def build_prompt(items: list[tuple[int, str]]) -> list[dict]:
     sys = (
-        "你是中文短视频的分镜判定器。给你若干「拍」（一句口播），逐拍判断它最适合画成什么，"
-        "并抽取画面要用的文字。\n"
+        "你是短视频的分镜判定器。给你若干「拍」（一句口播，中文或英文），逐拍判断它最适合画成什么，"
+        "并抽取画面要用的文字。英文拍同样要判定，不要因为语言是英文就一律回答 statement。\n"
         f"可选类型与槽位：\n{_SPEC_LINES}\n"
         "硬性要求：\n"
         # json_object mode wants ONE top-level object — asking for a bare array makes
@@ -253,10 +253,30 @@ async def suggest(settings, beat: str, scene: dict, *, target: Target | None = N
             pass
     out, stats = await upgrade(settings, [beat], [dict(scene)], target=t, timeout=timeout, force=True)
     cand = out[0]
-    verdict = {"kind": cand.get("kind"), "slots": cand.get("slots"),
-               "same": cand.get("kind") == scene.get("kind"), "model": stats.get("model"),
-               "seconds": stats.get("seconds"), "why": stats.get("why") or [], "cached": False}
-    if use_cache and t.ok and not stats.get("failed_batches"):
+    # Four outcomes, named, so the client never has to guess which one it got.  `same` used to be
+    # inferred from "the kind came back unchanged" — but upgrade() hands back the ORIGINAL scene
+    # when a batch is dropped, and merge() sets the answer aside when the slots fail the guard, so
+    # a dead request and a rejected answer both looked like "the model wants this beat left alone".
+    # Measured cost of that inference: the English "landing rate 0/6, all declines" could not be
+    # read at all — one beat answered in 1.1s, which is faster than this model can decode (~1
+    # character/second, docs/PLAN.md V55), and a dropped request wore the same number.
+    if stats.get("upgraded"):
+        status = "changed"
+    elif stats.get("declined"):
+        status = "kept"
+    elif stats.get("bad_kind") or stats.get("bad_slots"):
+        status = "rejected"          # it answered, and our own guard refused the answer
+    else:
+        status = "unanswered"        # never reached the model / died on the way back
+    verdict = {"status": status,
+               "kind": cand.get("kind") if status == "changed" else None,
+               "slots": cand.get("slots") if status == "changed" else None,
+               "model": stats.get("model"), "seconds": stats.get("seconds"),
+               "why": stats.get("why") or [],
+               "error": (stats.get("error") or "模型没有回答这一拍（超时或响应被截断）")
+                        if status == "unanswered" else "",
+               "cached": False}
+    if use_cache and t.ok and status != "unanswered" and not stats.get("failed_batches"):
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(verdict, ensure_ascii=False), encoding="utf-8")

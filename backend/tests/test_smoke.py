@@ -2445,7 +2445,7 @@ def test_a_beat_suggestion_is_cached_by_schema_and_model_v58(tmp_path, monkeypat
     second = asyncio.run(planner.suggest(s, beat, scene, target=ta))
     assert len(calls) == 1, "the repeat ask must not reach the model"
     assert (first["cached"], second["cached"]) == (False, True), (first, second)
-    assert second["kind"] == "list" and second["same"] is False, second
+    assert second["kind"] == "list" and second["status"] == "changed", second
     asyncio.run(planner.suggest(s, beat, scene, target=Target(source="t", ok=True, model="fake-b")))
     assert len(calls) == 2, "another model's verdict must not be reused"
     monkeypatch.setattr(planner, "SUGGEST_SCHEMA", planner.SUGGEST_SCHEMA + "-next")
@@ -2454,3 +2454,51 @@ def test_a_beat_suggestion_is_cached_by_schema_and_model_v58(tmp_path, monkeypat
     # one file per distinct key: (schema, model, beat) → a@v1, b@v1, a@v1-next.  Old entries stay
     # (a few hundred bytes each for a single-user tool) but are never read again.
     assert len(list((tmp_path / "suggest").glob("*.json"))) == 3
+
+
+def test_a_beat_the_model_never_answered_is_not_reported_as_a_decline_v59(tmp_path, monkeypatch):
+    """"The model left this beat alone" and "the request died" are different facts, and suggest()
+    was collapsing them: upgrade() hands back the ORIGINAL scene when a batch is dropped, so
+    `same` came out True and Studio told the user the model had considered the beat and kept it.
+    Measured cost of that blindness: an "English landing rate 0/6, every one a decline" that could
+    not be read at all — one beat came back in 1.1s, faster than this model can decode, and a
+    dropped request reported the same number as a deliberate refusal."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from monoline.llm import planner
+    from monoline.llm.client import LLMError, Target
+
+    s = SimpleNamespace(cache_dir=tmp_path, llm_batch_beats=3, llm_batch_chars=900,
+                        llm_plan_seconds=150)
+    scene = {"i": 0, "kind": "statement", "slots": {}}
+    beat = "The gateway folds three services into a single layer"
+    t = Target(source="test", ok=True, model="fake-a")
+
+    async def dead(msgs, **kw):
+        raise LLMError("read timeout")
+
+    monkeypatch.setattr(planner, "chat", dead)
+    gone = asyncio.run(planner.suggest(s, beat, scene, target=t))
+    assert gone["status"] == "unanswered" and gone["kind"] is None, gone
+    assert gone["error"], "a dropped ask has to say that it dropped"
+    assert not list((tmp_path / "suggest").glob("*.json")), "a failure must never be cached"
+
+    async def declines(msgs, **kw):
+        return '{"scenes":[{"i":0,"kind":"statement","slots":{}}]}'
+
+    monkeypatch.setattr(planner, "chat", declines)
+    kept = asyncio.run(planner.suggest(s, beat, scene, target=t))
+    assert kept["status"] == "kept" and not kept["error"], kept
+    assert len(list((tmp_path / "suggest").glob("*.json"))) == 1, "a real verdict is worth caching"
+
+    # A third fact, previously folded into "kept": the model DID answer and our own slot guard
+    # threw the answer away.  That is the 4B model's most common failure (cards with a title and
+    # no rows) and the one the user needs to see, because it looks identical to a refusal.
+    async def sloppy(msgs, **kw):
+        return '{"scenes":[{"i":0,"kind":"cards","slots":{"title":"三层"}}]}'
+
+    monkeypatch.setattr(planner, "chat", sloppy)
+    cut = asyncio.run(planner.suggest(s, beat, scene, target=t, use_cache=False))
+    assert cut["status"] == "rejected" and cut["kind"] is None, cut
+    assert cut["why"] and "cards" in cut["why"][0], cut

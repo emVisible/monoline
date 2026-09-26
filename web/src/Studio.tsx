@@ -264,8 +264,11 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
     }
   };
 
+  // `status` is the whole contract: kept / changed / rejected / unanswered are four different
+  // facts and the old client inferred "kept" from "no new kind", which made a dead request and a
+  // guard-rejected answer both claim the model had considered the beat.
   const [sug, setSug] = useState<{ i: number; kind?: string; slots?: any; seconds?: number;
-    same?: boolean; error?: string } | null>(null);
+    status?: string; error?: string; why?: string[]; cached?: boolean } | null>(null);
   const [sugBusy, setSugBusy] = useState(false);
 
   // One beat per request: the local model decodes at ~1 character/second (docs/PLAN.md V55), so
@@ -279,11 +282,12 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
     try {
       const r = await fetch(`/api/jobs/${job.id}/plan/scenes/${i}/suggest`, { method: "POST" });
       const d = await r.json();
-      setSug(!r.ok ? { i, error: String(d.detail || r.status) }
-        : d.same ? { i, same: true }
-        : { i, kind: d.kind, slots: d.slots, seconds: d.seconds });
+      setSug(r.ok ? { i, status: String(d.status ?? "unanswered"), kind: d.kind, slots: d.slots,
+                      seconds: d.seconds, error: String(d.error ?? ""),
+                      why: Array.isArray(d.why) ? d.why : [], cached: Boolean(d.cached) }
+        : { i, status: "unanswered", error: String(d.detail || r.status) });
     } catch (e) {
-      setSug({ i, error: String(e) });
+      setSug({ i, status: "unanswered", error: String(e) });
     } finally {
       setSugBusy(false);
     }
@@ -589,12 +593,16 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                 <button className="ghost" onClick={suggestShape} disabled={sugBusy} aria-busy={sugBusy}>
                   {sugBusy ? t("模型正在想这一拍（约 40–70 秒）…") : t("让模型换个形状")}
                 </button>
-                {sug && sug.i === d.i && sug.error && <span className="suggest-msg err">{sug.error}</span>}
-                {sug && sug.i === d.i && sug.same && (
+                {sug && sug.i === d.i && sug.status === "unanswered" && (
+                  <span className="suggest-msg err">{sug.error || t("模型没有回答这一拍")}</span>)}
+                {sug && sug.i === d.i && sug.status === "kept" && (
                   <span className="suggest-msg">{t("模型认为这一拍保持现在的形状")}</span>)}
-                {sug && sug.i === d.i && sug.kind && (
+                {sug && sug.i === d.i && sug.status === "rejected" && (
+                  <span className="suggest-msg err">{t("模型答了，但没通过校验")}{sug.why?.length ? `：${sug.why[0]}` : ""}</span>)}
+                {sug && sug.i === d.i && sug.status === "changed" && sug.kind && (
                   <span className="suggest-msg">{t("建议改成")} {sug.kind}
                     {sug.seconds ? ` · ${Math.round(sug.seconds)}s` : ""}
+                    {sug.cached ? ` · ${t("缓存")}` : ""}
                     <button className="link-btn"
                       onClick={() => saveScene({ ...d, kind: sug.kind as typeof d.kind, slots: sug.slots }, "llm:adopt")}>
                       {t("采纳")}
