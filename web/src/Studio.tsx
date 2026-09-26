@@ -1,4 +1,5 @@
 import { t } from "./i18n";
+import { Panel, RailMenu, Switch } from "./ui";
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { groupVoices, useAudition, useVoices } from "./voices";
 import { MODE_COUNT, ModePicker, VariantPicker, VARIANT_KINDS } from "./modes";
@@ -153,8 +154,16 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
   const [icons, setIcons] = useState<IconDef[]>([]);
   const [presets, setPresets] = useState<{ id: string; name: string; config: any }[]>([]);
   const [cfg, setCfg] = useState(() => {
-    try { const c = JSON.parse(job.config_json || "{}"); return { theme: c.theme || "mono-ink", accent: c.accent || "", brand: c.brand || "Monoline", voice: c.voice || "zf_xiaoxiao", layout: c.layout || "minimal", logo: c.logo || "" }; }
-    catch { return { theme: "mono-ink", accent: "", brand: "Monoline", voice: "zf_xiaoxiao", layout: "minimal", logo: "" }; }
+    // `brand` must distinguish "no key" (server default Monoline) from "cleared" ("") — the
+    // old `c.brand || "Monoline"` re-filled a deliberate empty on every reload, undoing the
+    // user's choice the moment they refreshed.
+    const shape = (c: any) => ({
+      theme: c.theme || "mono-ink", accent: c.accent || "", brand: "brand" in c ? c.brand : "Monoline",
+      voice: c.voice || "zf_xiaoxiao", layout: c.layout || "minimal", logo: c.logo || "",
+      folio: c.folio !== false,
+    });
+    try { return shape(JSON.parse(job.config_json || "{}")); }
+    catch { return shape({}); }
   });
   const { voices } = useVoices();
   const audition = useAudition();
@@ -221,7 +230,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
     fetch("/api/presets").then((r) => r.json()).then((d) => setPresets(d.presets || [])).catch(() => {});
   }, []);
 
-  const applyConfig = async (patch: Record<string, string>) => {
+  const applyConfig = async (patch: Record<string, string | boolean>) => {
     setCfg((c) => ({ ...c, ...patch }));
     const r = await fetch(`/api/jobs/${job.id}/config`, {
       method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch),
@@ -270,6 +279,9 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
   const [sug, setSug] = useState<{ i: number; kind?: string; slots?: any; seconds?: number;
     status?: string; error?: string; why?: string[]; cached?: boolean } | null>(null);
   const [sugBusy, setSugBusy] = useState(false);
+  // The rail used to stack every group in one 1500px column; a beat edit and a theme swatch
+  // are different intents, so only one group is open at a time.
+  const [rail, setRail] = useState<"beat" | "parts" | "look" | "voice">("beat");
 
   // One beat per request: the local model decodes at ~1 character/second (docs/PLAN.md V55), so
   // asking it about the whole script is a 25-minute wait that lands nothing.  The user asks beat
@@ -501,7 +513,32 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
               <p>{t("配置与逐拍编辑会在这一版出片后出现。")}<b>{t("先生成，再调整")}</b>{t("——左边阶段流就是当前进度。")}</p>
             </div>
           ) : (<>
-          <div className="appearance">
+          <RailMenu items={[
+              { id: "beat", label: t("这一拍") },
+              { id: "parts", label: t("元素组成"), badge: Object.keys(kindUsed).length },
+              { id: "look", label: t("外观") },
+              { id: "voice", label: t("配音") },
+            ]} active={rail} onChange={setRail} />
+          {rail === "parts" && (
+            <Panel title={t("元素组成")} note={`${Object.keys(kindUsed).length}/${MODE_COUNT}`}>
+              <p className="parts-lead">{t("这一片用了哪些呈现组件，各占几拍")}</p>
+              {Object.entries(kindUsed).sort((a, b) => b[1] - a[1]).map(([k, n]) => (
+                <div key={k} className="parts-row">
+                  <span className="parts-kind">{k}</span>
+                  <span className="parts-bar" style={{ width: `${Math.round((n / segments.length) * 100)}%` }} />
+                  <span className="parts-n">{n}<span className="parts-pct"> {Math.round((n / segments.length) * 100)}%</span></span>
+                </div>
+              ))}
+              <p className="parts-note">
+                {t("覆盖 ")}{Object.keys(kindUsed).length}{t(" 种 / 共 ")}{MODE_COUNT}{t(" 种；连续同版式最长 ")}
+                {(() => { let best = 1, run = 1; const ks = scenes.map((s) => s?.kind);
+                  for (let i = 1; i < ks.length; i++) { run = ks[i] === ks[i - 1] ? run + 1 : 1; best = Math.max(best, run); }
+                  return best; })()}
+                {t(" 拍")} · <a className="mode-lib-link" href="#/modes">{t("查看全部模式")}</a>
+              </p>
+            </Panel>
+          )}
+          <div className="appearance" hidden={rail !== "look"}>
             <div className="ap-title">{t("外观")}</div>
             <div className="swatches">
               {themes.map((t) => (
@@ -522,7 +559,10 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
             <div className="ap-row">
               <label className="fld-lbl">{t("品牌")}</label>
               <input className="fld" defaultValue={cfg.brand} onBlur={(e) => e.target.value !== cfg.brand && applyConfig({ brand: e.target.value })} />
+              <span className="ui-hint">{t("留空则整块字标不出现")}</span>
             </div>
+            <Switch label={t("页码")} checked={cfg.folio !== false} onChange={(v) => applyConfig({ folio: v })}
+              hint={t("右下角的 07 / 24")} />
             <div className="ap-row">
               <label className="fld-lbl">Logo</label>
               <label className="ghost sm file-btn">{t("上传")}
@@ -552,7 +592,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
               <button className="ghost sm" onClick={savePreset}>{t("保存")}</button>
             </div>
           </div>
-          {voices.length > 0 && (
+          {voices.length > 0 && rail === "voice" && (
             <div className="appearance">
               <div className="ap-title">{t("配音")}</div>
               <div className="ap-row">
@@ -576,7 +616,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
               </div>
             </div>
           )}
-          {!d ? <p className="muted">{t("选左侧一拍")}</p> : (
+          {!d || rail !== "beat" ? (d ? null : <p className="muted">{t("选左侧一拍")}</p>) : (
             <>
               <div className="fld-row">
                 <label className="fld-lbl">{t("旁白")}{resynth && <span className="resynth-tag"> {t("· 重合成中…")}</span>}</label>

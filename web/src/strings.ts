@@ -277,4 +277,16 @@ export const EN: Record<string, string> = {
   " 拍上限。": " beats.",
   "请按章节拆成几个作业分别生成 — 单条这么长的片会在渲染阶段失败，而不是在这里。":
     " Split it by chapter into separate jobs — a single clip this long fails at render, not here.",
+  // ---- V63 rail menu, element composition, optional overlays -----------------
+  "编辑面板": "Inspector",
+  "这一拍": "This beat",
+  "元素组成": "Composition",
+  "这一片用了哪些呈现组件，各占几拍": "Which components this film uses, and how many beats each holds",
+  "查看全部模式": "See all modes",
+  "留空则整块字标不出现": "Leave it empty and the wordmark disappears entirely",
+  "页码": "Page number",
+  "右下角的 07 / 24": "The 07 / 24 in the corner",
+  "覆盖 ": "Covers ",
+  " 种 / 共 ": " of ",
+  " 种；连续同版式最长 ": " modes; longest run of one layout: ",
 };

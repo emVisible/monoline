@@ -270,6 +270,44 @@ body {
   .s3-beats { max-height:44vh; }
 }
 
+/* ---- shared rail atoms (web/src/ui.tsx) ---- */
+.ui-panel { display:flex; flex-direction:column; gap:10px; }
+/* the old group titles were --ink-faint, which reads as disabled rather than as a label */
+.ui-panel-title { display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  font-size:13px; font-weight:600; color:var(--ink); letter-spacing:.02em; margin:0; }
+.ui-panel-note { font-size:11px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+.ui-row { display:flex; flex-direction:column; gap:6px; }
+.ui-row-label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); }
+.ui-row-body { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.ui-hint { font-size:11px; color:var(--ink-faint); }
+.ui-switch { display:inline-flex; align-items:center; gap:8px; padding:4px 10px 4px 4px; cursor:pointer;
+  border:1px solid var(--hairline); border-radius:999px; background:var(--surface); color:var(--ink-faint);
+  font:inherit; font-size:11px; transition:border-color var(--t-micro) var(--ease-out-quart), color var(--t-micro) var(--ease-out-quart); }
+.ui-switch-knob { width:26px; height:14px; border-radius:999px; background:var(--hairline); position:relative;
+  transition:background var(--t-micro) var(--ease-out-quart); }
+.ui-switch-knob::after { content:""; position:absolute; top:2px; left:2px; width:10px; height:10px; border-radius:50%;
+  background:var(--ink-faint); transition:transform var(--t-micro) var(--ease-out-quart), background var(--t-micro) var(--ease-out-quart); }
+.ui-switch.on { color:var(--ink); border-color:var(--accent); }
+.ui-switch.on .ui-switch-knob { background:color-mix(in srgb, var(--accent) 35%, transparent); }
+.ui-switch.on .ui-switch-knob::after { transform:translateX(12px); background:var(--accent); }
+.ui-rail-menu { display:flex; gap:6px; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--hairline); }
+.ui-rail-tab { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; font:inherit; font-size:12px;
+  border:1px solid transparent; border-radius:7px; background:none; color:var(--ink-muted); cursor:pointer;
+  transition:background var(--t-micro) var(--ease-out-quart), color var(--t-micro) var(--ease-out-quart); }
+.ui-rail-tab:hover { background:var(--surface); color:var(--ink); }
+.ui-rail-tab.on { background:var(--elev); color:var(--ink); border-color:var(--hairline); }
+.ui-rail-badge { font-size:10px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+.ui-rail-tab.on .ui-rail-badge { color:var(--accent); }
+.ui-rail-panel { display:flex; flex-direction:column; gap:14px; }
+.parts-lead, .parts-note { font-size:11px; color:var(--ink-faint); margin:0; line-height:1.5; }
+.parts-row { display:grid; grid-template-columns:88px 1fr auto; align-items:center; gap:8px; }
+.parts-kind { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-muted);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.parts-bar { height:3px; background:var(--accent); border-radius:2px; opacity:.55; min-width:2px;
+  transition:width var(--t-macro) var(--ease-out-quart); }
+.parts-n { font-size:11px; color:var(--ink); font-variant-numeric:tabular-nums; text-align:right; }
+.parts-pct { color:var(--ink-faint); }
+
 /* ---- P2 narration editing ---- */
 .fld.narration { resize:vertical; min-height:64px; line-height:1.5; }
 .resynth-tag { color:var(--accent); font-size:10px; letter-spacing:.04em; animation:pulse 1.2s var(--ease-in-out-soft) infinite; }

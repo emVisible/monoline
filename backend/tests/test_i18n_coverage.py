@@ -18,7 +18,7 @@ from pathlib import Path
 CJK = re.compile(r"[一-鿿]")
 STR = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
 WEB = Path(__file__).resolve().parents[2] / "web" / "src"
-SOURCES = ["App.tsx", "Studio.tsx", "modes.tsx"]
+SOURCES = ["App.tsx", "Studio.tsx", "modes.tsx", "ui.tsx"]  # keep in sync with web/src/*.tsx
 # data maps / registry fields: Chinese is stored here and translated where it is read
 DATA_FIELD = re.compile(r"\b(zh|desc|note|label|title|name|script|tts|assemble|plan|fonts|"
                         r"compose|gate|render|deliver|node|ffmpeg|gsap_vendored|ofl_cjk_font|"
