@@ -14,6 +14,7 @@ from ..compose.engine import render_composition
 from ..db.repo import Repo
 from ..fonts.subset import collect_glyphs, subset_font
 from ..hf.cli import HF
+from ..ir.sceneplan import overlays_from_config
 from ..ir.sceneplan import DIAGRAM_KINDS, ScenePlan
 from ..ir.timings import Timings
 from ..settings import Settings
@@ -138,7 +139,7 @@ async def retheme(repo: Repo, settings: Settings, job_id: str) -> dict:
     config = json.loads(job["config_json"])
     plan = json.loads(plan_row["plan_json"])
     plan["theme"] = resolve_theme(settings, config).model_dump()
-    plan["brand"] = {"label": config.get("brand", "Monoline"), "logo": config.get("logo", "")}
+    plan.update(overlays_from_config(config))
     new_json = json.dumps(plan, ensure_ascii=False)
     ver = await repo.save_plan(job_id, new_json, "manual", [])
     result = await recompose(repo, settings, job_id)

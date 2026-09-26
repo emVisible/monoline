@@ -31,6 +31,7 @@ class CreateJob(BaseModel):
     accent: str | None = None
     brand: str | None = None
     llm_plan: bool = True   # let a connected model re-judge the beats the rules call plain text
+    folio: bool = True      # the corner page number; off = a cleaner, less deck-like frame
 
 
 _RATIOS = {"landscape": (1920, 1080), "portrait": (1080, 1920), "square": (1080, 1080)}
@@ -67,7 +68,8 @@ async def create_job(body: CreateJob, request: Request) -> dict:
     layout = body.layout if body.layout in _LAYOUTS else "minimal"
     # lang is derived from the voice so the phonemizer can never drift from it
     config = {"voice": body.voice, "lang": voice_lang(body.voice), "speed": body.speed,
-              "quality": quality, "format": fmt, "layout": layout, "llm_plan": bool(body.llm_plan)}
+              "quality": quality, "format": fmt, "layout": layout, "llm_plan": bool(body.llm_plan),
+              "folio": bool(body.folio)}
     # brand goes through its own setter: an empty string is a choice, so the old `if val:`
     # (which dropped the key and let the identity default win) is exactly the bug.
     _apply_brand_config(config, body.brand)
@@ -552,6 +554,9 @@ class ConfigPatch(BaseModel):
     accent: str | None = None
     brand: str | None = None
     layout: str | None = None
+    # `None` = leave alone, `False` = the user turned the page number off.  Same three-state
+    # distinction as `brand`: a plain `bool` default would swallow "not sent".
+    folio: bool | None = None
 
 
 @router.patch("/{jid}/config")
@@ -575,6 +580,8 @@ async def patch_config(jid: str, body: ConfigPatch, request: Request) -> dict:
         config["accent"] = body.accent if body.accent.strip() else None
     if body.brand is not None:
         _apply_brand_config(config, body.brand)
+    if body.folio is not None:
+        config["folio"] = bool(body.folio)
     if body.layout is not None:
         if body.layout not in _LAYOUTS:
             raise HTTPException(422, f"unknown layout {body.layout!r}")

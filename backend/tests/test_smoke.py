@@ -2664,3 +2664,20 @@ def test_every_text_kind_that_falls_back_to_the_beat_stays_clean_v63b():
     dirty = sorted({x for x in nodes if P.search(x)})
     assert not dirty, f"{len(scenes)} 拍 {len(nodes)} 个文本节点里漏进标点：{dirty[:8]}"
     assert html.count('class="ch"') > 0, "探针没测到 kinetic 分块，这条断言就是空的"
+
+
+def test_config_becomes_overlays_in_exactly_one_place_v63c():
+    """`folio` has to reach the plan through two different doors — the runner builds a
+    ScenePlan, retheme patches stored JSON — and every duplicated mapping is a place where
+    one door gets forgotten.  So the mapping is one function, and its three states are the
+    contract: absent → default, explicit false → off, explicit empty brand → no wordmark."""
+    from monoline.api.routes_jobs import ConfigPatch
+    from monoline.ir.sceneplan import overlays_from_config
+
+    empty = overlays_from_config({})
+    assert empty["brand"]["label"] == "Monoline" and empty["folio"] is True, "defaults unchanged"
+    off = overlays_from_config({"brand": "", "folio": False})
+    assert off["brand"]["label"] == "" and off["folio"] is False, off
+    # the API must not swallow "not sent" into "off" — a plain `bool` field would default False
+    assert ConfigPatch().folio is None and ConfigPatch(folio=False).folio is False
+    assert ConfigPatch(brand="").brand == "", "clearing the brand is a legal PATCH, not a no-op"

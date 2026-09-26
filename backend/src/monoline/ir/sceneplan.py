@@ -77,6 +77,18 @@ class Scene(BaseModel):
     motion: dict[str, Any] | None = None
 
 
+def overlays_from_config(config: dict) -> dict:
+    """The two corner overlays a job carries, derived from its config in ONE place.
+
+    The runner builds a `ScenePlan` object while retheme patches the stored JSON dict, and each
+    used to spell out `config.get("brand", "Monoline")` on its own — which is how `folio` would
+    have been added to one path and forgotten in the other.  An empty `brand` is a user choice,
+    so only a MISSING key takes the default; `folio` defaults to on.
+    """
+    return {"brand": {"label": config.get("brand", "Monoline"), "logo": config.get("logo", "")},
+            "folio": bool(config.get("folio", True))}
+
+
 class ScenePlan(BaseModel):
     schema_: str = SCHEMA
     job_id: str = ""

@@ -18,7 +18,7 @@ from ..compose.engine import render_composition
 from ..db.repo import Repo, now_iso
 from ..fonts.subset import collect_glyphs, subset_font
 from ..hf.cli import HF
-from ..ir.sceneplan import Brand, Canvas, ScenePlan, Theme
+from ..ir.sceneplan import Canvas, ScenePlan, Theme, overlays_from_config
 from ..ir.timings import Timings
 from ..voices import DEFAULT_VOICE
 from ..settings import Settings
@@ -244,7 +244,7 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
                         "kinds": kept_kinds, "warnings": kept.validate_against(len(beats)),
                         "source": "llm:kept", "llm": llm}
         plan = ScenePlan(job_id=job_id, canvas=Canvas(**canvas), theme=theme,
-                         brand=Brand(label=config.get("brand", "Monoline"), logo=config.get("logo", "")), scenes=scenes)
+                         scenes=scenes, **overlays_from_config(config))
         warnings = plan.validate_against(len(beats))
         (ws.ir / "scene_plan.json").write_text(plan.model_dump_json(indent=2), encoding="utf-8")
         ver = await repo.save_plan(job_id, plan.model_dump_json(), source, warnings)
