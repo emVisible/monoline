@@ -286,6 +286,8 @@ export const EN: Record<string, string> = {
   "留空则整块字标不出现": "Leave it empty and the wordmark disappears entirely",
   "页码": "Page number",
   "右下角的 07 / 24": "The 07 / 24 in the corner",
+  "分段标签": "Section head",
+  "右上角显示当前所属章节；片中没有分节时本来就不出现": "Top-right chapter label; never appears in a film without sections",
   "覆盖 ": "Covers ",
   " 种 / 共 ": " of ",
   " 种；连续同版式最长 ": " modes; longest run of one layout: ",

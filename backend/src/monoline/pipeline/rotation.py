@@ -80,6 +80,27 @@ def _assign_variants(scenes: list[dict]) -> None:
             sc.setdefault("slots", {})["variant"] = VARIANTS[(run - 1) % len(VARIANTS)]
 
 
+def label_sections(scenes: list[dict]) -> list[dict]:
+    """Give every beat the section it belongs to, from the nearest preceding `section` beat.
+
+    A divider slide answers "what am I about to see?" for exactly one beat.  Propagating its
+    title lets the running head keep answering "which part am I in?" for the whole chapter.
+    Scenes already carrying a `section` (set by hand, or by a markdown heading later) win.
+    """
+    out: list[dict] = []
+    current = ""
+    for sc in scenes:
+        s = dict(sc)
+        kind = s.get("kind")
+        title = ((s.get("slots") or {}).get("title") or (s.get("slots") or {}).get("headline") or "").strip()
+        if kind == "section" and title:
+            current = title
+        if not s.get("section") and current:
+            s["section"] = current
+        out.append(s)
+    return out
+
+
 def rebalance(scenes: list[dict], beats: list[str]) -> list[dict]:
     """Rewrite surplus beats inside a long text run. Keeps the scene count and the
     1 beat = 1 scene invariant; only changes kind/slots, and only to a shape the

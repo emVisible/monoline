@@ -104,7 +104,14 @@ def render_composition(timings: Timings, plan: ScenePlan, *, title: str = "", vo
     # becomes a guarantee: a plan saved before V62b still holds the old text in its slots.
     # The plan on disk stays exactly what its author saved — these are copies.
     from ..pipeline.display_text import tidy_slots
+    from ..pipeline.rotation import label_sections
     scenes = [s.model_copy(update={"slots": tidy_slots(s.kind, s.slots)}) for s in plan.scenes]
+    # Section labels are derived here, not when the rules first ran: a divider beat marked by
+    # hand in Studio, or by the model, has to propagate too.  The rule planner alone was a
+    # single-path owner and left every other path anonymous (measured: a script literally
+    # containing 「第一部分 开场」 produced zero section labels).
+    labels = label_sections([s.model_dump() for s in scenes])
+    scenes = [s.model_copy(update={"section": l.get("section", "")}) for s, l in zip(scenes, labels)]
     segments = timings.segments
     w, h = plan.canvas.width, plan.canvas.height
     aspect = "portrait" if h > w * 1.1 else ("square" if abs(h - w) <= w * 0.1 else "landscape")
@@ -119,6 +126,7 @@ def render_composition(timings: Timings, plan: ScenePlan, *, title: str = "", vo
         brand=plan.brand,
         captions=plan.captions,
         folio=plan.folio,
+        sections=plan.sections,
         vo_src=vo_src,
         title=title or (scenes[0].slots.get("headline") if scenes else "") or "Monoline",
     )

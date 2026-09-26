@@ -72,6 +72,10 @@ class Scene(BaseModel):
     i: int
     kind: str
     source: str = "manual"  # rules:<pattern> | manual | llm — provenance badge in UI
+    # Which part of the film this beat belongs to, filled by a whole-piece pass from the nearest
+    # preceding `section` beat.  Carried per scene (not per divider) so the audience always knows
+    # where they are, not only on the title card that announces it.
+    section: str = ""
     slots: dict[str, Any] = Field(default_factory=dict)
     layout: dict[str, Any] | None = None
     motion: dict[str, Any] | None = None
@@ -86,7 +90,8 @@ def overlays_from_config(config: dict) -> dict:
     so only a MISSING key takes the default; `folio` defaults to on.
     """
     return {"brand": {"label": config.get("brand", "Monoline"), "logo": config.get("logo", "")},
-            "folio": bool(config.get("folio", True))}
+            "folio": bool(config.get("folio", True)),
+            "sections": bool(config.get("sections", True))}
 
 
 class ScenePlan(BaseModel):
@@ -100,6 +105,9 @@ class ScenePlan(BaseModel):
     # preference, not a fact — an empty brand works the same way: `Brand(label="")` means
     # "no wordmark", which is different from the field never being set.
     folio: bool = True
+    # The running "current section" head.  Optional by toggle, and optional by absence: a film
+    # with no `section` beat paints nothing, so turning this on cannot regress an existing job.
+    sections: bool = True
     scenes: list[Scene] = Field(default_factory=list)
 
     def validate_against(self, n_segments: int) -> list[str]:

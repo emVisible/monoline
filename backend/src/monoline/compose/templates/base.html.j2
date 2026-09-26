@@ -76,6 +76,11 @@
       .folio .f-sep { opacity: 0.55; }
       body[data-aspect="portrait"] .folio { font-size: 26px; }
       body[data-aspect="portrait"] .folio .f-now { font-size: 34px; }
+      /* running section head — top right, away from the brand lock-up (top left), the
+         folio (bottom right) and the caption band, so the three never collide */
+      .sec-tag { position: absolute; top: 60px; right: var(--gutter-x); z-index: 40;
+        font-size: 21px; letter-spacing: .16em; color: var(--ink-muted); }
+      body[data-aspect="portrait"] .sec-tag { top: 64px; right: calc(var(--gutter-x) * 0.8); font-size: 19px; }
       /* icon plate: a bare glyph reads as an orphan; the same glyph in a soft
          accent ring reads as an intentional mark. */
       .scene-icon { display: flex; align-items: center; justify-content: center;
@@ -633,6 +638,7 @@
           {%- if scene.kind in ["title", "statement", "summary", "section", "definition", "quote", "note"] %}<span class="accent-rule"></span>{% endif %}
         </div></div>
         {% if folio %}<div class="folio"><span class="f-now">{{ '%02d' % (seg.i + 1) }}</span><span class="f-sep">/</span><span>{{ '%02d' % (segments | length) }}</span></div>{% endif %}
+        {%- if sections and scene.section %}<div class="sec-tag">{{ scene.section }}</div>{% endif %}
         {%- if show_cap %}
         <div class="cap"><div class="inner">{{ detonate(seg.text) }}</div></div>
         {%- endif %}

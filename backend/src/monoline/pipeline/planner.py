@@ -418,6 +418,7 @@ class RulePlanner:
             else:
                 scenes.append(self._classify(i, b))
         scenes = rebalance(scenes, beats)      # whole-piece view: no 12-beat run of one layout
+        # (section labels are derived at compose time so manual and model paths get them too)
         for s in scenes:
             s["slots"] = tidy_slots(s["kind"], s["slots"])
         apply_icons(scenes, beats)
@@ -432,6 +433,10 @@ class RulePlanner:
         return {"headline": kw, "verbatim": (not clean)}
 
     def _title(self, b: str, brand: str, date_eyebrow: str) -> dict:
+        if _SECTION_MARK.match(b.strip()):
+            # An explicit chapter mark on line 1 is a divider, not the film's title card —
+            # claiming it here is what left the opening section with no label to propagate.
+            return self._classify(0, b)
         ts = self._text_slots(b)
         return {"i": 0, "kind": "title", "source": "rules:first-line",
                 "slots": {"eyebrow": date_eyebrow or brand, "headline": ts["headline"], "sub": brand, "verbatim": ts["verbatim"]}}

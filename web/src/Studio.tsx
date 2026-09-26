@@ -161,6 +161,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
       theme: c.theme || "mono-ink", accent: c.accent || "", brand: "brand" in c ? c.brand : "Monoline",
       voice: c.voice || "zf_xiaoxiao", layout: c.layout || "minimal", logo: c.logo || "",
       folio: c.folio !== false,
+      sections: c.sections !== false,
     });
     try { return shape(JSON.parse(job.config_json || "{}")); }
     catch { return shape({}); }
@@ -563,6 +564,8 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
             </div>
             <Switch label={t("页码")} checked={cfg.folio !== false} onChange={(v) => applyConfig({ folio: v })}
               hint={t("右下角的 07 / 24")} />
+            <Switch label={t("分段标签")} checked={cfg.sections !== false} onChange={(v) => applyConfig({ sections: v })}
+              hint={t("右上角显示当前所属章节；片中没有分节时本来就不出现")} />
             <div className="ap-row">
               <label className="fld-lbl">Logo</label>
               <label className="ghost sm file-btn">{t("上传")}

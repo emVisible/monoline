@@ -2676,8 +2676,64 @@ def test_config_becomes_overlays_in_exactly_one_place_v63c():
 
     empty = overlays_from_config({})
     assert empty["brand"]["label"] == "Monoline" and empty["folio"] is True, "defaults unchanged"
-    off = overlays_from_config({"brand": "", "folio": False})
-    assert off["brand"]["label"] == "" and off["folio"] is False, off
+    assert empty["sections"] is True, "a film with no section beats still paints nothing"
+    off = overlays_from_config({"brand": "", "folio": False, "sections": False})
+    assert off["brand"]["label"] == "" and off["folio"] is False and off["sections"] is False, off
     # the API must not swallow "not sent" into "off" — a plain `bool` field would default False
     assert ConfigPatch().folio is None and ConfigPatch(folio=False).folio is False
     assert ConfigPatch(brand="").brand == "", "clearing the brand is a legal PATCH, not a no-op"
+
+
+def test_a_section_beat_labels_every_beat_until_the_next_one_v64():
+    """"Which part of the film am I in?" is only answerable if the section survives past the
+    divider slide.  The planner already emits `section` beats, but each scene was an island,
+    so a 20-beat chapter showed its title for one beat and then went anonymous.  Propagation
+    is a whole-piece pass (same family as rotation.rebalance), and the label is optional both
+    by toggle and by absence: a film with no section beats paints nothing."""
+    import json
+    import re
+    from pathlib import Path
+    from monoline.compose.engine import render_composition
+    from monoline.ir.sceneplan import ScenePlan, Theme
+    from monoline.ir.timings import Timings
+    from monoline.pipeline.rotation import label_sections
+
+    scenes = [
+        {"i": 0, "kind": "section", "slots": {"title": "第一部分 开场"}},
+        {"i": 1, "kind": "statement", "slots": {"headline": "深海会发光"}},
+        {"i": 2, "kind": "stat", "slots": {"value": "92", "label": "比例"}},
+        {"i": 3, "kind": "section", "slots": {"title": "第二部分 机制"}},
+        {"i": 4, "kind": "statement", "slots": {"headline": "这是化学反应"}},
+    ]
+    out = label_sections(scenes)
+    assert [s.get("section") for s in out] == ["第一部分 开场", "第一部分 开场", "第一部分 开场",
+                                               "第二部分 机制", "第二部分 机制"], out
+    assert label_sections([]) == []
+
+    theme = Theme(id="mono-ink", tokens=json.loads(
+        (Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    t = Timings.from_durations(["深海会发光"] * 5, [2.0] * 5)
+    on = render_composition(t, ScenePlan(theme=theme, scenes=out))
+    tags = on.count('class="sec-tag"')
+    assert tags == 5, f"每一拍都该带上所属章节，实际 {tags} 处"
+    assert "第一部分 开场" in on and "第二部分 机制" in on
+    off = render_composition(t, ScenePlan(theme=theme, sections=False, scenes=out))
+    assert 'class="sec-tag"' not in off, "关掉后一处不剩"
+    plain = render_composition(Timings.from_durations(["没有分节的片子"], [2.0]),
+                               ScenePlan(theme=theme, scenes=[
+                                   {"i": 0, "kind": "statement", "slots": {"headline": "没有分节的片子"}}]))
+    assert 'class="sec-tag"' not in plain, "没有 section 拍就不该凭空造一个标签"
+
+    # the boundary is compose, not the rule planner: a divider marked BY HAND must propagate too
+    hand = [{"i": 0, "kind": "statement", "slots": {"headline": "开场"}},
+            {"i": 1, "kind": "section", "slots": {"title": "机制"}},
+            {"i": 2, "kind": "statement", "slots": {"headline": "荧光素酶"}}]
+    t3 = Timings.from_durations(["开场", "机制", "荧光素酶"], [2.0, 2.0, 2.0])
+    from_hand = render_composition(t3, ScenePlan(theme=theme, scenes=hand))
+    tags = [x for x in re.findall(r'class="sec-tag">([^<]*)<', from_hand)]
+    assert tags == ["", "机制", "机制"] or tags == ["机制", "机制"], tags
+
+    # and an explicit chapter mark on the FIRST line is a divider, not the title card
+    from monoline.pipeline.planner import RulePlanner
+    first = RulePlanner().plan(["第一部分 开场。", "深海会发光。"])
+    assert first[0]["kind"] == "section" and first[0]["source"] == "rules:section-mark", first[0]
