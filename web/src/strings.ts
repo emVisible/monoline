@@ -291,4 +291,21 @@ export const EN: Record<string, string> = {
   "覆盖 ": "Covers ",
   " 种 / 共 ": " of ",
   " 种；连续同版式最长 ": " modes; longest run of one layout: ",
+
+  // ---- H5 大纲前置（V68）---------------------------------------
+  "大纲 · 生成前可改": "Outline · editable before it runs",
+  "拍": "beats",
+  "预计": "est.",
+  "段": "sections",
+  "这一拍的旁白": "this beat's narration",
+  "这一拍的呈现": "this beat's layout",
+  "并到上一拍": "merge into previous beat",
+  "删掉这拍": "delete this beat",
+  "← 返回改文稿": "← back to the script",
+  "重新切分": "re-cut",
+  "切分中…": "cutting…",
+  "按此大纲生成": "generate from this outline",
+  "含我的修改": "with my edits",
+  "大纲生成失败": "outline failed",
+  "大纲没能保存": "the outline was not saved",
 };

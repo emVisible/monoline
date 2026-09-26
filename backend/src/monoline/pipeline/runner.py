@@ -32,10 +32,17 @@ STAGES = ["script", "tts", "assemble", "plan", "fonts", "compose", "gate", "rend
 def keep_richer_plan(prior: dict | None, new_source: str) -> bool:
     """True when an already-stored storyboard must survive this run of the plan stage.
 
-    Only an LLM-shaped plan is worth protecting, and only against a run that failed to
-    produce one — the rules path is what a resume falls back to when the upgrade returns
-    nothing, and it is strictly less shaped than what the user already saw."""
-    return bool(prior) and prior.get("source") == "llm" and new_source != "llm"
+    A human-shaped plan (the outline panel and Studio both write `source="manual"`) is never
+    re-derived over: the whole point of reviewing the outline first is that the run follows it.
+    Beyond that, only an LLM-shaped plan is worth protecting, and only against a run that
+    failed to produce one — the rules path is what a resume falls back to when the upgrade
+    returns nothing, and it is strictly less shaped than what the user already saw."""
+    if not prior:
+        return False
+    src = prior.get("source")
+    if src == "manual":
+        return True
+    return src == "llm" and new_source != "llm"
 
 _MIME = {"mp4": "video/mp4", "webm": "video/webm", "mov": "video/quicktime"}
 
@@ -230,7 +237,7 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
                 source = "llm" if llm.get("upgraded") else "rules"
         if source != "llm":
             prior = await repo.get_plan(job_id)
-            if keep_richer_plan(prior, source):
+            if keep_richer_plan(prior, source) and not force:
                 # Measured on job 001a0d863e: v1(source=llm) shaped four beats into
                 # flow/steps/definition, a resume then re-ran the stage, got zero
                 # promotions, and its v2(rules) silently became the live storyboard.
@@ -238,13 +245,20 @@ async def run_pipeline(repo: Repo, settings: Settings, job_id: str, *, progress:
                 await log("plan", "本次没有 LLM 升格，沿用此前已生成的分镜（重跑不会把画面改差）",
                           level="warn")
                 kept = ScenePlan.model_validate_json(prior["plan_json"])
-                (ws.ir / "scene_plan.json").write_text(kept.model_dump_json(indent=2), encoding="utf-8")
-                kept_kinds: dict[str, int] = {}
-                for sc in kept.scenes:
-                    kept_kinds[sc["kind"]] = kept_kinds.get(sc["kind"], 0) + 1
-                return {"scenes": len(kept.scenes), "plan_version": prior["version"],
-                        "kinds": kept_kinds, "warnings": kept.validate_against(len(beats)),
-                        "source": "llm:kept", "llm": llm}
+                if len(kept.scenes) != len(beats):
+                    # The script changed underneath the approved storyboard (a beat was merged
+                    # or split since). Keeping it would pair scene i with a different beat, so
+                    # the only safe move is to re-derive — and say so in the log.
+                    await log("plan", f"已存分镜 {len(kept.scenes)} 镜与当前 {len(beats)} 拍不符，按文稿重新分镜",
+                              level="warn")
+                else:
+                    (ws.ir / "scene_plan.json").write_text(kept.model_dump_json(indent=2), encoding="utf-8")
+                    kept_kinds: dict[str, int] = {}
+                    for sc in kept.scenes:
+                        kept_kinds[sc.kind] = kept_kinds.get(sc.kind, 0) + 1
+                    return {"scenes": len(kept.scenes), "plan_version": prior["version"],
+                            "kinds": kept_kinds, "warnings": kept.validate_against(len(beats)),
+                            "source": "llm:kept", "llm": llm}
         plan = ScenePlan(job_id=job_id, canvas=Canvas(**canvas), theme=theme,
                          scenes=scenes, **overlays_from_config(config))
         warnings = plan.validate_against(len(beats))

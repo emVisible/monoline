@@ -1110,7 +1110,7 @@ def test_resume_cannot_downgrade_a_shaped_plan_v41():
     assert keep_richer_plan({"source": "llm"}, "rules") is True
     assert keep_richer_plan({"source": "llm"}, "llm") is False      # a newer shaped plan may replace
     assert keep_richer_plan({"source": "rules"}, "rules") is False  # nothing better to keep
-    assert keep_richer_plan({"source": "manual"}, "rules") is False # a hand edit is not a downgrade guard
+    assert keep_richer_plan({"source": "manual"}, "rules") is True   # V68: 大纲/Studio 的手动分镜必须活过一次运行
     assert keep_richer_plan(None, "rules") is False                 # first run
 
 

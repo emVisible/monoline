@@ -492,3 +492,38 @@ table.hist { width:100%; border-collapse:collapse; }
 
 /* V50: language switch sits at the end of the nav, quiet until hovered. */
 .lang-toggle { margin-left: auto; min-width: 34px; letter-spacing: 0.06em; }
+
+/* ── H5 大纲前置（V68）────────────────────────────────────────────────────────────
+   The one screen where the user decides the cut. It reads as a running order: a
+   hairline number, the line, its layout, its share of the runtime — no card chrome,
+   because the list itself is the structure. */
+.ol-wrap { display: grid; gap: 18px; }
+.ol-head { display: grid; gap: 4px; }
+.ol-sum { margin: 0; color: var(--ink-muted); font-size: 13px; letter-spacing: .02em; }
+.ol-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.ol-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; column-gap: 12px;
+  align-items: start; padding: 10px 8px; border-radius: 10px;
+  transition: background var(--t-micro) var(--ease-out-quart); }
+.ol-row:hover { background: var(--surface); }
+.ol-row.sec-start { margin-top: 10px; border-top: 1px solid var(--hairline); padding-top: 16px; }
+.ol-no { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-faint);
+  letter-spacing: .08em; padding-top: 8px; }
+.ol-main { display: grid; gap: 6px; min-width: 0; }
+.ol-text { width: 100%; resize: vertical; min-height: 44px; background: transparent;
+  border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; color: var(--ink);
+  font: inherit; font-size: 14px; line-height: 1.5;
+  transition: border-color var(--t-micro) var(--ease-out-quart), background var(--t-micro); }
+.ol-text:hover { border-color: var(--hairline); }
+.ol-text:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.ol-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 11px; color: var(--ink-muted); letter-spacing: .06em; }
+.ol-kind { background: transparent; color: var(--ink-muted); border: 1px solid var(--hairline);
+  border-radius: 999px; padding: 2px 9px; font-size: 11px; letter-spacing: .06em; }
+.ol-kind:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ol-rule { color: var(--ink-faint); }
+.ol-sec { color: var(--ink-muted); border-left: 1px solid var(--hairline); padding-left: 8px; }
+.ol-dur { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-faint); }
+.ol-ops { display: flex; gap: 4px; padding-top: 4px; }
+.ol-foot { display: flex; gap: 10px; justify-content: flex-end; align-items: center;
+  border-top: 1px solid var(--hairline); padding-top: 14px; }
+button.sm { padding: 2px 9px; font-size: 13px; line-height: 1.6; }

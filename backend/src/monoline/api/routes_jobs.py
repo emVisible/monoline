@@ -33,6 +33,9 @@ class CreateJob(BaseModel):
     llm_plan: bool = True   # let a connected model re-judge the beats the rules call plain text
     folio: bool = True      # the corner page number; off = a cleaner, less deck-like frame
     sections: bool = True   # the running "which chapter am I in" head, painted only if the film has sections
+    # The outline step needs a job that exists but has NOT started: creating one used to
+    # enqueue the whole pipeline, so "review the cut first" was impossible by construction.
+    hold: bool = False
 
 
 _RATIOS = {"landscape": (1920, 1080), "portrait": (1080, 1920), "square": (1080, 1080)}
@@ -88,7 +91,8 @@ async def create_job(body: CreateJob, request: Request) -> dict:
             cfg = json.loads(job["config_json"])
             cfg["logo"] = rel
             await m.repo.update_job(jid, config_json=cfg)
-    await m.enqueue(jid)
+    if not body.hold:
+        await m.enqueue(jid)
     return {"job_id": jid}
 
 
@@ -180,6 +184,49 @@ async def run_job(jid: str, request: Request, force: bool = False) -> dict:
         raise HTTPException(404, "job not found")
     await m.enqueue(jid, force=force)
     return {"job_id": jid, "queued": True, "force": force}
+
+
+class OutlinePatch(BaseModel):
+    entries: list[dict] = Field(min_length=1)
+
+
+@router.post("/{jid}/outline")
+async def outline_now(jid: str, request: Request) -> dict:
+    """切分 + 分镜，但不碰音频：整片结构在付 TTS 之前就能看见、能改。"""
+    from ..pipeline.outline import build
+
+    m = _manager(request)
+    if not await m.repo.get_job(jid):
+        raise HTTPException(404, "job not found")
+    try:
+        return await build(m.repo, m.settings, jid)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+
+
+@router.get("/{jid}/outline")
+async def outline_read(jid: str, request: Request) -> dict:
+    from ..pipeline.outline import current
+
+    m = _manager(request)
+    if not await m.repo.get_job(jid):
+        raise HTTPException(404, "job not found")
+    return await current(m.repo, m.settings, jid)
+
+
+@router.patch("/{jid}/outline")
+async def outline_write(jid: str, body: OutlinePatch, request: Request) -> dict:
+    """The user's list becomes the job. The run that follows reads these beats and these
+    kinds — a stored `source="manual"` plan is never re-derived over by the plan stage."""
+    from ..pipeline.outline import apply
+
+    m = _manager(request)
+    if not await m.repo.get_job(jid):
+        raise HTTPException(404, "job not found")
+    try:
+        return await apply(m.repo, m.settings, jid, body.entries)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
 
 
 @router.post("/{jid}/cancel")

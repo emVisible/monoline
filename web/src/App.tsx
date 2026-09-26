@@ -66,6 +66,84 @@ function useHydration(id: string | null) {
   return { data, refresh: () => refreshRef.current() };
 }
 
+// H5: the cut decides where the whole film goes, so it is reviewable before any audio is
+// paid for. This panel is that review: every beat, its storyboard kind, its section and its
+// share of the runtime — editable in place, and what the run then follows.
+type OutlineRow = { i: number; text: string; kind: string; ruleKind?: string;
+  source: string; section: string; seconds: number };
+// Kinds a beat can be pinned to from its own words. A chart kind needs rows the text may not
+// contain, and inventing them would put numbers on screen the script never said — that choice
+// stays in Studio, where the slots are editable.
+const PINNABLE = ["statement", "section", "title", "quote", "note", "definition", "summary", "split", "poster"];
+
+function OutlinePanel({ data, busy, onBack, onRecut, onConfirm }: {
+  data: { entries: OutlineRow[]; sections: string[]; est_seconds: number };
+  busy: boolean; onBack: () => void; onRecut: () => void; onConfirm: (rows: OutlineRow[]) => void;
+}) {
+  const [rows, setRows] = useState<OutlineRow[]>(data.entries.map((e) => ({ ...e, ruleKind: e.kind })));
+  const shape = (rs: { text: string; kind: string }[]) => JSON.stringify(rs.map((r) => [r.text, r.kind]));
+  const dirty = shape(rows) !== shape(data.entries);
+  const total = rows.reduce((a, r) => a + r.seconds, 0);
+  const set = (n: number, patch: Partial<OutlineRow>) =>
+    setRows((rs) => rs.map((r, i) => (i === n ? { ...r, ...patch } : r)));
+  const drop = (n: number) => setRows((rs) => rs.filter((_, i) => i !== n));
+  const mergeUp = (n: number) => setRows((rs) =>
+    n === 0 ? rs : rs.map((r, i) => (i === n - 1
+      // the left line usually ends on a full stop; gluing 「…。，下一句」 onto it is a typo
+      ? { ...r, text: `${r.text.replace(/[。．.，,、；;：:]+$/, "")}，${rs[n].text}` } : r))
+      .filter((_, i) => i !== n));
+
+  return (
+    <div className="intake ol-wrap">
+      <div className="ol-head">
+        <p className="eyebrow">{t("大纲 · 生成前可改")}</p>
+        <p className="ol-sum">
+          {rows.length} {t("拍")} · {t("预计")} {total.toFixed(0)}s · {data.sections.length} {t("段")}
+          {data.sections.length ? `：${data.sections.join(" / ")}` : ""}
+        </p>
+      </div>
+      <ul className="ol-list" role="list">
+        {rows.map((r, n) => (
+          <li key={`${n}-${r.i}`} className={"ol-row k-" + r.kind + (r.section && rows[n - 1]?.section !== r.section ? " sec-start" : "")}>
+            <span className="ol-no">{String(n + 1).padStart(2, "0")}</span>
+            <div className="ol-main">
+              <textarea className="ol-text" rows={2} value={r.text} aria-label={t("这一拍的旁白")}
+                onChange={(e) => set(n, { text: e.target.value })} />
+              <div className="ol-meta">
+                <select className="ol-kind" value={r.kind} aria-label={t("这一拍的呈现")}
+                  onChange={(e) => set(n, { kind: e.target.value })}>
+                  {/* the rule's own verdict stays visible even when it is not a pinnable kind —
+                      a select that reads `statement` over a `table` beat would lie */}
+                  {Array.from(new Set([r.kind, ...PINNABLE])).map((k) => <option key={k} value={k}>{k}</option>)}
+                </select>
+                <span className="ol-rule" title={r.source}>
+                  {r.ruleKind}{r.kind !== r.ruleKind ? ` → ${r.kind}` : ""}
+                </span>
+                {r.section && <span className="ol-sec">{r.section}</span>}
+                <span className="ol-dur">{r.seconds.toFixed(1)}s</span>
+              </div>
+            </div>
+            <div className="ol-ops">
+              <button className="ghost sm" disabled={n === 0} onClick={() => mergeUp(n)}
+                aria-label={t("并到上一拍")}>⌃</button>
+              <button className="ghost sm" onClick={() => drop(n)} aria-label={t("删掉这拍")}>×</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="ol-foot">
+        <button className="ghost" onClick={onBack}>{t("← 返回改文稿")}</button>
+        <button className="ghost" onClick={onRecut} disabled={busy}>{busy ? t("切分中…") : t("重新切分")}</button>
+        <button className="primary" disabled={busy || !rows.length}
+          onClick={() => onConfirm(dirty ? rows : [])}>
+          {t("按此大纲生成")}{dirty ? ` · ${t("含我的修改")}` : ""}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   const [script, setScript] = useState("");
   const [ratio, setRatio] = useState("landscape");
@@ -175,6 +253,20 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
     }
   };
 
+  // H5: creating a job used to start the whole pipeline, so the outline had nowhere to be
+  // reviewed. `hold: true` makes the job exist without running it; 按此大纲生成 starts it.
+  const [held, setHeld] = useState<string | null>(null);
+  const [outline, setOutline] = useState<{ entries: OutlineRow[]; sections: string[]; est_seconds: number } | null>(null);
+  const [olBusy, setOlBusy] = useState(false);
+
+  const fetchOutline = async (jid: string) => {
+    const r = await fetch(`/api/jobs/${jid}/outline`, { method: "POST" });
+    const d = await r.json().catch(() => ({} as any));
+    if (!r.ok) { setGenErr(d.detail || `${t("大纲生成失败")}（HTTP ${r.status}）`); return null; }
+    setOutline(d);
+    return d;
+  };
+
   const generate = async () => {
     // Every way this can fail must say so on screen — a dead primary button with no
     // reason reads as "nothing happened".
@@ -189,7 +281,8 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
       const r = await fetch("/api/jobs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ script, ratio, layout, quality, fps, format, voice, llm_plan: llmPlan && llm.ready }),
+        body: JSON.stringify({ script, ratio, layout, quality, fps, format, voice, hold: true,
+                               llm_plan: llmPlan && llm.ready }),
       });
       const d = await r.json().catch(() => ({} as any));
       if (!r.ok || !d.job_id) {
@@ -197,13 +290,46 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
         setBusy(false);
         return;
       }
-      onCreate(d.job_id);   // stay busy: we are leaving for the Studio, not idle
-      return;
+      setHeld(d.job_id);
+      await fetchOutline(d.job_id);
     } catch {
       setGenErr(t("无法连接后端 — 服务还在跑吗？"));
     }
     setBusy(false);
   };
+
+  const backToScript = async () => {
+    if (held) await fetch(`/api/jobs/${held}`, { method: "DELETE" }).catch(() => {});
+    setHeld(null); setOutline(null);
+  };
+
+  const confirmOutline = async (rows: OutlineRow[]) => {
+    if (!held) return;
+    setOlBusy(true);
+    try {
+      if (rows.length) {
+        const r = await fetch(`/api/jobs/${held}/outline`, {
+          method: "PATCH", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ entries: rows }),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({} as any));
+          setGenErr(d.detail || t("大纲没能保存")); setOlBusy(false); return;
+        }
+      }
+      await fetch(`/api/jobs/${held}/run`, { method: "POST" });
+      onCreate(held);   // stay busy: we are leaving for the Studio, not idle
+      return;
+    } catch {
+      setGenErr(t("无法连接后端 — 服务还在跑吗？"));
+    }
+    setOlBusy(false);
+  };
+
+  if (outline) {
+    return <OutlinePanel data={outline} busy={olBusy} onBack={backToScript}
+      onRecut={() => held && fetchOutline(held)} onConfirm={confirmOutline} />;
+  }
 
   return (
     <div className="intake">

@@ -116,3 +116,41 @@ def test_create_job_refuses_an_over_cap_script_at_intake():
         assert "hard cap" in r.json()["detail"]
         # a created job answers with an id; refusing means no row was ever written
         assert "job_id" not in r.json()
+
+
+def test_the_outline_is_reviewable_and_editable_before_any_audio():
+    """H5: the cut steers everything downstream, so it has to be seen and fixed BEFORE the run.
+    `POST /outline` segments + storyboards without touching TTS; `PATCH` makes the user's list
+    the job — and claims the script/plan stages, because a later run that re-cut the source
+    would silently undo every merge and deletion (measured: it did, before the claim existed)."""
+    script = "## 开场\n\n深海里的生物大多能自己发光。\n\n## 机制\n\n荧光素酶催化了这一步。\n\n- 蓝光穿透最远\n- 绿光被水吸收\n"
+    with TestClient(app) as c:
+        jid = c.post("/api/jobs", json={"script": script, "llm_plan": False}).json()["job_id"]
+        out = c.post(f"/api/jobs/{jid}/outline").json()
+        kinds = [e["kind"] for e in out["entries"]]
+        assert out["beats"] == len(out["entries"]) >= 5, out
+        assert "开场" in [e["text"] for e in out["entries"]]
+        assert out["sections"] == ["开场", "机制"], out["sections"]
+        assert all(e["seconds"] > 0 for e in out["entries"])
+        assert kinds[0] == "section", "标题必须先是分节页，大纲才有骨架"
+        # nothing ran yet: no audio, no render
+        stages = {s["key"]: s["status"] for s in c.get(f"/api/jobs/{jid}").json()["stages"]}
+        assert "tts" not in stages or stages["tts"] != "succeeded", stages
+
+        # the user merges two beats, deletes one, and pins a divider on another
+        edits = [dict(e) for e in out["entries"]]
+        edits = [e for e in edits if not e["text"].startswith("蓝光")]
+        for e in edits:
+            if e["text"] == "荧光素酶催化了这一步。":
+                e["text"] = "荧光素酶催化了这一步，绿光被水吸收。"
+        after = c.patch(f"/api/jobs/{jid}/outline", json={"entries": edits}).json()
+        assert after["beats"] == len(edits), after
+        assert any("绿光被水吸收" in e["text"] for e in after["entries"])
+        assert not any(e["text"].startswith("蓝光") for e in after["entries"])
+        assert after["version"] > 1, "大纲落成了新的 plan 版本"
+
+        # and the run that follows starts at tts, not at the cut
+        stages = {s["key"]: s["status"] for s in c.get(f"/api/jobs/{jid}").json()["stages"]}
+        assert stages.get("script") == "succeeded" and stages.get("plan") == "succeeded", stages
+        assert c.get(f"/api/jobs/{jid}/outline").json()["beats"] == after["beats"]
+        assert c.patch(f"/api/jobs/{jid}/outline", json={"entries": []}).status_code == 422
