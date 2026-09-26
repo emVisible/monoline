@@ -213,6 +213,41 @@ def test_reconcile_resumes_orphaned_jobs():
     asyncio.run(run())
 
 
+def test_a_run_that_is_waiting_for_the_worker_is_a_queued_job_v71():
+    """The worker is serial (concurrency=1). A 375s film held it while the user pressed
+    Render on a draft: `POST /run` answered `{queued: true}`, nothing was persisted, and the
+    screen went on showing an idle draft — '点了没反应'. A request the worker has not picked
+    up is still a request, and it has to live in the job's state, not only in an in-memory
+    queue the UI cannot see."""
+    import asyncio
+    import tempfile
+    from pathlib import Path
+    from monoline.settings import Settings
+    from monoline.queue.manager import JobManager
+
+    async def run():
+        s = Settings()
+        s.app_dir = Path(tempfile.mkdtemp(prefix="monoline-queue-"))
+        s.ensure_dirs()
+        m = JobManager(s)                      # deliberately no start(): the worker stays busy
+        await m.repo.connect()
+        jid = await m.repo.create_job(script_text="深海里的生物大多能自己发光。",
+                                      config={}, canvas={}, title="t", slug="t")
+        assert (await m.repo.get_job(jid))["status"] == "draft"
+        await m.enqueue(jid)
+        assert m._queue.qsize() == 1
+        assert (await m.repo.get_job(jid))["status"] == "queued"
+        # A second press must not rewrite the state of a job the worker is already inside:
+        # "queued" while running would read as if it had been pushed back.
+        busy = await m.repo.create_job(script_text="另一片", config={}, canvas={}, title="u", slug="u")
+        await m.repo.update_job(busy, status="running")
+        await m.enqueue(busy)
+        assert (await m.repo.get_job(busy))["status"] == "running"
+        await m.repo.close()
+
+    asyncio.run(run())
+
+
 def test_llm_prompt_build_and_clean():
     from monoline.llm.client import build_messages, _clean
     msgs = build_messages("深海发光", tone="punchy", length="short", lang="zh")

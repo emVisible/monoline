@@ -132,6 +132,7 @@ export const EN: Record<string, string> = {
   "作业失败": "Job failed",
   "进行中…": "Running…",
   "渲染中…": "Rendering…",
+  "排队中…": "Queued — waiting for the worker…",
   "· 重合成中…": "· recomposing…",
   "重排中…": "Reordering…",
   "← → 选拍 · ⇧←/→ 或拖动重排": "← → select · ⇧←/→ or drag to reorder",

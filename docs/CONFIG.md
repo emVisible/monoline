@@ -59,6 +59,7 @@
 - `POST /api/jobs/{jid}/run`（`?force=1` 强制重跑各阶段：**重画，但不重写人写过的东西** —— 大纲/Studio 存下的手动分镜（`source="manual"`）在 force 下同样被沿用，只有机器分镜（`llm`）会被重新推导；不带 force 的重跑与续跑两者都不动）
 - `POST /api/jobs/{jid}/outline` 只做「切分 + 分镜」，不碰音频，返回整片大纲（每拍：文本 / kind / 所属章节 / 预计秒数）· `GET /api/jobs/{jid}/outline` 读当前大纲 · `PATCH /api/jobs/{jid}/outline` 把用户改过的大纲（合并 / 拆分 / 删除 / 改文本 / 钉住文字类 kind）落成 segments + `source=manual` 的 plan，之后的运行按它走
 - `POST /api/jobs/{jid}/cancel` · `DELETE /api/jobs/{jid}`（连工作区一起清）
+- 作业状态：`draft`（建了没跑）→ `queued`（**已请求运行、在等那唯一的一个 worker**）→ `running` → `succeeded` / `failed` / `cancelled`。渲染是串行的（concurrency=1），一部六分钟的片子能把后面的作业压住十几分钟 —— 所以「排队中」必须是一个状态而不是沉默（V71）
 - `GET /api/jobs/{jid}/stream` SSE 实时进度（前端唯一的进度来源） · `GET /api/jobs/{jid}/events` 轮询尾巴，给 CLI 与调试
 
 逐拍编辑（都走 recompose，秒级刷新预览、不重渲）：

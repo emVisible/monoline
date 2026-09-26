@@ -180,9 +180,9 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
   const canvas = (() => { try { return JSON.parse(job.canvas_json || "{}"); } catch { return {}; } })();
   const cw = Number(canvas.width) || 1920, ch = Number(canvas.height) || 1080;
   const composed = (byKey["compose"]?.status === "succeeded") || job.status === "succeeded";
-  // Phase gate: while a version is being generated the inspector stays out of the way —
-  // you watch progress, then adjust once a film exists.
-  const generating = job.status === "running";
+  // Phase gate: while a version is being generated — or waiting behind the single worker —
+  // the inspector stays out of the way; you watch progress, then adjust once a film exists.
+  const generating = job.status === "running" || job.status === "queued";
   const previewSrc = `/w/${job.id}/index.html?v=${version}`;
 
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [events.length]);
@@ -480,8 +480,8 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
             {mp4 && job.status === "succeeded" ? (
               <a className="download" href={`/api/jobs/${job.id}/download`} download>Download {outFmt.toUpperCase()} ↓</a>
             ) : (
-              <button className="generate" onClick={onRun} disabled={job.status === "running"}>
-                {job.status === "running" ? t("渲染中…") : "Render →"}
+              <button className="generate" onClick={onRun} disabled={generating}>
+                {job.status === "queued" ? t("排队中…") : job.status === "running" ? t("渲染中…") : "Render →"}
               </button>
             )}
             {composed && segments.length > 0 && (

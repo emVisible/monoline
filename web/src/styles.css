@@ -206,6 +206,7 @@ body {
 .s3-head .back { flex:none; white-space:nowrap; }
 .s3-title { min-width:0; font-size:18px; color:var(--ink); } .s3-status { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); }
 .s3-status.succeeded { color:var(--accent); } .s3-status.failed { color:#e5484d; } .s3-status.running { color:var(--ink-muted); }
+.s3-status.queued { color:var(--ink-muted); }
 /* 左右双栏：左=视频，右=节拍列表(上)+编辑面板(下)。用 grid areas 而不是搬 DOM，
    这样 DOM/Tab 顺序仍是「列表→视频→面板」，改的只有视觉位置。 */
 .s3-body { display:grid; grid-template-columns: minmax(0,1fr) 420px; grid-template-rows: auto minmax(0,1fr);
@@ -333,6 +334,7 @@ table.hist { width:100%; border-collapse:collapse; }
 .h-thumb.no-poster img { display:none; }
 .h-status { font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
 .h-status.succeeded { color:var(--accent); } .h-status.failed { color:#e5484d; } .h-status.running { color:var(--ink-muted); }
+.h-status.queued { color:var(--ink-muted); }
 .h-dur, .h-when { font-variant-numeric:tabular-nums; color:var(--ink-faint); }
 
 /* Setup / doctor */

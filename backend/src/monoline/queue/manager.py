@@ -73,11 +73,18 @@ class JobManager:
         jid = await self.repo.create_job(
             script_text=script, config=config, canvas=canvas, title="", slug="")
         if start:
-            await self._queue.put((jid, False))
+            await self.enqueue(jid)
         return jid
 
     async def enqueue(self, jid: str, *, force: bool = False) -> None:
         self._cancel.setdefault(jid, asyncio.Event())
+        # The worker is serial, so a request can wait here for minutes behind a long film.
+        # Mark it now: an in-memory queue is invisible, and a job still reading `draft` while
+        # it waits is what "点了 Render 没反应" looked like (measured: 18 min of nothing, then
+        # it started by itself the second the previous render finished).
+        job = await self.repo.get_job(jid)
+        if job and job["status"] not in ("running", "queued"):
+            await self.repo.update_job(jid, status="queued")
         await self._queue.put((jid, force))
 
     def cancel(self, jid: str) -> bool:
