@@ -87,8 +87,12 @@ def _env() -> Environment:
     env.globals["donut"] = _donut
     env.globals["delta"] = _delta
     env.globals["kinetic_chunks"] = _kinetic
-    from ..pipeline.display_text import ends_open as _ends_open
+    from ..pipeline.display_text import detonate as _detonate, ends_open as _ends_open
     env.globals["ends_open"] = _ends_open
+    # `seg.text` stays raw on purpose — templates both decide from it (`ends_open`, V54b's
+    # lead-in) and print it.  Detonating centrally would erase the trailing reading point
+    # before the decision runs, so the policy is applied at each print site instead.
+    env.globals["detonate"] = _detonate
     return env
 
 
@@ -96,6 +100,12 @@ def render_composition(timings: Timings, plan: ScenePlan, *, title: str = "", vo
                        layout: str = "minimal") -> str:
     env = _env()
     tmpl = env.get_template("base.html.j2")
+    # Compose is where "no punctuation on screen" stops being a generation-time habit and
+    # becomes a guarantee: a plan saved before V62b still holds the old text in its slots.
+    # The plan on disk stays exactly what its author saved — these are copies.
+    from ..pipeline.display_text import tidy_slots
+    scenes = [s.model_copy(update={"slots": tidy_slots(s.kind, s.slots)}) for s in plan.scenes]
+    segments = timings.segments
     w, h = plan.canvas.width, plan.canvas.height
     aspect = "portrait" if h > w * 1.1 else ("square" if abs(h - w) <= w * 0.1 else "landscape")
     html = tmpl.render(
@@ -103,14 +113,14 @@ def render_composition(timings: Timings, plan: ScenePlan, *, title: str = "", vo
         aspect=aspect,
         layout=layout if layout in ("minimal", "editorial", "bold") else "minimal",
         total=timings.total,
-        segments=timings.segments,
-        scenes=plan.scenes,
+        segments=segments,
+        scenes=scenes,
         theme=plan.theme,
         brand=plan.brand,
         captions=plan.captions,
         folio=plan.folio,
         vo_src=vo_src,
-        title=title or (plan.scenes[0].slots.get("headline") if plan.scenes else "") or "Monoline",
+        title=title or (scenes[0].slots.get("headline") if scenes else "") or "Monoline",
     )
     assert_determinism(html)
     return html

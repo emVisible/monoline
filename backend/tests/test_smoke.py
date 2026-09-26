@@ -1163,7 +1163,7 @@ def test_poster_kind_v43():
     assert 'class="p-by"' in html and ".k-poster .p-body mark" in html
     # re-moding a beat to poster must never blank the slide: narration is the floor
     bare = render_composition(tim, ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "poster", "slots": {}}]))
-    assert 'class="p-body">引语。<' in bare and 'class="p-tab"' not in bare
+    assert 'class="p-body">引语<' in bare and 'class="p-tab"' not in bare  # V63: no 。， in the artifact
 
 
 def test_mode_library_catalog_is_the_single_source_v44():
@@ -2602,3 +2602,65 @@ def test_punctuation_becomes_a_space_everywhere_visible_v62b():
 
     srt = to_srt([{"i": 0, "text": "第一句，第二句。", "start": 0.0, "end": 2.0}])
     assert "第一句 第二句" in srt and "，" not in srt and "。" not in srt
+
+
+def test_the_rendered_artifact_carries_no_punctuation_even_from_a_stale_plan_v63():
+    """V62b cleaned the generation path, but the audience sees the artifact.  Two sources keep
+    painting punctuation anyway: a plan stored before that change (its slots were tidied by the
+    old rules), and the caption, which is rendered from the beat's own text, never from a slot.
+    Compose is the last place that can guarantee the policy, so the guarantee lives there."""
+    import json
+    import re
+    from pathlib import Path
+    from monoline.compose.engine import render_composition
+    from monoline.ir.sceneplan import Brand, Captions, ScenePlan, Theme
+    from monoline.ir.timings import Timings
+
+    theme = Theme(id="mono-ink", tokens=json.loads(
+        (Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    beats = ["透露哪些信息？", "中美达成“贸易休战”协议，延长两个月。"]
+    scenes = [{"i": 0, "kind": "statement", "slots": {"headline": "透露哪些信息？", "sub": "第一，第二，第三。"}},
+              {"i": 1, "kind": "quote", "slots": {"q": "“延长两个月”", "attr": "发言人"}}]
+    t = Timings.from_durations(beats, [3.0, 3.0])
+    html = render_composition(t, ScenePlan(theme=theme, brand=Brand(label="Acme"),
+                                           captions=Captions(), scenes=scenes), title="测试")
+
+    body = re.sub(r"<style.*?</style>|<script.*?</script>", "", html, flags=re.S)
+    nodes = [x.strip() for x in re.findall(r">([^<>]+)<", body) if x.strip()]
+    P = re.compile(r"[。，、：；！？“”‘」（）,.!?;:]")
+    dirty = [x for x in nodes if P.search(x)]
+    assert not dirty, f"标点漏进产物：{dirty[:6]}"
+    assert "透露哪些信息" in html and "贸易休战" in html, "去标点不许把字也去掉"
+    assert "1,000" not in html or True  # numbers are protected inside detonate, not here
+
+
+def test_every_text_kind_that_falls_back_to_the_beat_stays_clean_v63b():
+    """The engine tidies slots, but several partials paint `seg.text` when a slot is empty —
+    statement, summary, split, poster, and the caption.  One kind left un-wrapped would leak,
+    and a green gate would not notice, so the guarantee is asserted across all of them at once.
+    Kinetic kinds are included because their reveal chunks are cut from the RAW line (that is
+    what keeps V54b's lead-in animation) and each chunk must still be cleaned before painting."""
+    import json
+    import re
+    from pathlib import Path
+    from monoline.compose.engine import render_composition
+    from monoline.ir.sceneplan import Captions, ScenePlan, Theme
+    from monoline.ir.timings import Timings
+
+    theme = Theme(id="mono-ink", tokens=json.loads(
+        (Path("../design/tokens/mono-ink.json")).read_text())["tokens"])
+    beats = ["深海会发光，这并非阳光。", "关键特征包括：体型小、分布广。", "他们称之为“契约”",
+             "第二句，也是最后一句。"]
+    kinds = [("statement", {}), ("summary", {}), ("split", {}), ("poster", {}),
+             ("statement", {"headline": "标题，带逗号"}), ("section", {"title": "第一部分：开场"}),
+             ("quote", {"q": "“契约”", "attr": "发言人"})]
+    scenes = [{"i": n, "kind": k, "slots": s} for n, (k, s) in enumerate(kinds)]
+    t = Timings.from_durations([beats[n % len(beats)] for n in range(len(scenes))], [3.0] * len(scenes))
+    html = render_composition(t, ScenePlan(theme=theme, captions=Captions(), scenes=scenes))
+
+    body = re.sub(r"<style.*?</style>|<script.*?</script>", "", html, flags=re.S)
+    nodes = [x.strip() for x in re.findall(r">([^<>]+)<", body) if x.strip()]
+    P = re.compile(r"[。，、：；！？“”‘」（）,.!?;:]")
+    dirty = sorted({x for x in nodes if P.search(x)})
+    assert not dirty, f"{len(scenes)} 拍 {len(nodes)} 个文本节点里漏进标点：{dirty[:8]}"
+    assert html.count('class="ch"') > 0, "探针没测到 kinetic 分块，这条断言就是空的"

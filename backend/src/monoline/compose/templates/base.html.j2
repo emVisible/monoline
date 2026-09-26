@@ -634,7 +634,7 @@
         </div></div>
         {% if folio %}<div class="folio"><span class="f-now">{{ '%02d' % (seg.i + 1) }}</span><span class="f-sep">/</span><span>{{ '%02d' % (segments | length) }}</span></div>{% endif %}
         {%- if show_cap %}
-        <div class="cap"><div class="inner">{{ seg.text }}</div></div>
+        <div class="cap"><div class="inner">{{ detonate(seg.text) }}</div></div>
         {%- endif %}
       </section>
       {%- endfor %}
