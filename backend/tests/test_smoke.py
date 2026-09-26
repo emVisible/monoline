@@ -2037,3 +2037,41 @@ def test_no_spring_overshoot_in_entrances_v52a():
                               ScenePlan(theme=theme, scenes=scenes))
     assert "back.out" not in html, f"overshoot crept back in: {[l for l in html.splitlines() if 'back.out' in l]}"
     assert 'ease: "power3.out"' in html
+
+
+def test_pipeline_stages_match_the_spa_workflow_list_v53():
+    """The nine stage keys are a contract: the runner writes them, the API ships them, and
+    Studio draws one row per key. It drifted twice (App.tsx carried a stale second copy of
+    the list, since deleted), so the Python list is now the owner and the SPA is checked
+    against it instead of being trusted to remember."""
+    import re
+    from pathlib import Path
+    from monoline.pipeline.runner import STAGES
+    root = Path(__file__).parents[2]
+    studio = (root / "web/src/Studio.tsx").read_text()
+    listed = re.search(r"const STAGE_ORDER = \[([^\]]*)\]", studio)
+    assert listed, "Studio.tsx lost its STAGE_ORDER — the workflow view cannot render"
+    keys = [k.strip().strip('"') for k in listed.group(1).split(",") if k.strip()]
+    assert keys == list(STAGES), f"SPA workflow order drifted from the pipeline: {keys} vs {STAGES}"
+    labels = re.search(r"const STAGE_LABEL[^{]*\{(.*?)\n\};", studio, re.S)
+    assert labels, "Studio.tsx lost STAGE_LABEL"
+    unlabeled = [k for k in keys if not re.search(rf"\b{k}\s*:", labels.group(1))]
+    assert not unlabeled, f"stage rows with no Chinese label would render blank: {unlabeled}"
+
+
+def test_no_unused_css_classes_in_the_spa_stylesheet_v53():
+    """Six selectors survived their markup (.wordmark / .hint / .seg-ms / .result /
+    .result-meta / .wms) and nobody noticed, because no gate ever looked. A class name is
+    considered live if its text appears anywhere in the SPA sources — deliberately generous
+    (template-literal-built names like `wrow ${st}` count), because a gate that false-fails
+    on dynamic classes gets disabled, and this one only has to catch the never-referenced."""
+    import re
+    from pathlib import Path
+    root = Path(__file__).parents[2]
+    css = (root / "web/src/styles.css").read_text()
+    sources = "".join(p.read_text() for p in (root / "web/src").glob("*.tsx")) \
+        + "".join(p.read_text() for p in (root / "web/src").glob("*.ts")) \
+        + (root / "web/index.html").read_text()
+    dead = sorted({c for c in re.findall(r"\.([A-Za-z][\w-]*)", re.sub(r"/\*.*?\*/", "", css, flags=re.S))
+                   if c not in sources})
+    assert not dead, f"{len(dead)} CSS classes no markup can produce: {dead}"

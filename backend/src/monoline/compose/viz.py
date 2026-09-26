@@ -111,15 +111,6 @@ def stack_widths(n: int) -> list[float]:
     return [round(60.0 + i * (38.0 / (n - 1)), 1) for i in range(n)]
 
 
-def _nums(values: list) -> list[float]:
-    """First number in each value, as a float ('Q3 1.2M' → 1.2). Non-numerics → 0.0."""
-    out = []
-    for v in values:
-        m = _NUM_ONLY.search(str(v))
-        out.append(float(m.group(0)) if m else 0.0)
-    return out
-
-
 _SCALE = {"万": 1e4, "亿": 1e8, "k": 1e3, "K": 1e3, "M": 1e6, "G": 1e9, "B": 1e9}
 
 

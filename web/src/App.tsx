@@ -6,7 +6,7 @@ import { ModesView } from "./modes";
 import { Logo } from "./Logo";
 import { groupVoices, useAudition, useVoices } from "./voices";
 
-type Stage = { key: string; seq: number; status: string; duration_ms?: number | null; error?: string | null };
+type Stage = { key: string; seq: number; status: string; error?: string | null };
 type Artifact = { id: string; kind: string; rel_path: string; mime: string; size_bytes: number; state: string };
 type Job = { id: string; slug: string; title: string; status: string; total_duration: number | null; error: string | null };
 type Ev = { id: number; stage: string | null; kind: string; level: string; message: string | null };
@@ -15,12 +15,6 @@ type Hydration = { job: Job; stages: Stage[]; segments: any[]; artifacts: Artifa
 // A language name is never translated — the toggle shows the *other* language by its own
 // name, which is the whole point of a language switch.
 const LANG_NAME: Record<Lang, string> = { zh: "中", en: "EN" };
-const STAGE_ORDER = ["script", "tts", "assemble", "plan", "fonts", "compose", "gate", "render", "deliver"];
-
-const STAGE_LABEL: Record<string, string> = {
-  script: "切分", tts: "语音合成", assemble: "拼接旁白", plan: "分镜规划",
-  fonts: "字体子集", compose: "生成画面", gate: "质检", render: "渲染", deliver: "出片",
-};
 
 function useHydration(id: string | null) {
   const [data, setData] = useState<Hydration | null>(null);

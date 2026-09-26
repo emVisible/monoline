@@ -106,7 +106,7 @@ async def get_job(jid: str, request: Request) -> dict:
     events = await m.repo.get_events_since(jid, 0)
     return {
         "job": {k: job.get(k) for k in ("id", "slug", "title", "status", "total_duration", "config_json", "canvas_json", "error")},
-        "stages": [{k: s.get(k) for k in ("key", "seq", "status", "duration_ms", "error")} for s in stages],
+        "stages": [{k: s.get(k) for k in ("key", "seq", "status", "error")} for s in stages],
         "segments": [{k: s.get(k) for k in ("i", "start", "end", "norm_duration", "text")} for s in segments],
         "artifacts": [{k: a.get(k) for k in ("id", "kind", "rel_path", "mime", "size_bytes", "duration_seconds", "state")} for a in artifacts],
         "plan": json.loads(plan["plan_json"]) if plan else None,
@@ -117,7 +117,8 @@ async def get_job(jid: str, request: Request) -> dict:
 
 @router.get("/{jid}/events")
 async def job_events(jid: str, request: Request, after: int = 0) -> dict:
-    """Poll-friendly event tail (the live path is /stream SSE). Returns events with id > after."""
+    """Poll-friendly event tail. The live path is /stream SSE; this one exists for
+    `monoline` CLI users and for debugging a job without opening the browser."""
     m = _manager(request)
     events = await m.repo.get_events_since(jid, after)
     return {"events": [{"id": e["id"], "stage": e.get("stage_key"), "kind": e["kind"],
@@ -265,19 +266,6 @@ async def poster(jid: str, request: Request):
     slug = job.get("slug") or jid
     disp = f'inline; filename="poster.jpg"; filename*=UTF-8\'\'{quote(f"{slug}.jpg")}'
     return FileResponse(out, media_type="image/jpeg", headers={"Content-Disposition": disp})
-
-
-@router.get("/{jid}/preview")
-async def preview(jid: str, request: Request) -> dict:
-    """Where <hyperframes-player> should point: the composition over HTTP."""
-    m = _manager(request)
-    job = await m.repo.get_job(jid)
-    if not job:
-        raise HTTPException(404, "job not found")
-    plan_row = await m.repo.get_plan(jid)
-    canvas = json.loads(job["canvas_json"])
-    return {"src": f"/w/{jid}/index.html", "version": plan_row["version"] if plan_row else 0,
-            "duration": job.get("total_duration"), "width": canvas["width"], "height": canvas["height"]}
 
 
 class ScenePatch(BaseModel):

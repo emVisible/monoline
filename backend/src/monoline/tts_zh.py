@@ -187,7 +187,3 @@ def synthesize(text: str, voice: str, out_wav: str, *, speed: float = 1.0) -> fl
     audio, sr = render(text, voice, speed=speed)
     sf.write(out_wav, audio, sr)
     return len(audio) / sr
-
-
-def synthesize_file(text_file: str, out_wav: str, *, voice: str, speed: float = 1.0) -> float:
-    return synthesize(Path(text_file).read_text(encoding="utf-8"), voice, out_wav, speed=speed)

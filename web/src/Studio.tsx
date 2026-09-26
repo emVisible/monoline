@@ -5,7 +5,7 @@ import { MODE_COUNT, ModePicker, VariantPicker, VARIANT_KINDS } from "./modes";
 
 type Scene = { i: number; kind: string; slots: Record<string, any>; source?: string };
 type Seg = { i: number; start: number; end: number; norm_duration: number; text: string };
-type Stage = { key: string; status: string; duration_ms?: number | null };
+type Stage = { key: string; status: string };
 type Artifact = { kind: string; size_bytes: number; state: string };
 type Job = { id: string; slug: string; title: string; status: string; total_duration: number | null; config_json?: string | null; canvas_json?: string | null; error: string | null };
 type Hydration = { job: Job; stages: Stage[]; segments: Seg[]; artifacts: Artifact[]; plan: { scenes: Scene[] } | null; events: any[] };
