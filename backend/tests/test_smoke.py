@@ -2417,3 +2417,40 @@ def test_plan_validation_reports_a_reordered_plan_v57():
     ok = ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "statement", "slots": {}},
                                         {"i": 1, "kind": "statement", "slots": {}}])
     assert ok.validate_against(2) == [], "a well-formed plan must stay silent"
+
+
+def test_a_beat_suggestion_is_cached_by_schema_and_model_v58(tmp_path, monkeypatch):
+    """Asking about one beat costs 40–70s on a local model, so the same sentence must not be paid
+    for twice; and the product promises the same text yields the same film, so the verdict is
+    cached per beat.  Two things must NOT share a cache entry: another model, and a newer prompt."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from monoline.llm import planner
+    from monoline.llm.client import Target
+
+    calls: list[int] = []
+
+    async def fake(msgs, **kw):
+        calls.append(1)
+        return '{"scenes":[{"i":0,"kind":"list","slots":{"items":["网关","存储","调度"]}}]}'
+
+    monkeypatch.setattr(planner, "chat", fake)
+    s = SimpleNamespace(cache_dir=tmp_path, llm_batch_beats=3, llm_batch_chars=900,
+                        llm_plan_seconds=150)
+    beat = "它把网关、存储和调度三件事放进了同一层"
+    scene = {"i": 0, "kind": "statement", "slots": {}}
+    ta = Target(source="test", ok=True, model="fake-a")
+    first = asyncio.run(planner.suggest(s, beat, scene, target=ta))
+    second = asyncio.run(planner.suggest(s, beat, scene, target=ta))
+    assert len(calls) == 1, "the repeat ask must not reach the model"
+    assert (first["cached"], second["cached"]) == (False, True), (first, second)
+    assert second["kind"] == "list" and second["same"] is False, second
+    asyncio.run(planner.suggest(s, beat, scene, target=Target(source="t", ok=True, model="fake-b")))
+    assert len(calls) == 2, "another model's verdict must not be reused"
+    monkeypatch.setattr(planner, "SUGGEST_SCHEMA", planner.SUGGEST_SCHEMA + "-next")
+    asyncio.run(planner.suggest(s, beat, scene, target=ta))
+    assert len(calls) == 3, "a prompt-schema bump must invalidate every stale verdict"
+    # one file per distinct key: (schema, model, beat) → a@v1, b@v1, a@v1-next.  Old entries stay
+    # (a few hundred bytes each for a single-user tool) but are never read again.
+    assert len(list((tmp_path / "suggest").glob("*.json"))) == 3

@@ -327,7 +327,7 @@ async def suggest_scene(jid: str, i: int, request: Request) -> dict:
     that fits that speed — and because the user starts it, the wait is expected, not a stuck job.
     """
     from ..llm.client import detect
-    from ..llm.planner import upgrade
+    from ..llm.planner import suggest
 
     m = _manager(request)
     if not await m.repo.get_job(jid):
@@ -343,13 +343,7 @@ async def suggest_scene(jid: str, i: int, request: Request) -> dict:
     target = await asyncio.to_thread(detect, m.settings)
     if not target.ok:
         raise HTTPException(503, target.detail or "LLM 不可用")
-    out, stats = await upgrade(m.settings, [segs[i]["text"]], [dict(scenes[i])],
-                               target=target, force=True)
-    cand = out[0]
-    return {"model": stats.get("model"), "seconds": stats.get("seconds"),
-            "kind": cand.get("kind"), "slots": cand.get("slots"),
-            "same": cand.get("kind") == scenes[i].get("kind"),
-            "why": stats.get("why") or []}
+    return await suggest(m.settings, segs[i]["text"], scenes[i], target=target)
 
 
 @router.post("/{jid}/reorder")

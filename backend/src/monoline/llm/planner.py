@@ -10,8 +10,12 @@ line of text, and its answer is dropped unless it is well-formed and grounded.
 """
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 import re
 import time
+from pathlib import Path
 
 from .client import LLMError, Target, chat, detect, list_as, parse_json
 from ..pipeline.display_text import tidy_slots
@@ -47,6 +51,9 @@ BATCH_CHARS = 900
 # answer costs ~70s.  The upgrade pass gets a wall-clock budget instead of a beat count, because
 # at this speed "ask about all 22 weak beats" is 25 minutes of dead waiting.
 PLAN_BUDGET_SECONDS = 150
+# Part of every per-beat suggestion cache key: bump it whenever the prompt or the slot rules
+# change, and every stale verdict falls out without a migration.
+SUGGEST_SCHEMA = "v1"
 # Beats whose rule verdict is "just text" — the only ones worth asking about.
 WEAK_KINDS = {"statement"}
 _PUNCT = re.compile(r"[\s，,。.、：:；;！!？?“”\"'『」（）()《》\-—→…·*_#>❶-❿]")
@@ -225,6 +232,36 @@ def merge(beats: list[str], scenes: list[dict], payload: object, *, force: bool 
         stats["why"] = stats["why"][:3]
     stats["rejected"] = stats["bad_kind"] + stats["bad_slots"]
     return out, stats
+
+
+async def suggest(settings, beat: str, scene: dict, *, target: Target | None = None,
+                  timeout: float = 240.0, use_cache: bool = True) -> dict:
+    """One beat's second opinion, cached by (prompt schema, model, beat text).
+
+    A beat costs 40–70s to ask about on a local model, so the same sentence must not be paid for
+    twice — and the product promise is that the same text yields the same film, which a cache on
+    the beat (not the job) also serves.  `SUGGEST_SCHEMA` is part of the key: change the prompt and
+    every stale verdict is gone, no migration needed.  A failed request is never cached.
+    """
+    t = target or detect(settings)
+    key = hashlib.sha1(f"{SUGGEST_SCHEMA}|{t.model}|{beat}".encode()).hexdigest()[:24]
+    path = Path(settings.cache_dir) / "suggest" / f"{key}.json"
+    if use_cache and path.exists():
+        try:
+            return {**json.loads(path.read_text(encoding="utf-8")), "cached": True}
+        except (OSError, json.JSONDecodeError):
+            pass
+    out, stats = await upgrade(settings, [beat], [dict(scene)], target=t, timeout=timeout, force=True)
+    cand = out[0]
+    verdict = {"kind": cand.get("kind"), "slots": cand.get("slots"),
+               "same": cand.get("kind") == scene.get("kind"), "model": stats.get("model"),
+               "seconds": stats.get("seconds"), "why": stats.get("why") or [], "cached": False}
+    if use_cache and t.ok and not stats.get("failed_batches"):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(verdict, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, path)
+    return verdict
 
 
 def _batches(items: list[tuple[int, str]], *, beats: int = BATCH_BEATS,
