@@ -1,9 +1,10 @@
 """sceneplan/v1 — the meaning layer. Replaces generate.py's hardcoded `stage` list.
 
-Monochrome is enforced structurally: there is NO per-scene color field. Slots may
-carry a `tone` ∈ {ink, muted, accent} resolved through the theme tokens. A validator
-rejects >1 accent per screen. This is how "ultra-minimal high-end gray" survives a
-pluggable-template layer.
+Monochrome is enforced by the theme tokens and the templates (one accent colour per theme,
+`--accent` used sparingly), **not** by a per-slot flag: an earlier draft of this file let
+slots carry a `tone` ∈ {ink, muted, accent} and validated "≤1 accent per scene", but nothing
+in the planner ever wrote a tone, so that check could not fire. Removed rather than kept as
+a promise the code does not keep.
 """
 from __future__ import annotations
 
@@ -25,7 +26,6 @@ KINDS = ["title", "statement", "section", "definition", "stat", "table",
 # would just repeat the node labels, so the planner marks them verbatim.
 DIAGRAM_KINDS = {"flow", "radial", "steps", "arch", "cycle", "funnel"}
 KINDS_M1 = set(KINDS)  # validate_against accepts the full set as of M2
-Tone = Literal["ink", "muted", "accent"]
 
 
 class Canvas(BaseModel):
@@ -58,13 +58,13 @@ class Theme(BaseModel):
 class Brand(BaseModel):
     label: str = "Monoline"
     logo: str = ""            # composition-relative image path (assets/…); empty = text-only brand
-    show_eyebrow_date: bool = True
 
 
 class Captions(BaseModel):
-    mode: Literal["sentence", "auto_chunk", "none"] = "sentence"
-    chunk_max_chars: int = 22
-    track_index: int = 3
+    # "auto_chunk" used to be listed here and never implemented: the template only tested
+    # `!= "none"`, so it behaved exactly like "sentence". An option nobody can reach is a bug
+    # waiting to be reported against a mode that does not exist.
+    mode: Literal["sentence", "none"] = "sentence"
 
 
 class Scene(BaseModel):
@@ -75,11 +75,6 @@ class Scene(BaseModel):
     slots: dict[str, Any] = Field(default_factory=dict)
     layout: dict[str, Any] | None = None
     motion: dict[str, Any] | None = None
-    fallback_kind: str = "statement"
-
-    def tone_of(self, slot: str) -> Tone:
-        v = self.slots.get(slot)
-        return v.get("tone", "ink") if isinstance(v, dict) else "ink"
 
 
 class ScenePlan(BaseModel):
@@ -103,9 +98,4 @@ class ScenePlan(BaseModel):
                 warnings.append(f"scene {s.i}: kind '{s.kind}' not in M1 set {sorted(KINDS_M1)}")
             if s.i != self.scenes.index(s):
                 warnings.append(f"scene index {s.i} out of order")
-        # accent budget: ≤1 accent tone per scene across its slots
-        for s in self.scenes:
-            accents = [k for k in s.slots if isinstance(s.slots[k], dict) and s.slots[k].get("tone") == "accent"]
-            if len(accents) > 1:
-                warnings.append(f"scene {s.i}: {len(accents)} accent slots (budget 1)")
         return warnings

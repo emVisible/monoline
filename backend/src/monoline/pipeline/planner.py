@@ -5,13 +5,12 @@ sentence → "black bg + one big line". The PoC looked good because scenes were
 hand-designed (stat numbers, k-v tables, compare, quote). This recovers that
 automatically, deterministically, and explainably (each scene records `source`).
 
-Pluggable: `ScenePlanner` protocol; `RulePlanner` is v1. `LLMPlanner` later emits
-the same scene dicts and goes through the same validator.
+Pluggable in spirit: `RulePlanner` is the only implementation, and `llm/planner.upgrade()`
+consumes and returns the same scene dicts, so a model verdict goes through the same shape.
 """
 from __future__ import annotations
 
 import re
-from typing import Protocol
 
 from ..ir.sceneplan import DIAGRAM_KINDS, KINDS
 from .display_text import tidy_slots
@@ -47,11 +46,6 @@ _LEAD_LABEL = re.compile(r"^([^，,。；;]{2,10}?)\s*[:：]\s*(.+)$")
 # the last beat was being turned into a summary by exactly this omission.
 _TEXT_KINDS = {"title", "statement", "section", "definition", "quote", "note", "summary", "split"}
 _SHAPE_KINDS = {k for k in KINDS if k not in _TEXT_KINDS}
-
-
-class ScenePlanner(Protocol):
-    def plan(self, beats: list[str], *, brand: str = "Monoline", date_eyebrow: str = "") -> list[dict]: ...
-
 
 # V48: only the marks that GB/T forbids on a display line. ？ ！ … used to be stripped
 # here too, which deleted the whole point of a question headline — display_text.tidy() is

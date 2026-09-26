@@ -83,7 +83,7 @@ SECONDS_PER_BEAT = 2.6
 
 
 class SentenceSegmenter:
-    """min/target/max are in CJK-equivalent characters (latin runs count loosely).
+    """min/max are in CJK-equivalent characters (latin runs count loosely).
 
     hard_cap is a "this is a book, not a script" guard, NOT a per-job length limit: a long
     paste is segmented line by line whatever its size, and the model side batches it
@@ -100,10 +100,9 @@ class SentenceSegmenter:
     and re-raising here would make the caller parse a message to recover that number.
     """
 
-    def __init__(self, *, min_chars: int = 6, target_chars: int = 24, max_chars: int = 40,
+    def __init__(self, *, min_chars: int = 6, max_chars: int = 40,
                  hard_cap: int | None = HARD_CAP) -> None:
         self.min_chars = min_chars
-        self.target_chars = target_chars
         self.max_chars = max_chars
         self.hard_cap = hard_cap
 
