@@ -37,6 +37,21 @@ def _env() -> Environment:
 
     env.globals["headline_px"] = headline_px
 
+    def hero_px(text: str, *, base: int, min_px: int, avail_px: int) -> int:
+        """Fit a hero *number* to the content column instead of letting it bleed past the gutter.
+
+        Calibrated on the shipped subset at base size: six digits measure 1025px at 260px, so a
+        digit costs 0.657em (letter-spacing included) and a CJK unit glyph costs 1em.  Portrait
+        1080 leaves 824px between gutters — before this, 「128000」 overflowed that column by
+        200px and 「1280000 人」 crossed the canvas by 145px."""
+        units = sum(1.0 if "一" <= c <= "鿿" else 0.3 if c == " " else 0.657
+                    for c in (text or "").strip())
+        if units <= 0:
+            return base
+        return max(min_px, min(base, int(avail_px / units)))
+
+    env.globals["hero_px"] = hero_px
+
     def count_up(text: str):
         """Split a value into prefix + a clean numeric core + suffix for a
         deterministic count-up. Returns None unless the whole string is exactly

@@ -2254,3 +2254,35 @@ def test_upgrade_stops_asking_when_the_wall_clock_runs_out_v55d(monkeypatch):
     assert len(calls) == 1 and st["asked_batches"] == 1, st
     assert st["missing"] == 6 and st["upgraded"] == 0, st
     assert [o["kind"] for o in out] == ["statement"] * 6, "the rule plan survives untouched"
+
+
+def test_hero_number_fits_the_column_instead_of_bleeding_v55e():
+    """.k-stat .value used to be a fixed 260px, so a long number simply spilled: measured in a
+    real browser, 「128000」 crossed the portrait gutter by 200px and 「1280000 人」 left the
+    canvas by 145px.  The fit is calibrated on the shipped subset (a digit costs 0.657em, a CJK
+    unit 1em) and only ever shrinks — short values keep the full display size."""
+    import json
+    from pathlib import Path
+
+    from monoline.compose.engine import _env, render_composition
+    from monoline.ir.sceneplan import Canvas, ScenePlan, Theme
+    from monoline.ir.timings import Timings
+
+    fit = _env().globals["hero_px"]
+    portrait_col = 1080 - 2 * 128                       # gutter_x from the theme tokens
+    assert fit("128000", base=260, min_px=140, avail_px=portrait_col) == 209
+    assert fit("7", base=260, min_px=140, avail_px=portrait_col) == 260, "short values must not shrink"
+    assert fit("1280000 人", base=260, min_px=140, avail_px=portrait_col) == 140, "floor, not zero"
+
+    theme = Theme(id="mono-ink", tokens=json.loads(
+        (Path(__file__).parents[2] / "design/tokens/mono-ink.json").read_text())["tokens"])
+    scenes = [{"i": 0, "kind": "stat", "slots": {"value": "128000", "label": "台"}}]
+    timings = Timings.from_durations(["a"], [4.0])
+    port = render_composition(timings, ScenePlan(theme=theme, canvas=Canvas(width=1080, height=1920),
+                                                scenes=scenes))
+    land = render_composition(timings, ScenePlan(theme=theme, canvas=Canvas(width=1920, height=1080),
+                                                scenes=scenes))
+    assert "--hero-fs: 209px" in port, "portrait must fit gutter to gutter"
+    assert "--hero-fs: 260px" in land, "landscape has the room and must stay at display size"
+    assert "font-size: calc(var(--hero-fs, 260px)" in land, \
+        "the size must reach CSS as a custom property — an inline font-size would out-rank presets"
