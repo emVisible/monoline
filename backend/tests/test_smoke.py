@@ -2140,13 +2140,18 @@ def test_kinetic_headline_reveal_v52b():
     theme = Theme(id="mono-ink", tokens=json.loads(
         (Path(__file__).parents[2] / "design/tokens/mono-ink.json").read_text())["tokens"])
     scenes = [{"i": 0, "kind": "statement", "slots": {"headline": long_line, "verbatim": long_line}},
-              {"i": 1, "kind": "statement", "slots": {"headline": "短句", "verbatim": "短句"}}]
-    html = render_composition(Timings.from_durations(["a", "b"], [5.0, 4.0]),
+              {"i": 1, "kind": "statement", "slots": {"headline": "短句", "verbatim": "短句"}},
+              {"i": 2, "kind": "summary", "slots": {"headline": long_line, "verbatim": long_line}},
+              {"i": 3, "kind": "section", "slots": {"title": long_line}}]
+    html = render_composition(Timings.from_durations(["a", "b", "c", "d"], [5.0, 4.0, 5.0, 4.0]),
                               ScenePlan(theme=theme, scenes=scenes))
-    assert 'class="headline kinetic"' in html and html.count('<span class="ch">') == len(chunks)
+    assert 'class="headline kinetic"' in html and html.count('<span class="ch">') == 3 * len(chunks)
     assert 'class="headline"' in html, "a short headline must keep the plain (wiped) markup"
-    assert ".headline.kinetic .ch > i" in html, "the kinetic tween is missing"
-    assert ".headline:not(.kinetic)" in html, "the wipe now also animates kinetic lines"
+    assert 'class="s-title kinetic"' in html, "section titles are the other hero-text kind"
+    assert ".headline.kinetic .ch > i, " in html and ".s-title.kinetic .ch > i" in html, \
+        "the kinetic tween must cover both hero-text kinds"
+    assert ".headline:not(.kinetic), " in html and ".s-title:not(.kinetic)" in html, \
+        "the wipe now also animates kinetic lines"
     assert "yPercent: 118" in html
 
 
@@ -2168,3 +2173,25 @@ def test_upgrade_stats_separate_declined_from_unusable_v55():
     assert (st["upgraded"], st["declined"], st["bad_slots"], st["bad_kind"]) == (1, 1, 1, 0), st
     assert st["rejected"] == st["bad_kind"] + st["bad_slots"]
     assert st["why"] and "cards" in st["why"][0], st
+
+
+def test_slot_budget_is_display_units_not_characters_v55():
+    """Measured on an English script: the model's only non-statement verdict was a 51-char
+    quote, rejected as too long — while the prompt said 「不超过 24 字」 and a model reading
+    English counts 字 as words. Both sides now use one ruler: CJK glyph = 1 unit, latin = 0.5,
+    which is what the slide actually fits."""
+    from monoline.llm.planner import _MAX_STR, _grounded, _width, build_prompt
+
+    zh = "这套平台的网关计算存储与调度模块都在同一层里被统一管理着"
+    assert _width(zh[:_MAX_STR]) == _MAX_STR
+    assert _grounded(zh[:_MAX_STR], zh) and not _grounded(zh, zh)
+
+    en = ("Yu Chengdong first responded to the adjustment of the Yifan brand "
+          "and said the team would keep working on it")
+    forty = en[:44]
+    assert _width(forty) <= _MAX_STR and _grounded(forty, en), \
+        "a 44-char latin string is 22 units — the old len() rule rejected it at 24 chars"
+    assert not _grounded(en[:60], en), "30 units must still be refused"
+
+    prompt = build_prompt([(0, zh)])[0]["content"]
+    assert "显示单元" in prompt and "英文字母" in prompt

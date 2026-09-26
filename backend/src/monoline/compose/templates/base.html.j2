@@ -172,9 +172,9 @@
       /* V52b: per-chunk masks for the kinetic reveal. The padding grows the clipping box so
          glyph tops/bottoms survive line-height:1.1; the negative margin puts the layout back
          where it was, so a kinetic headline occupies identical geometry to a plain one. */
-      .headline.kinetic .ch { display:inline-block; overflow:hidden; vertical-align:top;
+      .headline.kinetic .ch, .s-title.kinetic .ch { display:inline-block; overflow:hidden; vertical-align:top;
         padding:0.12em 0; margin:-0.12em 0; }
-      .headline.kinetic .ch > i { display:inline-block; font-style:normal; }
+      .headline.kinetic .ch > i, .s-title.kinetic .ch > i { display:inline-block; font-style:normal; }
       /* V38: a hairline over the headline turns a lone short line into a framed block —
          structure, not ornament. Short headlines only: past ~16 chars the text already
          fills two lines and the frame is not empty (measured median: 10 chars). */
@@ -726,7 +726,7 @@
       {%- endif %}
       {# V9-3 kinetic headline: the display text wipes in left→right (clip-path) + settles,
          a distinct signature motion for the focal line vs the fade/rise of secondary content. #}
-      tl.fromTo("#scene-{{ seg.i }} .headline:not(.kinetic), #scene-{{ seg.i }} .s-title, #scene-{{ seg.i }} .term, #scene-{{ seg.i }} .q",
+      tl.fromTo("#scene-{{ seg.i }} .headline:not(.kinetic), #scene-{{ seg.i }} .s-title:not(.kinetic), #scene-{{ seg.i }} .term, #scene-{{ seg.i }} .q",
         { clipPath: "inset(-12% 100% -12% 0)", opacity: 0.001 },
         { clipPath: "inset(-12% 0% -12% 0)", opacity: 1, duration: {{ (enter + 0.28)|round(3) }}, ease: "{{ eease }}" }, {{ (seg.start + 0.06)|round(3) }});
       {#- V52b kinetic typography: a `.kinetic` headline rises out of per-chunk masks, the
@@ -735,7 +735,7 @@
           element — the wipe above is skipped for these, or the two fight. The mask box gets
           0.12em of padding with a matching negative margin: line-height 1.1 clips glyph tops
           otherwise (the same reason the wipe uses inset(-12%)). -#}
-      tl.fromTo("#scene-{{ seg.i }} .headline.kinetic .ch > i", { yPercent: 118, opacity: 0.001 },
+      tl.fromTo("#scene-{{ seg.i }} .headline.kinetic .ch > i, #scene-{{ seg.i }} .s-title.kinetic .ch > i", { yPercent: 118, opacity: 0.001 },
         { yPercent: 0, opacity: 1, duration: 0.46, ease: "{{ eease }}", stagger: { amount: {{ sd }} } }, {{ (seg.start + 0.06)|round(3) }});
       {# V9-4 accent rule draws in under the hero (signature PPT flourish), transform-only #}
       tl.fromTo("#scene-{{ seg.i }} .top-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "{{ eease }}" }, {{ (seg.start + 0.24)|round(3) }});

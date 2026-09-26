@@ -1,5 +1,10 @@
 <div class="inner k-summary v-{{ scene.slots.variant or 'hero' }}">
   {%- set hl = scene.slots.headline or seg.text %}
+  {%- set kc = kinetic_chunks(hl) %}
   {%- if scene.slots.eyebrow %}<div class="eyebrow">{{ scene.slots.eyebrow }}</div>{% endif %}
+  {%- if kc %}
+  <div class="headline kinetic" style="font-size:calc({{ headline_px(hl, base=124, min_px=56, ref_chars=12) }}px * var(--hl-scale,1))">{%- for c in kc %}<span class="ch"><i>{{ c }}</i></span>{%- endfor %}</div>
+  {%- else %}
   <div class="headline" style="font-size:calc({{ headline_px(hl, base=124, min_px=56, ref_chars=12) }}px * var(--hl-scale,1))">{{ hl }}</div>
+  {%- endif %}
 </div>

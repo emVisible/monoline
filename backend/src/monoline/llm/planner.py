@@ -67,7 +67,8 @@ def build_prompt(items: list[tuple[int, str]]) -> list[dict]:
         "1) 只输出一个 JSON 对象：{\"scenes\":[{\"i\":序号,\"kind\":类型,\"slots\":{…}}, …]}，不要解释、不要代码块；\n"
         "2) scenes 数组长度等于拍数，序号照抄；\n"
         "3) 槽位里的每个字都必须原样来自该拍（可截取，不可改写、不可新增）；\n"
-        f"4) 字符串不超过 {_MAX_STR} 字；数组类槽位 {_MIN_ITEMS}-{_MAX_ITEMS} 项；\n"
+        f"4) 每个字符串不超过 {_MAX_STR} 个显示单元（≈{_MAX_STR} 个汉字 = ≈{_MAX_STR * 2} 个英文字母"
+        f" ≈ {max(1, _MAX_STR // 3)} 个英文单词）；数组类槽位 {_MIN_ITEMS}-{_MAX_ITEMS} 项；\n"
         "5) 如果某拍确实不适合上面任何类型，输出 {\"i\":序号,\"kind\":\"statement\",\"slots\":{}}。"
     )
     user = "\n".join(f"{i}. {text}" for i, text in items)
@@ -78,11 +79,23 @@ def _norm(s: str) -> str:
     return _PUNCT.sub("", s or "")
 
 
+def _width(s: str) -> float:
+    """Display units, not characters: a CJK glyph is one, a latin glyph about half.
+
+    The cap is a slide-fit rule, and `len()` measured it in characters — so a 24-unit budget
+    allowed 24 Chinese characters but only ~12 English words' worth of *text*, while the prompt
+    said 「不超过 24 字」 and a model reading English counts 字 as **words**. Measured on an
+    English script: the model's single non-statement verdict was a 51-char quote, rejected as
+    "too long" when it is 25.5 units — the two sides were not using the same ruler.
+    """
+    return sum(1.0 if "一" <= c <= "鿿" else 0.5 for c in s)
+
+
 def _grounded(value: str, beat: str) -> bool:
     """Reject invented copy — a small model will happily write a nicer phrase — and a
     value that ends mid-sentence, which is grounded but reads as a truncation bug."""
     v, b = _norm(value), _norm(beat)
-    return bool(v) and len(v) <= _MAX_STR and v in b and not _DANGLING.search(v)
+    return bool(v) and _width(v) <= _MAX_STR and v in b and not _DANGLING.search(v)
 
 
 def _clean_slots(kind: str, slots: object, beat: str) -> dict | None:
