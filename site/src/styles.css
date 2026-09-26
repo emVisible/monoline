@@ -1,0 +1,226 @@
+/* Monoline — marketing page.
+   Colours, spacing, radii, durations and easings all arrive as CSS custom properties from
+   design/tokens/ui.json (see src/tokens.ts); nothing below hardcodes a hex except where a
+   derived alpha is unavoidable. Elevation is hairlines and faint overlays, never drop shadows. */
+
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--t3);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+  overflow-x: hidden;
+}
+
+img { display: block; max-width: 100%; height: auto; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+ol, ul { list-style: none; padding: 0; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--r0); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.skip {
+  position: absolute; left: -9999px; top: 0; z-index: 20;
+  padding: 10px 16px; background: var(--accent); color: var(--accent-ink); border-radius: var(--r1);
+}
+.skip:focus { left: var(--sp5); top: var(--sp4); }
+
+/* ---- masthead --------------------------------------------------------------- */
+.masthead {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp4) var(--sp6);
+  background: color-mix(in oklab, var(--paper) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--hairline);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-size: var(--t5); font-weight: 600; letter-spacing: -0.01em; }
+.brand svg { color: var(--ink); }
+.masthead__nav { display: flex; align-items: center; gap: var(--sp4); }
+.ghost { font-size: var(--t2); color: var(--ink-muted); border-bottom: 1px solid transparent; }
+.ghost:hover { color: var(--ink); border-bottom-color: var(--hairline); }
+
+.lang { display: inline-flex; border: 1px solid var(--hairline); border-radius: var(--r1); overflow: hidden; }
+.lang button { padding: 5px 11px; font-size: var(--t1); color: var(--ink-faint); letter-spacing: 0.04em; white-space: nowrap; }
+.lang button[aria-pressed="true"] { background: var(--elev); color: var(--ink); }
+
+/* ---- scene ------------------------------------------------------------------ */
+.scene {
+  position: relative;
+  display: flex; flex-direction: column; justify-content: center; gap: var(--sp5);
+  min-height: min(100svh, 940px);
+  padding: clamp(88px, 12vh, 148px) var(--sp6) clamp(96px, 14vh, 160px);
+  max-width: 1240px; margin-inline: auto;
+}
+.scene--center { align-items: center; text-align: center; }
+.scene--center .lead, .scene--center .note { margin-inline: auto; }
+
+.scene__wash {
+  position: absolute; inset: 0; pointer-events: none; z-index: -1;
+  background-image: radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--ink) 6%, transparent) 1px, transparent 0);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 78%);
+}
+.bracket { position: absolute; width: 30px; height: 30px; border: 1px solid var(--hairline); }
+.bracket--tl { top: clamp(56px, 8vh, 88px); left: var(--sp5); border-right: 0; border-bottom: 0; }
+.bracket--br { bottom: clamp(64px, 9vh, 96px); right: var(--sp5); border-left: 0; border-top: 0; }
+
+.eyebrow {
+  font-size: var(--t1); letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.display {
+  font-size: clamp(46px, 9vw, 116px); line-height: 0.94; font-weight: 700;
+  letter-spacing: var(--display-tracking);
+  display: flex; flex-direction: column;
+  /* The block centres on a `--center` scene, but the three lines stay left-aligned inside it:
+     centring each line separately made the stack staircase, which reads as a mistake. */
+  text-align: left;
+}
+.display .accent { color: var(--accent); }
+h2 {
+  font-size: clamp(30px, 4.6vw, 62px); line-height: 1.06; font-weight: 700;
+  letter-spacing: var(--display-tracking); max-width: 22ch;
+}
+.scene--center h2 { max-width: none; }
+.lead { font-size: var(--t5); color: var(--ink-muted); max-width: var(--measure); }
+.note { font-size: var(--t2); color: var(--ink-faint); max-width: var(--measure); }
+.rule { display: block; width: 96px; height: 2px; background: var(--accent); transform-origin: left center; }
+.scene--center .rule { transform-origin: center; margin-inline: auto; }
+
+.folio {
+  position: absolute; right: var(--sp6); bottom: var(--sp5);
+  font-size: var(--t2); color: var(--ink-faint); letter-spacing: 0.04em;
+}
+.folio__now { color: var(--ink); font-weight: 600; }
+.folio__sep { margin-inline: 5px; }
+
+/* ---- the cut (hero demo) ---------------------------------------------------- */
+.cut {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: var(--sp7);
+  width: 100%; max-width: 1120px; margin-top: var(--sp6); text-align: left;
+}
+.cut__col { display: flex; flex-direction: column; gap: var(--sp3); min-width: 0; }
+.cut__label {
+  font-size: var(--t0); letter-spacing: var(--eyebrow-tracking); text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.cut__source { font-size: var(--t3); line-height: 1.75; color: var(--ink-faint); }
+.cut__sent { transition: color var(--d-element) var(--ease-out); border-radius: 2px; }
+.cut__sent[data-cut] { color: var(--ink); background: color-mix(in oklab, var(--accent) 9%, transparent); }
+.cut__replay {
+  align-self: flex-start; margin-top: var(--sp2);
+  font-size: var(--t1); color: var(--ink-faint);
+  border: 1px solid var(--hairline); border-radius: var(--r1); padding: 6px 12px;
+  transition: color var(--d-micro) var(--ease-out), border-color var(--d-micro) var(--ease-out);
+}
+.cut__replay:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+.cut__beats { display: flex; flex-direction: column; border-top: 1px solid var(--hairline); }
+.beat {
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: baseline; gap: var(--sp3);
+  padding: 11px 0; border-bottom: 1px solid var(--hairline); font-size: var(--t3);
+}
+.beat__no { font-size: var(--t1); color: var(--ink-faint); }
+.beat__text { min-width: 0; }
+.beat__kind {
+  font-size: var(--t0); letter-spacing: 0.05em; color: var(--ink-muted);
+  border: 1px solid var(--hairline); border-radius: var(--r1); padding: 2px 8px; white-space: nowrap;
+}
+.beat[data-kind="stat"] .beat__kind,
+.beat[data-kind="split"] .beat__kind { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+.beat--pending { color: var(--ink-faint); }
+
+/* ---- stage rail ------------------------------------------------------------- */
+/* A nine-column grid, not a wrapping flex row: with flex the ninth stage fell onto a second
+   line and the connecting rule stopped short of it (seen in the full-page capture). */
+.rail { position: relative; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: var(--sp4) var(--sp2); width: 100%; max-width: 1080px; margin-top: var(--sp5); }
+.rail__line {
+  position: absolute; top: 5px; height: 1px; background: var(--hairline);
+  left: 5px; right: calc(11.111% - 5px);   /* first dot centre → last dot centre */
+  transform-origin: left center;
+}
+.rail__node { position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rail__dot { width: 11px; height: 11px; border-radius: 999px; background: var(--paper); border: 1px solid var(--ink-faint); }
+.rail__node:last-child .rail__dot { background: var(--accent); border-color: var(--accent); }
+.rail__no { font-size: var(--t0); color: var(--ink-faint); letter-spacing: 0.06em; }
+.rail__name { font-size: var(--t2); color: var(--ink); overflow-wrap: anywhere; }
+@media (max-width: 900px) { .rail { grid-template-columns: repeat(5, minmax(0, 1fr)); } .rail__line { display: none; } }
+@media (max-width: 520px) { .rail { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* ---- kinds grid ------------------------------------------------------------- */
+.kinds { display: flex; flex-wrap: wrap; gap: var(--sp2); margin-top: var(--sp4); max-width: 900px; }
+.kinds li {
+  font-size: var(--t2); color: var(--ink-muted);
+  border: 1px solid var(--hairline); border-radius: var(--r1); padding: 5px 11px;
+  background: color-mix(in oklab, var(--surface) 60%, transparent);
+}
+
+/* ---- frame / stats / reqs / cta --------------------------------------------- */
+.frame { margin-top: var(--sp5); width: 100%; max-width: 1080px; }
+.frame img { width: 100%; border: 1px solid var(--hairline); border-radius: var(--r2); background: var(--surface); }
+.frame figcaption { margin-top: var(--sp3); font-size: var(--t1); color: var(--ink-faint); }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp5); width: 100%; max-width: 980px; margin-top: var(--sp6); }
+.stat { border-top: 1px solid var(--hairline); padding-top: var(--sp3); text-align: left; }
+.stat dt { font-size: clamp(34px, 5vw, 60px); font-weight: 700; letter-spacing: -0.03em; color: var(--accent); line-height: 1; }
+.stat dd { margin: 8px 0 0; font-size: var(--t2); color: var(--ink-muted); }
+
+.reqs { display: grid; grid-template-columns: repeat(2, minmax(0, 320px)); gap: var(--sp2) var(--sp6); margin-top: var(--sp4); }
+.reqs li { font-size: var(--t3); color: var(--ink-muted); padding-left: 20px; position: relative; }
+.reqs li::before { content: ""; position: absolute; left: 0; top: 0.62em; width: 8px; height: 1px; background: var(--ink-faint); }
+
+.cmds { display: flex; flex-wrap: wrap; gap: var(--sp6); justify-content: center; margin-top: var(--sp5); }
+.cmds > div { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.cmds__label { font-size: var(--t0); letter-spacing: var(--eyebrow-tracking); text-transform: uppercase; color: var(--ink-faint); }
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--t3);
+  background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r1); padding: 8px 14px;
+}
+.cta {
+  display: inline-block; margin-top: var(--sp5); padding: 13px 26px;
+  background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: var(--t4);
+  border-radius: var(--r1);
+  transition: transform var(--d-micro) var(--ease-out);
+}
+.cta:hover { transform: translateY(-1px); }
+
+/* ---- footer + playhead ------------------------------------------------------ */
+.footer {
+  display: flex; flex-wrap: wrap; gap: var(--sp3); justify-content: space-between;
+  padding: var(--sp6); border-top: 1px solid var(--hairline);
+  font-size: var(--t1); color: var(--ink-faint);
+}
+.footer__meta { letter-spacing: 0.06em; text-transform: uppercase; }
+
+.playhead { position: fixed; left: 0; right: 0; bottom: 0; height: 3px; background: color-mix(in oklab, var(--ink) 8%, transparent); z-index: 12; }
+.playhead__fill { height: 100%; background: var(--accent); transform-origin: left center; }
+.playhead__ticks { position: absolute; left: 0; right: 0; bottom: 4px; display: flex; gap: 4px; }
+.playhead__tick { width: 4px; height: 4px; border-radius: 999px; background: var(--ink-faint); }
+
+/* ---- responsive ------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .cut { grid-template-columns: minmax(0, 1fr); gap: var(--sp6); }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .scene { padding-inline: var(--sp5); }
+  .masthead { padding-inline: var(--sp4); gap: var(--sp3); }
+  .masthead__nav { gap: var(--sp3); }
+  .brand { font-size: var(--t4); }
+  .ghost { font-size: var(--t1); }
+  .lang button { padding: 4px 8px; }
+  .beat { grid-template-columns: 26px minmax(0, 1fr); }
+  .beat__kind { grid-column: 2; justify-self: start; }
+  .reqs { grid-template-columns: minmax(0, 1fr); }
+  .folio { right: var(--sp5); }
+}

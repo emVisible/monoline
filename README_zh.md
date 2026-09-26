@@ -73,10 +73,14 @@ Web 界面。渲染由 Python 拉起并随之退出的 Node sidecar（HyperFrame
 ```
 backend/   Python（uv）：FastAPI + 管线 + SQLite + sidecar 监管   → uv run monoline …
 web/       Vite + React + TypeScript（pnpm）：单色界面与实时预览
+site/      Vite + React + TS + Motion：对外宣传页，单独部署到 Vercel
 sidecar/   Node：@hyperframes/producer startServer，无状态渲染末端
 design/    界面与画面共用的设计令牌（4 套主题 + ui.json）
 docs/      CONFIG.md（对外接口现状）· VISUAL.md（逐版台账）· PLAN.md · ROADMAP.md（历史快照）
 ```
+
+`site/` 直接读取 `design/tokens/ui.json` 而不是复制一份，宣传页的配色因此不可能与产品走偏；
+部署步骤见 [`site/README.md`](site/README.md)（该文件为英文）。
 
 渲染链路为 HTML→MP4，依赖 [HyperFrames](https://github.com/heygen-com/hyperframes)
 （Apache 2.0）；动画运行时为 [GSAP](https://gsap.com)，随仓库本地内置以保证离线与确定性。

@@ -77,11 +77,15 @@ per-job workspace, and serves the web UI from the same origin. A thin Node rende
 
 ```
 backend/   Python (uv): FastAPI + pipeline + SQLite + sidecar supervisor   → uv run monoline …
-web/       Vite + React + TypeScript (pnpm): monochrome SPA, live preview
+web/       Vite + React + TS (pnpm): monochrome SPA, live preview
+site/      Vite + React + TS + Motion: the public landing page → deployed to Vercel
 sidecar/   Node: @hyperframes/producer startServer — a stateless render leaf
 design/    tokens shared by the UI and the video composer (4 themes + ui.json)
 docs/      CONFIG.md (live surface) · VISUAL.md (ledger) · PLAN.md · ROADMAP.md (frozen)
 ```
+
+`site/` reads `design/tokens/ui.json` rather than copying it, so the marketing page cannot
+drift to a different palette; see [`site/README.md`](site/README.md) for how to deploy it.
 
 Rendering is HTML→MP4 via [HyperFrames](https://github.com/heygen-com/hyperframes) (Apache 2.0).
 Animation is [GSAP](https://gsap.com), vendored for offline deterministic rendering.
