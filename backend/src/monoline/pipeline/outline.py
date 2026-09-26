@@ -54,6 +54,7 @@ def _entries(segs: list[dict], scenes: list[dict]) -> list[dict]:
         label = labels[i].get("section", "") if i < len(labels) else ""
         out.append({"i": i, "text": seg["text"], "kind": sc.get("kind", "statement"),
                     "source": sc.get("source", ""), "section": label,
+                    "image": (sc.get("slots") or {}).get("image", ""),
                     "seconds": estimate(seg["text"])})
     return out
 
@@ -130,6 +131,11 @@ async def current(repo, settings, job_id: str) -> dict:
     return _view(_entries(segs, scenes))
 
 
+# The asset path a beat may be pointed at. `POST /assets` mints exactly this shape
+# (`assets/<sha1-16>.<ext>`), so anything else — including a traversal — is refused.
+_ASSET = re.compile(r"^assets/[0-9a-f]{16}\.(?:png|jpe?g|webp|gif)$")
+
+
 async def apply(repo, settings, job_id: str, edits: list[dict]) -> dict:
     """Take the user's list — their order, their text — and make it the job.
 
@@ -142,13 +148,13 @@ async def apply(repo, settings, job_id: str, edits: list[dict]) -> dict:
     config = json.loads(job["config_json"])
 
     beats: list[str] = []
-    wanted: list[str] = []
+    wanted: list[tuple[str, str]] = []
     for e in edits:
         text = re.sub(r"\s+", " ", str(e.get("text") or "")).strip()
         if not text:
             continue
         beats.append(text)
-        wanted.append(str(e.get("kind") or ""))
+        wanted.append((str(e.get("kind") or ""), str(e.get("image") or "")))
     if not beats:
         raise ValueError("大纲是空的：至少留一拍")
     if len(beats) > HARD_CAP:
@@ -158,12 +164,24 @@ async def apply(repo, settings, job_id: str, edits: list[dict]) -> dict:
                                          for i, t in enumerate(beats)])
     scenes = storyboard(beats, script=job["script_text"] or "",
                         brand=config.get("brand", "Monoline"))
-    pinned = 0
-    for sc, want in zip(scenes, wanted):
-        if want and want in KINDS and want != sc["kind"] and want in _TEXT_KINDS:
+    from ..pipeline.workspace import Workspace
+
+    comp = Workspace(settings.workspaces_dir / job_id).composition
+    pinned = images = 0
+    for sc, (want, img) in zip(scenes, wanted):
+        if want == "image" and img:
+            # `image` and `showcase` are the two kinds no rule can ever reach (审计 H3): a
+            # picture is not something a sentence admits to. This is their trigger.
+            if not _ASSET.match(img) or not (comp / img).exists():
+                raise ValueError(f"这一拍的图片不可用：{img[:40]}")
+            sc["kind"], sc["source"] = "image", "manual:outline"
+            sc.setdefault("slots", {})["image"] = img
+            sc["slots"]["verbatim"] = True
+            images += 1
+        elif want and want in KINDS and want != sc["kind"] and want in _TEXT_KINDS:
             sc["kind"] = want
             sc["source"] = "manual:outline"
             pinned += 1
     version = await store(repo, settings, job_id, config, scenes, source="manual")
     return {**_view(_entries(await repo.get_segments(job_id), scenes)),
-            "pinned": pinned, "version": version}
+            "pinned": pinned, "imaged": images, "version": version}

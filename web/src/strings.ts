@@ -308,4 +308,6 @@ export const EN: Record<string, string> = {
   "含我的修改": "with my edits",
   "大纲生成失败": "outline failed",
   "大纲没能保存": "the outline was not saved",
+  "图": "Image",
+  "给这一拍配一张图": "attach an image to this beat",
 };

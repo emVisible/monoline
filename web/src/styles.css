@@ -522,6 +522,7 @@ table.hist { width:100%; border-collapse:collapse; }
 .ol-kind:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ol-rule { color: var(--ink-faint); }
 .ol-sec { color: var(--ink-muted); border-left: 1px solid var(--hairline); padding-left: 8px; }
+.ol-img { color: var(--ink-faint); font-family: ui-monospace, monospace; font-size: 10px; }
 .ol-dur { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-faint); }
 .ol-ops { display: flex; gap: 4px; padding-top: 4px; }
 .ol-foot { display: flex; gap: 10px; justify-content: flex-end; align-items: center;

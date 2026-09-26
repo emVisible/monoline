@@ -154,3 +154,41 @@ def test_the_outline_is_reviewable_and_editable_before_any_audio():
         assert stages.get("script") == "succeeded" and stages.get("plan") == "succeeded", stages
         assert c.get(f"/api/jobs/{jid}/outline").json()["beats"] == after["beats"]
         assert c.patch(f"/api/jobs/{jid}/outline", json={"entries": []}).status_code == 422
+
+
+def test_the_outline_is_where_the_two_unreachable_kinds_get_triggered():
+    """H3's audit: of 28 kinds, `image` and `showcase` are the two no rule can ever reach —
+    a sentence never admits it is describing a picture. The storyboard is the only honest
+    trigger, so the outline has to carry the asset with the beat. The path is validated
+    against the shape `POST /assets` mints, because this string reaches an <img src>."""
+    import hashlib
+
+    script = "深海里的生物大多能自己发光。\n\n这不是反射阳光，而是一场发生在体内的化学反应。\n"
+    png = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+                        "1f15c4890000000a49444154789c6300010000050001"
+                        "0d0a2db40000000049454e44ae426082")
+    rel = f"assets/{hashlib.sha1(png).hexdigest()[:16]}.png"
+    with TestClient(app) as c:
+        jid = c.post("/api/jobs", json={"script": script, "llm_plan": False}).json()["job_id"]
+        out = c.post(f"/api/jobs/{jid}/outline").json()
+        assert all(e["image"] == "" for e in out["entries"])
+        up = c.post(f"/api/jobs/{jid}/assets", files={"file": ("shot.png", png, "image/png")})
+        assert up.status_code == 200 and up.json()["rel"] == rel, up.text
+
+        edits = [dict(e) for e in out["entries"]]
+        edits[0]["kind"] = "image"
+        edits[0]["image"] = rel
+        after = c.patch(f"/api/jobs/{jid}/outline", json={"entries": edits}).json()
+        assert after["imaged"] == 1, after
+        assert after["entries"][0]["kind"] == "image" and after["entries"][0]["image"] == rel
+
+        # the picture has to survive into the storyboard the render reads
+        plan = c.get(f"/api/jobs/{jid}").json()["plan"]["scenes"][0]
+        assert plan["kind"] == "image" and plan["slots"]["image"] == rel, plan
+
+        bad = [dict(e) for e in out["entries"]]
+        bad[1]["kind"], bad[1]["image"] = "image", "../../etc/passwd"
+        assert c.patch(f"/api/jobs/{jid}/outline", json={"entries": bad}).status_code == 422
+        ghost = [dict(e) for e in out["entries"]]
+        ghost[1]["kind"], ghost[1]["image"] = "image", f"assets/{'0' * 16}.png"
+        assert c.patch(f"/api/jobs/{jid}/outline", json={"entries": ghost}).status_code == 422

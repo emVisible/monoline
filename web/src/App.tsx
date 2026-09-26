@@ -70,16 +70,36 @@ function useHydration(id: string | null) {
 // paid for. This panel is that review: every beat, its storyboard kind, its section and its
 // share of the runtime — editable in place, and what the run then follows.
 type OutlineRow = { i: number; text: string; kind: string; ruleKind?: string;
-  source: string; section: string; seconds: number };
+  source: string; section: string; seconds: number; image?: string };
 // Kinds a beat can be pinned to from its own words. A chart kind needs rows the text may not
 // contain, and inventing them would put numbers on screen the script never said — that choice
 // stays in Studio, where the slots are editable.
 const PINNABLE = ["statement", "section", "title", "quote", "note", "definition", "summary", "split", "poster"];
 
-function OutlinePanel({ data, busy, onBack, onRecut, onConfirm }: {
-  data: { entries: OutlineRow[]; sections: string[]; est_seconds: number };
+function OutlinePanel({ jid, data, busy, onBack, onRecut, onConfirm }: {
+  jid: string; data: { entries: OutlineRow[]; sections: string[]; est_seconds: number };
   busy: boolean; onBack: () => void; onRecut: () => void; onConfirm: (rows: OutlineRow[]) => void;
 }) {
+  const [busyRow, setBusyRow] = useState<number | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const pickRow = useRef<number | null>(null);
+  // `image` is one of the two kinds no rule can ever reach (H3's audit): a sentence never
+  // admits it is describing a picture. Uploading here is what makes the kind reachable.
+  const attach = async (file: File) => {
+    const n = pickRow.current;
+    if (n === null) return;
+    setBusyRow(n);
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const r = await fetch(`/api/jobs/${jid}/assets`, { method: "POST", body: form });
+      const d = await r.json().catch(() => ({} as any));
+      if (!r.ok || !d.rel) return;
+      setRows((rs) => rs.map((x, i) => (i === n ? { ...x, image: d.rel, kind: "image" } : x)));
+    } finally {
+      setBusyRow(null);
+    }
+  };
   const [rows, setRows] = useState<OutlineRow[]>(data.entries.map((e) => ({ ...e, ruleKind: e.kind })));
   const shape = (rs: { text: string; kind: string }[]) => JSON.stringify(rs.map((r) => [r.text, r.kind]));
   const dirty = shape(rows) !== shape(data.entries);
@@ -114,16 +134,22 @@ function OutlinePanel({ data, busy, onBack, onRecut, onConfirm }: {
                   onChange={(e) => set(n, { kind: e.target.value })}>
                   {/* the rule's own verdict stays visible even when it is not a pinnable kind —
                       a select that reads `statement` over a `table` beat would lie */}
-                  {Array.from(new Set([r.kind, ...PINNABLE])).map((k) => <option key={k} value={k}>{k}</option>)}
+                  {Array.from(new Set([r.kind, ...(r.image ? ["image"] : []), ...PINNABLE]))
+                    .map((k) => <option key={k} value={k}>{k}</option>)}
                 </select>
                 <span className="ol-rule" title={r.source}>
                   {r.ruleKind}{r.kind !== r.ruleKind ? ` → ${r.kind}` : ""}
                 </span>
                 {r.section && <span className="ol-sec">{r.section}</span>}
+                {r.image && <span className="ol-img">{r.image.split("/").pop()}</span>}
                 <span className="ol-dur">{r.seconds.toFixed(1)}s</span>
               </div>
             </div>
             <div className="ol-ops">
+              <button className="ghost sm" disabled={busyRow === n} title={t("给这一拍配一张图")}
+                aria-label={t("给这一拍配一张图")}
+                onClick={() => { pickRow.current = n; fileRef.current?.click(); }}>
+                {busyRow === n ? "…" : t("图")}</button>
               <button className="ghost sm" disabled={n === 0} onClick={() => mergeUp(n)}
                 aria-label={t("并到上一拍")}>⌃</button>
               <button className="ghost sm" onClick={() => drop(n)} aria-label={t("删掉这拍")}>×</button>
@@ -131,6 +157,9 @@ function OutlinePanel({ data, busy, onBack, onRecut, onConfirm }: {
           </li>
         ))}
       </ul>
+      <input ref={fileRef} type="file" hidden
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) attach(f); e.target.value = ""; }} />
       <div className="ol-foot">
         <button className="ghost" onClick={onBack}>{t("← 返回改文稿")}</button>
         <button className="ghost" onClick={onRecut} disabled={busy}>{busy ? t("切分中…") : t("重新切分")}</button>
@@ -327,7 +356,7 @@ function NewView({ onCreate }: { onCreate: (id: string) => void }) {
   };
 
   if (outline) {
-    return <OutlinePanel data={outline} busy={olBusy} onBack={backToScript}
+    return <OutlinePanel jid={held || ""} data={outline} busy={olBusy} onBack={backToScript}
       onRecut={() => held && fetchOutline(held)} onConfirm={confirmOutline} />;
   }
 
