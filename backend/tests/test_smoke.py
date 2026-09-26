@@ -2385,3 +2385,35 @@ def test_the_corpus_audit_counts_one_plan_per_job_v57():
     kinds = [sc["kind"] for p in plans for sc in p["scenes"]]
     assert len(kinds) == 2 and "stat" not in kinds, "superseded versions must not be counted"
     assert mod.SHAPES["对比 不是…而是 / A而B"][1].search(beats[0])
+
+
+def test_every_registered_kind_has_a_template_and_vice_versa_v57():
+    """A kind in the registry with no template is exactly the crash class that bit us twice (the
+    `list` template, a half-registered new kind); a template no kind points at is dead markup."""
+    from pathlib import Path
+
+    from monoline.ir.sceneplan import KINDS
+    kinds_dir = Path(__file__).parents[1] / "src" / "monoline" / "compose" / "templates" / "kinds"
+    templates = {p.name.split(".")[0] for p in kinds_dir.glob("*.html.j2")}
+    assert templates, "no kind templates found — the path moved"
+    assert set(KINDS) <= templates, f"kinds without a template: {sorted(set(KINDS) - templates)}"
+    assert templates <= set(KINDS), f"templates no kind can use: {sorted(templates - set(KINDS))}"
+
+
+def test_plan_validation_reports_a_reordered_plan_v57():
+    """`scenes.index(s)` returned the position of the first *equal* element, not this element's,
+    so an out-of-order plan was judged by the wrong primitive.  It must say so, per scene."""
+    import json
+    from pathlib import Path
+
+    from monoline.ir.sceneplan import ScenePlan, Theme
+
+    theme = Theme(id="mono-ink", tokens=json.loads(
+        (Path(__file__).parents[2] / "design/tokens/mono-ink.json").read_text())["tokens"])
+    scenes = [{"i": 1, "kind": "statement", "slots": {}},
+              {"i": 0, "kind": "statement", "slots": {}}]
+    warns = ScenePlan(theme=theme, scenes=scenes).validate_against(2)
+    assert len(warns) == 2 and all("out of order" in w for w in warns), warns
+    ok = ScenePlan(theme=theme, scenes=[{"i": 0, "kind": "statement", "slots": {}},
+                                        {"i": 1, "kind": "statement", "slots": {}}])
+    assert ok.validate_against(2) == [], "a well-formed plan must stay silent"

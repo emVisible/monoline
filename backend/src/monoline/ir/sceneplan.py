@@ -93,9 +93,12 @@ class ScenePlan(BaseModel):
             raise ValueError(
                 f"scene count ({len(self.scenes)}) != segment count ({n_segments})"
             )
-        for s in self.scenes:
+        for n, s in enumerate(self.scenes):
             if s.kind not in KINDS_M1:
                 warnings.append(f"scene {s.i}: kind '{s.kind}' not in M1 set {sorted(KINDS_M1)}")
-            if s.i != self.scenes.index(s):
-                warnings.append(f"scene index {s.i} out of order")
+            # `self.scenes.index(s)` was the original test — list.index() returns the position of
+            # the first *equal* element, not this element's position, so it could not tell a
+            # reordered plan from a duplicate one.
+            if s.i != n:
+                warnings.append(f"scene index {s.i} out of order (position {n})")
         return warnings

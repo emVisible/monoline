@@ -109,7 +109,10 @@ async def get_job(jid: str, request: Request) -> dict:
         "stages": [{k: s.get(k) for k in ("key", "seq", "status", "error")} for s in stages],
         "segments": [{k: s.get(k) for k in ("i", "start", "end", "norm_duration", "text")} for s in segments],
         "artifacts": [{k: a.get(k) for k in ("id", "kind", "rel_path", "mime", "size_bytes", "duration_seconds", "state")} for a in artifacts],
-        "plan": json.loads(plan["plan_json"]) if plan else None,
+        # `warnings` used to be written to the DB and never read back by anyone: a plan-quality
+        # signal the pipeline computes has to reach the client for the field to mean anything.
+        "plan": ({**json.loads(plan["plan_json"]),
+                  "warnings": json.loads(plan["warnings_json"] or "[]")} if plan else None),
         "events": [{"id": e["id"], "stage": e.get("stage_key"), "kind": e["kind"],
                     "level": e.get("level"), "message": e.get("message")} for e in events][-120:],
     }
