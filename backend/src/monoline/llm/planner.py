@@ -49,9 +49,14 @@ _PUNCT = re.compile(r"[\s，,。.、：:；;！!？?“”\"'『」（）()《�
 # reads as a bug on screen even though every character is faithfully from the beat.
 _DANGLING = re.compile(r"[是为指把将而且的和在与就都很这那的了着吗呢啊吧]$")
 
+# Slot types described as the literal JSON the model must produce. Describing them in prose
+# ("rows=k:v对象数组") was measured to be the failure: a 4B model returns `cards` with only
+# `title` filled because nothing in the prompt shows that `rows` exists next to it.
+_SHAPE = {"s": '"…"', "sl": '["…", "…"]', "kv": '[{"k": "…", "v": "…"}]',
+          "pair": '{"h": "…", "d": "…"}'}
+
 _SPEC_LINES = "\n".join(
-    f'{k}: ' + ", ".join(f"{name}={'字符串' if t == 's' else '字符串数组' if t == 'sl' else 'k:v对象数组' if t == 'kv' else '对象{h,d}'}"
-                         for name, t in spec.items())
+    f'{k}: {{' + ", ".join(f'"{name}": {_SHAPE[t]}' for name, t in spec.items()) + '}'
     for k, spec in ALLOWED.items()
 )
 
@@ -66,10 +71,11 @@ def build_prompt(items: list[tuple[int, str]]) -> list[dict]:
         # Ollama emit a single item and stop, which reads as "everything rejected".
         "1) 只输出一个 JSON 对象：{\"scenes\":[{\"i\":序号,\"kind\":类型,\"slots\":{…}}, …]}，不要解释、不要代码块；\n"
         "2) scenes 数组长度等于拍数，序号照抄；\n"
-        "3) 槽位里的每个字都必须原样来自该拍（可截取，不可改写、不可新增）；\n"
-        f"4) 每个字符串不超过 {_MAX_STR} 个显示单元（≈{_MAX_STR} 个汉字 = ≈{_MAX_STR * 2} 个英文字母"
+        "3) slots 必须把该类型上面那一行的每个键都填上，缺任何一个键该条即作废；\n"
+        "4) 槽位里的每个字都必须原样来自该拍（可截取，不可改写、不可新增）；\n"
+        f"5) 每个字符串不超过 {_MAX_STR} 个显示单元（≈{_MAX_STR} 个汉字 = ≈{_MAX_STR * 2} 个英文字母"
         f" ≈ {max(1, _MAX_STR // 3)} 个英文单词）；数组类槽位 {_MIN_ITEMS}-{_MAX_ITEMS} 项；\n"
-        "5) 如果某拍确实不适合上面任何类型，输出 {\"i\":序号,\"kind\":\"statement\",\"slots\":{}}。"
+        "6) 如果某拍确实不适合上面任何类型，输出 {\"i\":序号,\"kind\":\"statement\",\"slots\":{}}。"
     )
     user = "\n".join(f"{i}. {text}" for i, text in items)
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]

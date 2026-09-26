@@ -2195,3 +2195,21 @@ def test_slot_budget_is_display_units_not_characters_v55():
 
     prompt = build_prompt([(0, zh)])[0]["content"]
     assert "显示单元" in prompt and "英文字母" in prompt
+
+
+def test_prompt_shows_parsable_slot_skeletons_v55c():
+    """The shape of each answer must be visible, not inferred: prose like 「rows=k:v对象数组」
+    left a 4B model filling `cards.title` and never mentioning `rows` (measured: 15 beats,
+    0 landed). So the prompt prints a literal JSON skeleton per kind — and this test parses
+    it, which catches both a dropped key and an unparseable template."""
+    import json
+
+    from monoline.llm.planner import ALLOWED, build_prompt
+
+    prompt = build_prompt([(0, "示例拍子")])[0]["content"]
+    lines = dict(l.split(": ", 1) for l in prompt.splitlines() if ": {" in l and not l.startswith("1)"))
+    assert set(lines) == set(ALLOWED), f"kinds missing from the prompt: {set(ALLOWED) - set(lines)}"
+    for kind, skeleton in lines.items():
+        filled = json.loads(skeleton)
+        assert set(filled) == set(ALLOWED[kind]), f"{kind}: prompt shows {sorted(filled)}"
+    assert "每个键都填上" in prompt, "the fill-every-key rule is what the skeletons are for"
