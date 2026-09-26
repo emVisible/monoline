@@ -289,13 +289,13 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
     }
   };
 
-  const saveScene = (next: Scene) => {
+  const saveScene = (next: Scene, source?: string) => {
     setDraft(next);
     if (debounce.current) window.clearTimeout(debounce.current);
     debounce.current = window.setTimeout(async () => {
       const r = await fetch(`/api/jobs/${job.id}/plan/scenes/${next.i}`, {
         method: "PATCH", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: next.kind, slots: next.slots }),
+        body: JSON.stringify({ kind: next.kind, slots: next.slots, source }),
       });
       if (r.ok) { const d = await r.json(); setVersion(typeof d.version === "number" ? d.version : version + 1); }
     }, 500);
@@ -596,7 +596,7 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                   <span className="suggest-msg">{t("建议改成")} {sug.kind}
                     {sug.seconds ? ` · ${Math.round(sug.seconds)}s` : ""}
                     <button className="link-btn"
-                      onClick={() => saveScene({ ...d, kind: sug.kind as typeof d.kind, slots: sug.slots })}>
+                      onClick={() => saveScene({ ...d, kind: sug.kind as typeof d.kind, slots: sug.slots }, "llm:adopt")}>
                       {t("采纳")}
                     </button>
                   </span>

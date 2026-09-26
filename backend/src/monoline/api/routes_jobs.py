@@ -271,6 +271,9 @@ async def poster(jid: str, request: Request):
 class ScenePatch(BaseModel):
     kind: str | None = None
     slots: dict | None = None
+    # Who decided this.  The badge under the mode picker reads "rules:…" until someone touches
+    # the beat, and "llm:adopt" when the touch was a model suggestion the user accepted.
+    source: str | None = None
 
 
 @router.patch("/{jid}/plan/scenes/{i}")
@@ -290,6 +293,10 @@ async def patch_scene(jid: str, i: int, body: ScenePatch, request: Request) -> d
         scenes[i]["kind"] = body.kind
     if body.slots is not None:
         scenes[i]["slots"] = body.slots
+    if body.source is not None:
+        if body.source not in ("manual", "llm:adopt"):
+            raise HTTPException(422, f"unknown source {body.source!r}")
+        scenes[i]["source"] = body.source
     new_json = json.dumps(plan, ensure_ascii=False)
     # validate scenes vs segments count
     segs = await m.repo.get_segments(jid)
