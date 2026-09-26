@@ -1,14 +1,50 @@
+# --- dependencies & build output -------------------------------------------------
 node_modules
 dist
+.venv
 .direnv
+
+# --- python ----------------------------------------------------------------------
 *.pyc
 __pycache__
-.venv
+*.egg-info/
+.ruff_cache/
+.mypy_cache/
+# (.pytest_cache is self-ignored: pytest writes its own .gitignore inside it)
+
+# --- secrets ---------------------------------------------------------------------
+# `.env` alone does NOT match `.env.local` / `.env.production`, so both lines stay.
 .env
-.DS_Store
-# runtime user data lives under ~/Library/Application Support/Monoline, never in-repo
-backend/src/monoline/static/*
-!backend/src/monoline/static/.gitkeep
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+.netrc
+
+# --- runtime data ----------------------------------------------------------------
+# The app keeps everything under ~/Library/Application Support/Monoline. These catch
+# the case where MONOLINE_DIR (or a probe) points that data back into the repo.
 renders/
 workspaces/
 *.log
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+# HyperFrames writes animation-map / check scratch next to a composition
+.hyperframes/
+
+# --- built SPA (served same-origin by the backend; `pnpm build` regenerates it) ----
+backend/src/monoline/static/*
+!backend/src/monoline/static/.gitkeep
+
+# --- editors & OS ----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

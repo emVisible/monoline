@@ -2011,11 +2011,24 @@ def test_document_metadata_v53():
     html = (root / "web" / "index.html").read_text()
     for tag in ('name="description"', 'name="application-name"', 'property="og:title"',
                 'property="og:description"', 'property="og:site_name"', 'name="robots"',
-                'name="theme-color"', 'rel="icon"'):
+                'name="theme-color"', 'rel="icon"', 'property="og:url"', 'property="og:image"',
+                'property="og:image:alt"', 'name="twitter:image"', 'name="twitter:card"'):
         assert tag in html, f"shell is missing {tag}"
     # the default must agree with the app's default language; i18n rewrites it at runtime
     assert '<html lang="zh-CN"' in html
     assert len(re.search(r'name="description" content="([^"]+)"', html).group(1)) > 40
+    # a share card without an image is a grey box; the URL must be absolute, because
+    # relative og:image is silently dropped by every crawler that matters
+    img = re.search(r'property="og:image" content="([^"]+)"', html).group(1)
+    assert img.startswith("https://") and img.endswith("/og.png"), img
+    assert (root / "web" / "public" / "og.png").stat().st_size > 10_000, "og.png is a placeholder"
+    ld = re.search(r'<script type="application/ld\+json">(.*?)</script>', html, flags=re.S)
+    assert ld, "no JSON-LD block"
+    import json as _json
+    doc = _json.loads(ld.group(1))
+    assert doc["@type"] == "SoftwareApplication" and doc["name"] == "Monoline"
+    for key in ("url", "codeRepository", "description", "programmingLanguage", "offers"):
+        assert key in doc, f"JSON-LD is missing {key}"
 
     cli = (root / "backend" / "src" / "monoline" / "cli.py").read_text()
     registered = set(re.findall(r'@app\.command\("([a-z-]+)"\)', cli)) | \

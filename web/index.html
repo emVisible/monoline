@@ -12,23 +12,49 @@
 
     <title>Monoline · 贴一段文字，出一条片子</title>
     <meta name="application-name" content="Monoline" />
-    <meta name="author" content="Monoline" />
-    <meta name="description" content="Monoline 把一段文字切成节拍，逐拍配音，再按内容自动分镜，导出一条单色极简的说明视频。本地运行，无需账号。" />
-    <meta name="keywords" content="monoline, 文字转视频, 分镜, 旁白, hyperframes, text to video, storyboard, narration" />
+    <meta name="author" content="emVisible" />
+    <meta name="description" content="Monoline turns a pasted script into a narrated explainer video: it cuts the text into beats, voices each one, and storyboards every beat by content — monochrome, deterministic, rendered locally. 贴一段文字，自动分镜、逐拍配音，本地导出一条单色极简的说明视频。" />
+    <meta name="keywords" content="text to video, storyboard, narration, explainer video, local-first, 文字转视频, 自动分镜, 旁白, 本地渲染" />
 
     <!-- The app binds to localhost and its pages contain unpublished drafts, so the
          default is to stay out of indexes. Flip to index,follow only if it is ever
          deployed somewhere public on purpose. -->
     <meta name="robots" content="noindex, nofollow" />
 
+    <!-- What leaves the machine when someone shares the link is English-primary; the
+         <title> above stays Chinese because the app's default UI language is Chinese. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Monoline" />
-    <meta property="og:title" content="Monoline · 贴一段文字，出一条片子" />
-    <meta property="og:description" content="一句话一拍：自动分镜、逐拍配音、单色极简画面，本地跑完直接出 MP4。" />
-    <meta property="og:locale" content="zh_CN" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Monoline" />
-    <meta name="twitter:description" content="Paste a script, get a film — one sentence per beat, auto storyboard, local render." />
+    <meta property="og:url" content="https://github.com/emVisible/monoline" />
+    <meta property="og:title" content="Monoline — paste a script, get a film" />
+    <meta property="og:description" content="One sentence, one beat, one slide. Auto-storyboarded across 28 scene kinds, narrated per beat, monochrome, rendered locally to MP4." />
+    <meta property="og:image" content="https://raw.githubusercontent.com/emVisible/monoline/main/web/public/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Monoline: one sentence, one beat, one slide — on a black card with a lime accent rule." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Monoline — paste a script, get a film" />
+    <meta name="twitter:description" content="Auto-storyboarded, narrated, monochrome explainer videos rendered locally from pasted text." />
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/emVisible/monoline/main/web/public/og.png" />
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Monoline",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "macOS, Linux",
+      "url": "https://github.com/emVisible/monoline",
+      "codeRepository": "https://github.com/emVisible/monoline",
+      "image": "https://raw.githubusercontent.com/emVisible/monoline/main/web/public/og.png",
+      "description": "Turns a pasted text script into a narrated, monochrome explainer video. Local, single-user, no account: one Python process owns the job store, the pipeline and the render.",
+      "programmingLanguage": ["Python", "TypeScript"],
+      "softwareRequirements": ["Python 3.11 (uv)", "Node 22", "FFmpeg"],
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
