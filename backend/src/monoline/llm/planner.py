@@ -53,7 +53,7 @@ BATCH_CHARS = 900
 PLAN_BUDGET_SECONDS = 150
 # Part of every per-beat suggestion cache key: bump it whenever the prompt or the slot rules
 # change, and every stale verdict falls out without a migration.
-SUGGEST_SCHEMA = "v2"
+SUGGEST_SCHEMA = "v3"
 # Beats whose rule verdict is "just text" — the only ones worth asking about.
 WEAK_KINDS = {"statement"}
 _PUNCT = re.compile(r"[\s，,。.、：:；;！!？?“”\"'『」（）()《》\-—→…·*_#>❶-❿]")
@@ -66,9 +66,20 @@ _DANGLING = re.compile(r"[是为指把将而且的和在与就都很这那的了
 # `title` filled because nothing in the prompt shows that `rows` exists next to it.
 _SHAPE = {"s": '"…"', "sl": '["…", "…"]', "kv": '[{"k": "…", "v": "…"}]',
           "pair": '{"h": "…", "d": "…"}'}
+# A few slots are not "any text" even though the skeleton says so, and a 4B model cannot infer
+# that from a key name.  Measured: of 5 plain-text Chinese beats the model redesigned, 2 died at
+# `stat` with a whole clause in `value` ("不是这一拍里的连续文字" / "27 个显示单元 > 24") — the
+# guard was right, the prompt was silent.  These hints cost ~5 characters each; the prompt is
+# already 1141 chars on a machine where prompt length is the expensive part (see the budget test).
+_HINT: dict[tuple[str, str], str] = {
+    ("stat", "value"): '"数字，≤8字"',
+    ("definition", "term"): '"词，≤6字"',
+    ("quote", "q"): '"原文短句"',
+}
 
 _SPEC_LINES = "\n".join(
-    f'{k}: {{' + ", ".join(f'"{name}": {_SHAPE[t]}' for name, t in spec.items()) + '}'
+    f'{k}: {{' + ", ".join(f'"{name}": {_HINT.get((k, name), _SHAPE[t])}'
+                           for name, t in spec.items()) + '}'
     for k, spec in ALLOWED.items()
 )
 

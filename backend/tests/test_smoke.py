@@ -2502,3 +2502,22 @@ def test_a_beat_the_model_never_answered_is_not_reported_as_a_decline_v59(tmp_pa
     cut = asyncio.run(planner.suggest(s, beat, scene, target=t, use_cache=False))
     assert cut["status"] == "rejected" and cut["kind"] is None, cut
     assert cut["why"] and "cards" in cut["why"][0], cut
+
+
+def test_the_ask_prompt_stays_small_and_says_what_a_slot_must_hold_v60():
+    """Two facts about the local model that the prompt has to respect, both measured here:
+    the host OOMs on long context (so prompt length is a budget, not a style choice), and a 4B
+    model cannot infer a slot's contract from its name — of 5 plain-text Chinese beats it
+    redesigned, 2 died at `stat` with a whole sentence in `value`.  So the skeleton for a short
+    slot says how short, and the total prompt stays under a ceiling that a new kind (+~40 chars)
+    has to be added against deliberately."""
+    from monoline.llm.planner import ALLOWED, build_prompt
+
+    msgs = build_prompt([(0, "这句话用来量一量提示词到底有多长")])
+    chars = sum(len(m["content"]) for m in msgs)
+    assert chars <= 1300, f"the per-beat ask costs {chars} chars of prompt to prefill"
+    spec = next(l for l in msgs[0]["content"].splitlines() if l.startswith("stat: "))
+    assert "数字" in spec, f"stat.value still looks like free text to the model: {spec}"
+    # the guard is unchanged on purpose — the hint teaches, `_MAX_STR` still decides.  Changing
+    # both at once would make the landing-rate difference impossible to attribute.
+    assert len(ALLOWED) == 16
