@@ -62,6 +62,7 @@
 
 逐拍编辑（都走 recompose，秒级刷新预览、不重渲）：
 - `PATCH /api/jobs/{jid}/plan/scenes/{i}` 改 kind/slots · `PATCH /api/jobs/{jid}/segments/{i}` 改旁白文本（重合成该拍语音）
+- `POST /api/jobs/{jid}/plan/scenes/{i}/suggest` 问模型**这一拍**换个什么形状（只返回建议，不落盘；实测本机模型 0.3–0.85 字/秒，整片批量问不可行，故按拍请求）
 - `POST /api/jobs/{jid}/reorder` 拖拽重排 · `POST /api/jobs/{jid}/voice` 换音色 · `PATCH /api/jobs/{jid}/config` 换主题/强调色/品牌
 
 素材与交付：

@@ -44,6 +44,7 @@ def test_missing_job_returns_404_on_all_new_routes():
         assert c.get(f"/api/jobs/{BOGUS}/subtitles").status_code == 404
         assert c.get(f"/api/jobs/{BOGUS}/poster").status_code == 404
         assert c.post(f"/api/jobs/{BOGUS}/reorder", json={"order": [0]}).status_code == 404
+        assert c.post(f"/api/jobs/{BOGUS}/plan/scenes/0/suggest").status_code == 404
         assert c.delete(f"/api/jobs/{BOGUS}/bgm").status_code == 404
         assert c.get(f"/api/jobs/{BOGUS}/subtitles?fmt=ass").status_code == 404
 

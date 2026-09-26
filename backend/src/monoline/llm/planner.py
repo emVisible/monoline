@@ -175,8 +175,11 @@ def _clean_slots(kind: str, slots: object, beat: str) -> tuple[dict | None, str]
     return out, ""
 
 
-def merge(beats: list[str], scenes: list[dict], payload: object) -> tuple[list[dict], dict]:
+def merge(beats: list[str], scenes: list[dict], payload: object, *, force: bool = False) -> tuple[list[dict], dict]:
     """Fold validated model verdicts into the rule plan. Never changes the scene count.
+
+    `force` asks about beats the rules already gave a shape to — used by the per-beat
+    "换个形状" request in Studio, where the user explicitly wants a second opinion.
 
     `rejected` used to cover three different facts, which is how a working feature looked
     broken: measured on a real 15-beat script, 4 runs all reported `upgraded=0 rejected=15`,
@@ -193,7 +196,7 @@ def merge(beats: list[str], scenes: list[dict], payload: object) -> tuple[list[d
             by_index[item["i"]] = item
     out = list(scenes)
     for i, beat in enumerate(beats):
-        if out[i]["kind"] not in WEAK_KINDS:
+        if not force and out[i]["kind"] not in WEAK_KINDS:
             continue
         stats["asked"] += 1
         verdict = by_index.get(i)
@@ -243,7 +246,8 @@ def _batches(items: list[tuple[int, str]], *, beats: int = BATCH_BEATS,
 
 
 async def upgrade(settings, beats: list[str], scenes: list[dict], *,
-                  target: Target | None = None, timeout: float = 240.0) -> tuple[list[dict], dict]:
+                  target: Target | None = None, timeout: float = 240.0,
+                  force: bool = False) -> tuple[list[dict], dict]:
     """Ask the model about the weak beats. Returns (scenes, stats); never raises.
 
     Wall-clock is the binding constraint, measured on the local 7.5B q4 model: it decodes at
@@ -252,7 +256,7 @@ async def upgrade(settings, beats: list[str], scenes: list[dict], *,
     asking when it runs out — the beats it never asked about keep the rule plan and are counted
     in `skipped_batches` rather than silently timing out at 240s each.
     """
-    idx = [(i, beats[i]) for i in range(len(beats)) if scenes[i]["kind"] in WEAK_KINDS]
+    idx = [(i, beats[i]) for i in range(len(beats)) if force or scenes[i]["kind"] in WEAK_KINDS]
     t = target or detect(settings)
     if not idx or not t.ok:
         return scenes, {"asked": len(idx), "upgraded": 0, "rejected": 0, "skipped": "no target" if not t.ok else "no weak beats"}
@@ -275,7 +279,7 @@ async def upgrade(settings, beats: list[str], scenes: list[dict], *,
             # One bad batch costs its own beats only — the rest keep their upgrades and the
             # rule plan is never replaced by an empty one.
             failed.append(str(e)[:120])
-    out, stats = merge(beats, scenes, rows)
+    out, stats = merge(beats, scenes, rows, force=force)
     stats.update({"model": t.model, "batches": len(batches), "asked_batches": len(batches) - skipped,
                   "failed_batches": len(failed), "skipped_batches": skipped,
                   "seconds": round(time.monotonic() - t0, 1)})

@@ -264,6 +264,31 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
     }
   };
 
+  const [sug, setSug] = useState<{ i: number; kind?: string; slots?: any; seconds?: number;
+    same?: boolean; error?: string } | null>(null);
+  const [sugBusy, setSugBusy] = useState(false);
+
+  // One beat per request: the local model decodes at ~1 character/second (docs/PLAN.md V55), so
+  // asking it about the whole script is a 25-minute wait that lands nothing.  The user asks beat
+  // by beat and adopts the answer explicitly — a suggestion never edits the plan by itself.
+  const suggestShape = async () => {
+    if (!draft || sugBusy) return;
+    const i = draft.i;
+    setSugBusy(true);
+    setSug({ i });
+    try {
+      const r = await fetch(`/api/jobs/${job.id}/plan/scenes/${i}/suggest`, { method: "POST" });
+      const d = await r.json();
+      setSug(!r.ok ? { i, error: String(d.detail || r.status) }
+        : d.same ? { i, same: true }
+        : { i, kind: d.kind, slots: d.slots, seconds: d.seconds });
+    } catch (e) {
+      setSug({ i, error: String(e) });
+    } finally {
+      setSugBusy(false);
+    }
+  };
+
   const saveScene = (next: Scene) => {
     setDraft(next);
     if (debounce.current) window.clearTimeout(debounce.current);
@@ -560,6 +585,23 @@ export function Studio({ data, onBack, onRun, refresh }: { data: Hydration; onBa
                 <a className="mode-lib-link" href="#/modes">{t("全部 ")}{MODE_COUNT}{t(" 种")}</a>
               </div>
               <ModePicker value={d.kind} used={kindUsed} onChange={changeKind} />
+              <div className="suggest-row">
+                <button className="ghost" onClick={suggestShape} disabled={sugBusy} aria-busy={sugBusy}>
+                  {sugBusy ? t("模型正在想这一拍（约 40–70 秒）…") : t("让模型换个形状")}
+                </button>
+                {sug && sug.i === d.i && sug.error && <span className="suggest-msg err">{sug.error}</span>}
+                {sug && sug.i === d.i && sug.same && (
+                  <span className="suggest-msg">{t("模型认为这一拍保持现在的形状")}</span>)}
+                {sug && sug.i === d.i && sug.kind && (
+                  <span className="suggest-msg">{t("建议改成")} {sug.kind}
+                    {sug.seconds ? ` · ${Math.round(sug.seconds)}s` : ""}
+                    <button className="link-btn"
+                      onClick={() => saveScene({ ...d, kind: sug.kind as typeof d.kind, slots: sug.slots })}>
+                      {t("采纳")}
+                    </button>
+                  </span>
+                )}
+              </div>
               {VARIANT_KINDS.includes(d.kind) && (
                 <VariantPicker value={d.slots.variant ?? "hero"} onChange={(v) => setSlot("variant", v)} />
               )}

@@ -307,6 +307,41 @@ class ReorderBody(BaseModel):
     order: list[int]
 
 
+@router.post("/{jid}/plan/scenes/{i}/suggest")
+async def suggest_scene(jid: str, i: int, request: Request) -> dict:
+    """Ask the model about ONE beat and return its verdict **without applying it**.
+
+    Measured on the local model: 0.3–0.85 characters/second of decode, so a beat with a real
+    answer costs 40–70s and a whole-script upgrade pass cannot finish inside any sane timeout
+    (docs/PLAN.md V55).  One beat per click is the only shape of "let the model design layouts"
+    that fits that speed — and because the user starts it, the wait is expected, not a stuck job.
+    """
+    from ..llm.client import detect
+    from ..llm.planner import upgrade
+
+    m = _manager(request)
+    if not await m.repo.get_job(jid):
+        raise HTTPException(404, "job not found")
+    plan_row = await m.repo.get_plan(jid)
+    segs = await m.repo.get_segments(jid)
+    if not plan_row or not segs:
+        raise HTTPException(409, "no plan yet — run the job first")
+    plan = json.loads(plan_row["plan_json"])
+    scenes = plan.get("scenes", [])
+    if i < 0 or i >= len(scenes) or i >= len(segs):
+        raise HTTPException(404, "scene index out of range")
+    target = await asyncio.to_thread(detect, m.settings)
+    if not target.ok:
+        raise HTTPException(503, target.detail or "LLM 不可用")
+    out, stats = await upgrade(m.settings, [segs[i]["text"]], [dict(scenes[i])],
+                               target=target, force=True)
+    cand = out[0]
+    return {"model": stats.get("model"), "seconds": stats.get("seconds"),
+            "kind": cand.get("kind"), "slots": cand.get("slots"),
+            "same": cand.get("kind") == scenes[i].get("kind"),
+            "why": stats.get("why") or []}
+
+
 @router.post("/{jid}/reorder")
 async def reorder_beats(jid: str, body: ReorderBody, request: Request) -> dict:
     """Permute the beats (drag-reorder in Studio). Carries each beat's cached audio,

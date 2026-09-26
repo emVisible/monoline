@@ -19,6 +19,12 @@ export const EN: Record<string, string> = {
   // ---- nav / shell --------------------------------------------------------
   "呈现模式": "Modes",
   "呈现模式库": "Mode library",
+  // ---- per-beat model suggestion (Studio) ---------------------------------
+  "让模型换个形状": "Ask the model for another shape",
+  "模型正在想这一拍（约 40–70 秒）…": "The model is thinking about this beat (~40–70s)…",
+  "模型认为这一拍保持现在的形状": "The model keeps this beat as it is",
+  "建议改成": "Suggested",
+  "采纳": "Adopt",
   "先生成，再调整": "Generate first, adjust after",
   "——左边阶段流就是当前进度。": " — the stage flow on the left is the current progress.",
   "配置与逐拍编辑会在这一版出片后出现。": "Settings and per-beat editing appear once this version renders.",

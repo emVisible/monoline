@@ -2286,3 +2286,31 @@ def test_hero_number_fits_the_column_instead_of_bleeding_v55e():
     assert "--hero-fs: 260px" in land, "landscape has the room and must stay at display size"
     assert "font-size: calc(var(--hero-fs, 260px)" in land, \
         "the size must reach CSS as a custom property — an inline font-size would out-rank presets"
+
+
+def test_forced_upgrade_asks_about_a_beat_the_rules_already_shaped_v55f():
+    """Studio's per-beat 「换个形状」 must ask about ONE beat even when the rules gave it a shape.
+    Without `force` the weak-beat filter turns that request into a silent no-op — the model would
+    never be consulted on exactly the beats a user is looking at."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from monoline.llm import planner
+    from monoline.llm.client import Target
+
+    async def fake(msgs, **kw):
+        return '{"scenes":[{"i":0,"kind":"flow","slots":{"nodes":["网关","存储","调度"]}}]}'
+
+    real, planner.chat = planner.chat, fake
+    s = SimpleNamespace(llm_batch_beats=3, llm_batch_chars=900, llm_plan_seconds=150)
+    beat = "它把网关、存储和调度三件事放进了同一层"
+    scene = [{"i": 0, "kind": "list", "slots": {}}]
+    target = Target(source="test", ok=True, model="fake")
+    try:
+        _, plain = asyncio.run(planner.upgrade(s, [beat], list(scene), target=target))
+        _, forced = asyncio.run(planner.upgrade(s, [beat], list(scene), target=target, force=True))
+    finally:
+        planner.chat = real
+    assert (plain["asked"], plain["upgraded"]) == (0, 0), "the default pass still skips shaped beats"
+    assert (forced["asked"], forced["upgraded"]) == (1, 1), forced
+    assert forced["model"] == "fake" and "seconds" in forced, forced
