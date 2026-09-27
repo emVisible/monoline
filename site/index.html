@@ -6,22 +6,32 @@
     <title>Monoline — paste a script, get a film</title>
     <meta name="application-name" content="Monoline" />
     <meta name="author" content="emVisible" />
-    <meta name="description" content="Monoline turns a text script into a narrated, monochrome explainer video on your own machine: it segments the text, voices every beat, and lays out each beat by what it says. Deterministic, offline, MIT licensed." />
-    <meta name="keywords" content="text to video, explainer video, storyboard, narration, local-first, deterministic rendering, monochrome, python, react" />
+    <meta name="description" content="Turn a text script into a narrated, monochrome explainer video, locally. Monoline cuts the text into beats, voices each one, and lays each out by what it says." />
     <meta name="theme-color" content="#0B0B0C" />
     <meta name="color-scheme" content="dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- No `keywords`: every search engine documents that it ignores them, and a page that
+         lists them reads like a page that needs something else.
+         No hreflang either — one URL serves both languages behind a client-side switch, and
+         alternates are only honest when each language has its own address. `og:locale:alternate`
+         below is the part that is true. -->
+    <link rel="canonical" href="%SITE_URL%/" />
 
     <!-- This page is meant to be found; the application itself stays out of indexes. -->
     <meta name="robots" content="index, follow" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Monoline" />
+    <meta property="og:url" content="%SITE_URL%/" />
     <meta property="og:title" content="Monoline — one sentence, one beat, one slide" />
     <meta property="og:description" content="Paste a script. It is segmented, voiced per line, and laid out per beat — then rendered locally to MP4. Same input, same film." />
-    <meta property="og:image" content="/og.png" />
+    <!-- Absolute, because a social crawler has no document to resolve `/og.png` against. The
+         raw.githubusercontent origin is deliberate: it serves the card from the repository, so
+         a preview works before anyone deploys. Point VITE_SITE_URL at the live origin once it
+         has one, and canonical/og:url follow without touching this. -->
+    <meta property="og:image" content="https://raw.githubusercontent.com/emVisible/monoline/main/site/public/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Monoline: one sentence, one beat, one slide — on a black card with a lime accent rule." />
@@ -30,7 +40,8 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Monoline — paste a script, get a film" />
     <meta name="twitter:description" content="Auto-storyboarded, narrated, monochrome explainer videos rendered locally from pasted text." />
-    <meta name="twitter:image" content="/og.png" />
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/emVisible/monoline/main/site/public/og.png" />
+    <meta name="twitter:image:alt" content="Monoline: one sentence, one beat, one slide — on a black card with a lime accent rule." />
 
     <script type="application/ld+json">
     {
@@ -41,9 +52,10 @@
       "operatingSystem": "macOS, Linux",
       "url": "https://github.com/emVisible/monoline",
       "codeRepository": "https://github.com/emVisible/monoline",
-      "image": "/og.png",
+      "image": "https://raw.githubusercontent.com/emVisible/monoline/main/site/public/og.png",
       "description": "Turns a pasted text script into a narrated, monochrome explainer video. Local, single-user, no account.",
       "license": "https://opensource.org/licenses/MIT",
+      "inLanguage": ["en", "zh"],
       "programmingLanguage": ["Python", "TypeScript"],
       "softwareRequirements": ["Python 3.11 (uv)", "Node 22", "FFmpeg"],
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }

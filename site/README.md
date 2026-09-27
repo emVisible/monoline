@@ -20,8 +20,13 @@ pnpm --filter @monoline/site preview
    root is a pnpm workspace, not the site.
 4. Framework preset *Vite*, build command `pnpm build`, output `dist` — `vercel.json` pins the
    last two so a console change cannot silently break the deploy.
+5. Add the environment variable **`VITE_SITE_URL` = `https://<your-deployment>`**. It feeds
+   `<link rel="canonical">` and `og:url`; unset, both fall back to the repository URL, which is
+   true but not the page. `og:image` is deliberately pinned to `raw.githubusercontent.com`
+   instead, so a shared link renders its card before any of this exists.
 
-No environment variables, no secrets, no server-side functions.
+No secrets, no server-side functions. `robots.txt` allows the whole page; there is no sitemap
+because there is one URL.
 
 ## What the page is made of
 
