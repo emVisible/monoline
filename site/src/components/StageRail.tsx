@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { motion, useInView, useReducedMotion } from "motion/react";
 import { dur, easeOut } from "../tokens";
 import { STAGES } from "../strings";
-import { lang } from "../i18n";
+import { lang, t } from "../i18n";
 
 /** The nine stages as the product draws a timeline: a rail that draws itself, nodes on it. */
 export function StageRail() {
@@ -11,7 +11,7 @@ export function StageRail() {
   const reduced = useReducedMotion();
 
   return (
-    <ol ref={ref} className="rail" aria-label="pipeline stages">
+    <ol ref={ref} className="rail" aria-label={t("rail_aria")}>
       <motion.span className="rail__line" aria-hidden="true"
         initial={{ scaleX: 0 }} animate={inView ? { scaleX: 1 } : {}}
         transition={{ duration: reduced ? 0 : dur.scene * 1.6, ease: easeOut }} />

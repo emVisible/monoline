@@ -31,9 +31,11 @@ No environment variables, no secrets, no server-side functions.
 | `src/components/Scene.tsx` | one scene = one beat: dot-grid wash, corner brackets, eyebrow, folio |
 | `src/components/HeroCut.tsx` | the hero: a paragraph cutting itself into beats |
 | `src/components/Playhead.tsx` | scroll position rendered as the product's own progress rail |
-| `src/hero.json` | **generated fixture** — see below |
-| `public/frames/` | real screenshots, not mockups |
-| `scripts/capture-outline.mjs` | regenerates `frames/outline.png` from the running app |
+| `src/hero.json` | **generated fixture, one entry per language** — see below |
+| `public/frames/` | real screenshots, not mockups; `outline-<lang>.png` per language |
+| `scripts/gen-hero.py` | regenerates `src/hero.json` with the real segmenter + rule planner |
+| `scripts/hero-source.txt` / `scripts/hero-source-en.txt` | the two demo scripts the hero cuts |
+| `scripts/capture-outline.mjs` | regenerates `frames/outline-{zh,en}.png` from the running app |
 
 ## Design tokens are imported, not copied
 
@@ -48,23 +50,16 @@ than as a page that quietly renders `undefined`.
 The page states numbers. They are measured, not remembered:
 
 ```bash
-# the eight beats shown in the hero (real segmenter + real rule planner, no mock).
-# `--project`, not `--directory`: the latter changes the working directory, and this command
-# reads a path relative to the repo root. Verified to reproduce src/hero.json byte for byte.
-uv run --project backend python -c "
-import json
-from monoline.pipeline.segment import segment_text
-from monoline.pipeline.planner import RulePlanner
-from monoline.pipeline.display_text import detonate
-src = open('site/scripts/hero-source.txt').read().strip()
-beats = segment_text(src)
-scenes = RulePlanner().plan(beats, brand='Monoline', script=src)
-print(json.dumps({'source': src,
-  'beats': [{'text': detonate(b), 'kind': s['kind']} for b, s in zip(beats, scenes)]},
-  ensure_ascii=False, indent=2))" > site/src/hero.json
+# the hero demo, both languages (real segmenter + real rule planner, no mock). `--project`,
+# not `--directory`: the latter changes the working directory. Verified to reproduce
+# src/hero.json byte for byte.
+uv run --project backend python site/scripts/gen-hero.py > site/src/hero.json
+
+# the product frame in both languages — needs the app running (make start)
+node site/scripts/capture-outline.mjs 8787
 
 # the 28 scene kinds
-uv run --directory backend python -c "from monoline.ir.sceneplan import KINDS; print(len(KINDS))"
+uv run --project backend python -c "from monoline.ir.sceneplan import KINDS; print(len(KINDS))"
 
 # 25 voices / 8 Chinese, 4 themes, 32 HTTP paths
 curl -s localhost:8787/api/voices | python3 -c "import json,sys; print(len(json.load(sys.stdin)['voices']))"
@@ -77,13 +72,22 @@ make test
 
 If a number moves in the product, update `src/strings.ts` in the same change.
 
+`backend/tests/test_site_bilingual.py` holds the line on the fixture itself: both languages
+present, same beat count, every span pointing at its own text, no Chinese in an English
+value. It was written after the page shipped with English chrome around a Chinese demo.
+
 ## Verification before a commit lands here
 
-`pnpm build`, then a headless pass over the built bundle: three widths (1440 / 768 / 390),
+`pnpm build`, then a headless pass over the built bundle: three widths (1440 / 900 / 390),
 both languages, and `prefers-reduced-motion`. The pass asserts horizontal overflow of 0px, no
-element extending past the viewport, no broken image, all eight hero beats revealed, and zero
-console/page/request failures. Judging layout from a thumbnail is not verification; the
-rectangles are measured.
+element extending past the viewport, no broken image, all eight hero beats revealed, every
+scene heading at opacity 1 after a scroll walk, and zero console/page/request failures.
+
+Language purity is asserted, not eyeballed: the pass walks every text node in the rendered DOM
+and counts CJK codepoints. In English mode the only two allowed are the 「中文」 label on the
+language switch, which names its language in its own script. Measured on the current build:
+`en` → 2 CJK characters at all three widths, `zh` → 727. Judging layout from a thumbnail is not
+verification; the rectangles and the counts are measured.
 
 ## Deliberately absent
 

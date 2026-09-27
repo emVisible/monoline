@@ -117,6 +117,61 @@ def test_segmenter_splits_english_sentences():
     assert seg._join("深海", "发光") == "深海发光"
 
 
+# The demo script the site's hero runs through the real segmenter (site/scripts/hero-source-en.txt).
+EN_DEMO = (
+    "Most creatures of the deep make their own light. This is not reflected sunlight; it is a "
+    "chemical reaction inside the body. When luciferin meets oxygen, a photon is released. "
+    "About 76% of deep-sea animals glow."
+)
+
+
+def test_the_beat_budget_is_measured_in_display_units_v75():
+    """#144: `max_chars` counted characters, so the 40-unit slide budget meant 40 Chinese
+    characters but ~80 letters of English. Every English sentence past seven words was
+    shredded at its own commas. Measured before the change, on the script above: 4 sentences
+    → 9 beats, 5 of them opening on a space (「 a photon is released.」). On the repo's own
+    README prose (30 sentences): 67 beats, 36 of them closing on a comma or colon.
+
+    The Chinese half of this assertion is the blast-radius guard — the ruler must be the
+    identity function on CJK, because every tuned threshold downstream is calibrated in 字."""
+    import re
+    from monoline.pipeline.segment import _units, segment_text
+
+    beats = segment_text(EN_DEMO)
+    assert beats == [
+        "Most creatures of the deep make their own light.",
+        "This is not reflected sunlight; it is a chemical reaction inside the body.",
+        "When luciferin meets oxygen, a photon is released.",
+        "About 76% of deep-sea animals glow.",
+    ]
+    assert all(b == b.strip() for b in beats), "a beat may not open on whitespace"
+    assert not any(re.search(r"[,;]$", b) for b in beats), "a beat may not close mid-clause"
+
+    zh = "深海里的生物大多能自己发光。这不是反射阳光，而是发生在体内的化学反应。"
+    assert _units(zh) == len(zh)                      # CJK: one unit per glyph, unchanged
+    assert segment_text(zh) == [
+        "深海里的生物大多能自己发光。", "这不是反射阳光，而是发生在体内的化学反应。"]
+
+
+def test_headline_size_follows_rendered_width_not_character_count_v75():
+    """The same ruler, one stage later. `headline_px` shrank a headline by `len(text)` against
+    a CJK-calibrated `ref_units`, so an 87-character English headline (44.5 units — one beat's
+    worth under the ceiling) computed to 37px and hit the 52px floor, while 44 Chinese
+    characters of identical rendered width kept 116px. Making the segmenter honest about
+    English made that the common case instead of the rare one."""
+    from monoline.compose.engine import _env
+    from monoline.pipeline.segment import _units
+
+    headline_px = _env().globals["headline_px"]
+    en = "Three groups account for most of them: lanternfish, hatchetfish, and the vampire squid"
+    kw = dict(base=116, min_px=52, ref_units=14, max_lines=2)
+    px_en = headline_px(en, **kw)
+    assert px_en > 52, f"floored to the minimum: {px_en}px"
+    same_width = "深" * round(_units(en))
+    assert abs(px_en - headline_px(same_width, **kw)) <= 4, \
+        f"{px_en}px vs {headline_px(same_width, **kw)}px for the same width"
+
+
 def test_brand_logo_renders_in_lockup():
     # V25: a brand logo (composition-relative image) shows in #brand; empty → text only.
     import json

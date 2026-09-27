@@ -1,63 +1,150 @@
-// Regenerates site/public/frames/outline.png — a real screenshot of the real outline panel,
-// driven through the same flow a user takes (paste → Generate → outline). Nothing is staged:
-// the script types the same eight sentences that `hero.json` was cut from, so the page's
-// hero demo and its product frame describe the same film.
+// Regenerates site/public/frames/outline-{zh,en}.png — real screenshots of the real outline
+// panel, driven through the same flow a user takes (paste → Generate → outline). Nothing is
+// staged, and the text typed is read from the same two files `gen-hero.py` cuts the hero demo
+// from, so the page's animated hero and its product frame describe the same film — in the
+// language the visitor is reading the page in.
 //
 //   1. start the app:      make start            (or uv run --directory backend monoline start)
 //   2. run this:           node site/scripts/capture-outline.mjs [port]
 //
-// Requires the repo's own puppeteer-core + the Playwright headless shell already used by
-// `make warmup`. Fails loudly if the panel never renders.
-import { createRequire } from "node:module";
+// Speaks Chrome DevTools Protocol over the browser's own debugging socket, using only Node
+// built-ins (fetch + WebSocket). The previous version needed puppeteer-core, which the repo
+// does not depend on — so this command could never have been run from a fresh clone.
+// The browser binary is the Playwright headless shell `make warmup` already uses.
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { spawn } from "node:child_process";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const require = createRequire(resolve(repo, "package.json"));
-const puppeteer = require("puppeteer-core");
 const port = process.argv[2] || process.env.MONOLINE_PORT || "8787";
-const out = resolve(repo, "site", "public", "frames", "outline.png");
-
-const SCRIPT = "深海里的生物大多能自己发光。这不是反射阳光，而是发生在体内的化学反应。荧光素遇到氧，光子就被放了出来。大约76%的深海动物会发光。三个类群占大多数：灯笼鱼、斧头鱼，以及吸血鬼乌贼。蓝绿色的光在水中传得最远，所以多数信号用它。有些鮟鱇能看见红色，而深处几乎没有别的生物看得见红色。生物发光是地球上最常见的交流方式。";
-
-const browser = await puppeteer.launch({
-  executablePath: process.env.CHROME || `${process.env.HOME}/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell`,
-  args: ["--no-sandbox"],
-});
-const page = await browser.newPage();
-const errors = [];
-page.on("pageerror", (e) => errors.push(String(e)));
-page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-await page.setViewport({ width: 1600, height: 900, deviceScaleFactor: 1 });
-
+const framesDir = resolve(repo, "site", "public", "frames");
+const cdpPort = 9333;
 const base = `http://127.0.0.1:${port}`;
-await page.goto(`${base}/`, { waitUntil: "networkidle2" });
-await page.evaluate(() => localStorage.setItem("monoline.lang", "en"));
-await page.goto(`${base}/#/new`, { waitUntil: "networkidle2" });
-// the i18n module reads storage at import time, so the switch needs a real reload
-await page.reload({ waitUntil: "networkidle2" });
-await new Promise((r) => setTimeout(r, 900));
+const chrome = process.env.CHROME
+  || `${process.env.HOME}/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell`;
 
-await page.evaluate((text) => {
-  const ta = document.querySelector("textarea");
-  const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
-  set.call(ta, text);
-  ta.dispatchEvent(new Event("input", { bubbles: true }));
-}, SCRIPT);
-await new Promise((r) => setTimeout(r, 400));
+const LANGS = [
+  { id: "zh", source: "hero-source.txt" },
+  { id: "en", source: "hero-source-en.txt" },
+];
 
-await page.click("button.generate");
-await page.waitForSelector(".ol-row", { timeout: 90000 });
-await new Promise((r) => setTimeout(r, 1200));
-await page.evaluate(() => window.scrollTo(0, 0));
-await new Promise((r) => setTimeout(r, 350));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const rows = await page.$$eval(".ol-row", (els) => els.length);
-await page.screenshot({ path: out });
-await browser.close();
+// --- CDP ---------------------------------------------------------------------
+let ws, seq = 0;
+const pending = new Map();
+const events = [];
 
-if (rows < 2 || errors.length) {
-  console.error(`capture failed: rows=${rows} errors=${errors.length} ${errors.slice(0, 3).join(" | ")}`);
-  process.exit(1);
+function send(method, params = {}) {
+  const id = ++seq;
+  return new Promise((ok, bad) => {
+    pending.set(id, { ok, bad });
+    ws.send(JSON.stringify({ id, method, params }));
+  });
 }
-console.log(`wrote ${out} — ${rows} outline rows, 0 page errors`);
+
+function waitEvent(name, timeoutMs = 30000) {
+  const hit = events.findIndex((e) => e.method === name);
+  if (hit >= 0) return Promise.resolve(events.splice(hit, 1)[0]);
+  return new Promise((ok, bad) => {
+    const timer = setTimeout(() => bad(new Error(`timeout waiting for ${name}`)), timeoutMs);
+    const poll = setInterval(() => {
+      const i = events.findIndex((e) => e.method === name);
+      if (i >= 0) { clearInterval(poll); clearTimeout(timer); ok(events.splice(i, 1)[0]); }
+    }, 25);
+  });
+}
+
+async function evaluate(expression, { awaitPromise = false } = {}) {
+  const r = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise });
+  if (r.exceptionDetails) throw new Error(r.exceptionDetails.text);
+  return r.result?.value;
+}
+
+const browser = spawn(chrome, [
+  "--headless", "--no-sandbox", "--disable-gpu",
+  `--remote-debugging-port=${cdpPort}`,
+  `--user-data-dir=${mkdtempSync(resolve(tmpdir(), "monoline-capture-"))}`,
+  "--window-size=1600,900", "about:blank",
+], { stdio: "ignore" });
+
+try {
+  let list;
+  for (let i = 0; i < 60; i++) {
+    try { list = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json(); break; }
+    catch { await sleep(250); }
+  }
+  if (!list) throw new Error("chrome-headless-shell never answered on the debugging port");
+  const target = list.find((t) => t.type === "page");
+  ws = new WebSocket(target.webSocketDebuggerUrl);
+  await new Promise((ok, bad) => { ws.onopen = ok; ws.onerror = () => bad(new Error("CDP socket failed")); });
+  ws.onmessage = (m) => {
+    const msg = JSON.parse(m.data);
+    if (msg.id && pending.has(msg.id)) {
+      const { ok, bad } = pending.get(msg.id);
+      pending.delete(msg.id);
+      msg.error ? bad(new Error(msg.error.message)) : ok(msg.result);
+    } else if (msg.method) {
+      events.push(msg);
+    }
+  };
+
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setDeviceMetricsOverride", { width: 1600, height: 900, deviceScaleFactor: 1, mobile: false });
+
+  for (const { id, source } of LANGS) {
+    const script = readFileSync(resolve(repo, "site", "scripts", source), "utf8").trim();
+    const thrown = [];
+    const record = () => {
+      for (let i = events.length - 1; i >= 0; i--) {
+        if (events[i].method === "Runtime.exceptionThrown") {
+          thrown.push(events[i].params.exceptionDetails?.exception?.description || "exception");
+          events.splice(i, 1);
+        }
+      }
+    };
+
+    await send("Page.navigate", { url: `${base}/` });
+    await waitEvent("Page.loadEventFired");
+    await evaluate(`localStorage.setItem("monoline.lang", ${JSON.stringify(id)})`);
+    await send("Page.navigate", { url: `${base}/#/new` });
+    // the app's i18n reads storage at import time, so the switch needs a real reload
+    await send("Page.reload", {});
+    await waitEvent("Page.loadEventFired");
+    await sleep(1200);
+
+    await evaluate(`(() => {
+      const ta = document.querySelector("textarea");
+      const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
+      set.call(ta, ${JSON.stringify(script)});
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      return !!ta;
+    })()`);
+    await sleep(500);
+    await evaluate(`document.querySelector("button.generate").click()`);
+
+    let rows = 0;
+    for (let i = 0; i < 240 && rows < 1; i++) {
+      await sleep(500);
+      rows = await evaluate(`document.querySelectorAll(".ol-row").length`);
+    }
+    await sleep(1400);
+    await evaluate("window.scrollTo(0, 0)");
+    await sleep(400);
+    record();
+    rows = await evaluate(`document.querySelectorAll(".ol-row").length`);
+    const shot = await send("Page.captureScreenshot", { format: "png" });
+    const out = resolve(framesDir, `outline-${id}.png`);
+    writeFileSync(out, Buffer.from(shot.data, "base64"));
+    if (rows < 2 || thrown.length) {
+      console.error(`${id}: capture failed — rows=${rows} exceptions=${thrown.length} ${thrown.slice(0, 2).join(" | ")}`);
+      process.exit(1);
+    }
+    console.log(`wrote ${out} — ${rows} outline rows, 0 uncaught exceptions`);
+  }
+} finally {
+  browser.kill();
+}

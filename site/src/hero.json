@@ -1,37 +1,144 @@
 {
-  "source": "深海里的生物大多能自己发光。这不是反射阳光，而是发生在体内的化学反应。荧光素遇到氧，光子就被放了出来。大约76%的深海动物会发光。三个类群占大多数：灯笼鱼、斧头鱼，以及吸血鬼乌贼。蓝绿色的光在水中传得最远，所以多数信号用它。有些鮟鱇能看见红色，而深处几乎没有别的生物看得见红色。生物发光是地球上最常见的交流方式。",
-  "beats": [
-    {
-      "text": "深海里的生物大多能自己发光",
-      "kind": "title"
-    },
-    {
-      "text": "这不是反射阳光，而是发生在体内的化学反应",
-      "kind": "statement"
-    },
-    {
-      "text": "荧光素遇到氧，光子就被放了出来",
-      "kind": "statement"
-    },
-    {
-      "text": "大约76%的深海动物会发光",
-      "kind": "stat"
-    },
-    {
-      "text": "三个类群占大多数：灯笼鱼、斧头鱼，以及吸血鬼乌贼",
-      "kind": "statement"
-    },
-    {
-      "text": "蓝绿色的光在水中传得最远，所以多数信号用它",
-      "kind": "statement"
-    },
-    {
-      "text": "有些鮟鱇能看见红色，而深处几乎没有别的生物看得见红色",
-      "kind": "split"
-    },
-    {
-      "text": "生物发光是地球上最常见的交流方式",
-      "kind": "summary"
-    }
-  ]
+  "zh": {
+    "source": "深海里的生物大多能自己发光。这不是反射阳光，而是发生在体内的化学反应。荧光素遇到氧，光子就被放了出来。大约76%的深海动物会发光。三个类群占大多数：灯笼鱼、斧头鱼，以及吸血鬼乌贼。蓝绿色的光在水中传得最远，所以多数信号用它。有些鮟鱇能看见红色，而深处几乎没有别的生物看得见红色。生物发光是地球上最常见的交流方式。",
+    "spans": [
+      [
+        0,
+        14
+      ],
+      [
+        14,
+        35
+      ],
+      [
+        35,
+        51
+      ],
+      [
+        51,
+        65
+      ],
+      [
+        65,
+        90
+      ],
+      [
+        90,
+        112
+      ],
+      [
+        112,
+        139
+      ],
+      [
+        139,
+        156
+      ]
+    ],
+    "beats": [
+      {
+        "text": "深海里的生物大多能自己发光",
+        "kind": "title"
+      },
+      {
+        "text": "这不是反射阳光，而是发生在体内的化学反应",
+        "kind": "statement"
+      },
+      {
+        "text": "荧光素遇到氧，光子就被放了出来",
+        "kind": "statement"
+      },
+      {
+        "text": "大约76%的深海动物会发光",
+        "kind": "stat"
+      },
+      {
+        "text": "三个类群占大多数：灯笼鱼、斧头鱼，以及吸血鬼乌贼",
+        "kind": "statement"
+      },
+      {
+        "text": "蓝绿色的光在水中传得最远，所以多数信号用它",
+        "kind": "statement"
+      },
+      {
+        "text": "有些鮟鱇能看见红色，而深处几乎没有别的生物看得见红色",
+        "kind": "split"
+      },
+      {
+        "text": "生物发光是地球上最常见的交流方式",
+        "kind": "summary"
+      }
+    ]
+  },
+  "en": {
+    "source": "Most creatures of the deep make their own light. This is not reflected sunlight; it is a chemical reaction inside the body. When luciferin meets oxygen, a photon is released. About 76% of deep-sea animals glow. Three groups account for most of them: lanternfish, hatchetfish, and the vampire squid. Blue-green light travels furthest through water, so most signals use it. Some anglerfish can see red, and almost nothing else down there can. Bioluminescence is the most common form of communication on Earth.",
+    "spans": [
+      [
+        0,
+        48
+      ],
+      [
+        49,
+        123
+      ],
+      [
+        124,
+        174
+      ],
+      [
+        175,
+        210
+      ],
+      [
+        211,
+        298
+      ],
+      [
+        299,
+        371
+      ],
+      [
+        372,
+        440
+      ],
+      [
+        441,
+        507
+      ]
+    ],
+    "beats": [
+      {
+        "text": "Most creatures of the deep make their own light.",
+        "kind": "title"
+      },
+      {
+        "text": "This is not reflected sunlight; it is a chemical reaction inside the body.",
+        "kind": "statement"
+      },
+      {
+        "text": "When luciferin meets oxygen, a photon is released.",
+        "kind": "statement"
+      },
+      {
+        "text": "About 76% of deep-sea animals glow.",
+        "kind": "stat"
+      },
+      {
+        "text": "Three groups account for most of them: lanternfish, hatchetfish, and the vampire squid.",
+        "kind": "statement"
+      },
+      {
+        "text": "Blue-green light travels furthest through water, so most signals use it.",
+        "kind": "statement"
+      },
+      {
+        "text": "Some anglerfish can see red, and almost nothing else down there can.",
+        "kind": "statement"
+      },
+      {
+        "text": "Bioluminescence is the most common form of communication on Earth.",
+        "kind": "summary"
+      }
+    ]
+  }
 }

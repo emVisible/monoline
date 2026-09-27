@@ -36,6 +36,8 @@ def vendor_composition_assets(ws, vendor_dir: Path, html: str) -> None:
 
 
 def _env() -> Environment:
+    from ..pipeline.segment import _units
+
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATES)),
         autoescape=select_autoescape(["html", "xml", "j2"], default_for_string=True),
@@ -43,15 +45,20 @@ def _env() -> Environment:
         lstrip_blocks=False,
     )
 
-    def headline_px(text: str, *, base: int, min_px: int, ref_chars: int, max_lines: int = 1) -> int:
-        """Deterministic fit: shrink a headline as it exceeds ref_chars, floor at min_px.
+    def headline_px(text: str, *, base: int, min_px: int, ref_units: float, max_lines: int = 1) -> int:
+        """Deterministic fit: shrink a headline as it exceeds ref_units, floor at min_px.
 
         `max_lines` is the real lever. Fitting to one line made a 24-char statement drop
         to 67px — body-text size on a slide meant to carry a single thought. Allowing two
-        lines keeps it at display size and lets the frame's vertical space do the work."""
-        n = max(1, len((text or "").strip()))
-        per_line = -(-n // max(1, max_lines))          # ceil: chars per line when wrapped
-        px = int(base * ref_chars / max(per_line, 1))
+        lines keeps it at display size and lets the frame's vertical space do the work.
+
+        Sized by display units, not characters (`pipeline.segment._units`, the same ruler the
+        segmenter's budget and `hero_px` use): an English headline of 87 characters is 42 CJK
+        glyph widths, and counting characters shrank it to the 52px floor while a Chinese
+        headline of the same rendered width kept 116px."""
+        n = max(1.0, _units((text or "").strip()))
+        per_line = -(-n // max(1, max_lines))          # ceil: units per line when wrapped
+        px = int(base * ref_units / max(per_line, 1))
         return max(min_px, min(base, px))
 
     env.globals["headline_px"] = headline_px

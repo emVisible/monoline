@@ -42,11 +42,14 @@ dev: ## Backend + Vite dev server (two processes; open http://localhost:5173)
 doctor: ## Show resolved environment truth (node/ffmpeg/chrome/fonts/sidecar)
 	uv run --directory backend monoline doctor
 
-test: ## The whole suite: backend pytest + SPA typecheck (run this, not an ad-hoc pytest)
+test: ## The whole suite: backend pytest + both frontends typecheck (run this, not an ad-hoc pytest)
 	@uv run --directory backend pytest tests/ -q
 	@# tests/test_i18n_coverage.py reads web/src/*.tsx as text, so a syntactically broken
 	@# SPA can pass the Python suite. tsc is the only thing that proves it compiles.
 	@cd web && pnpm exec tsc --noEmit
+	@# the marketing page shares design/tokens/ui.json and src/hero.json with the product,
+	@# so a rename in either breaks it — and nothing else in the gate would notice.
+	@cd site && pnpm exec tsc --noEmit
 
 warmup: ## Render a 2s synthetic fixture end-to-end to prove the toolchain
 	uv run --directory backend monoline warmup

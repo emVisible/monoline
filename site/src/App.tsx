@@ -12,7 +12,7 @@ const SCENES = 7;
 export default function App() {
   return (
     <>
-      <a className="skip" href="#main">Skip to content</a>
+      <a className="skip" href="#main">{t("a11y_skip")}</a>
       <header className="masthead">
         <a className="brand" href="#top">
           <Logo />
@@ -56,8 +56,8 @@ export default function App() {
           <h2>{t("b4_title")}</h2>
           <Lead>{t("b4_sub")}</Lead>
           <figure className="frame">
-            <img src="/frames/outline.png" alt="Monoline Studio: the beat list, a live preview and the per-beat inspector" width={1600} height={900} loading="lazy" />
-            <figcaption>Studio · beats / preview / inspector</figcaption>
+            <img src={`/frames/outline-${lang()}.png`} alt={t("frame_alt")} width={1600} height={900} loading="lazy" />
+            <figcaption>{t("frame_caption")}</figcaption>
           </figure>
         </Scene>
 

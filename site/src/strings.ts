@@ -7,6 +7,13 @@ export type Pair = { en: string; zh: string };
 
 export const STRINGS = {
   nav_source: { en: "Source", zh: "源码" },
+  a11y_skip: { en: "Skip to content", zh: "跳到正文" },
+  rail_aria: { en: "pipeline stages", zh: "管线阶段" },
+  frame_caption: { en: "Studio · beats / preview / inspector", zh: "工作台 · 节拍 / 预览 / 单拍检查器" },
+  frame_alt: {
+    en: "Monoline Studio: the beat list, a live preview and the per-beat inspector, all in English",
+    zh: "Monoline 工作台：节拍列表、实时预览与单拍检查器，界面为中文",
+  },
 
   hero_kicker: { en: "Local · monochrome · deterministic", zh: "本地运行 · 单色 · 确定性" },
   hero_line1: { en: "One sentence.", zh: "一句话，" },

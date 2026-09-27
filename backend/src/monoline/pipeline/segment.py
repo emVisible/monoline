@@ -52,6 +52,22 @@ _CONTINUATION = re.compile(r"^\s*(而|但|却|也|还|更|于是|所以|并且|�
 _STUB = re.compile(r"^\d{4}年|^[\d一二三四五六七八九十]{1,4}[月日]|^第[\d一二三四五六七八九十]{1,3}[步条章节]$")
 
 
+def _units(s: str) -> float:
+    """Beat length measured in **display units**, not characters: an em-width CJK glyph is 1,
+    a latin letter and the space between two words are 0.5 each.
+
+    `max_chars` is a slide-fit budget, and a budget written in characters silently halves
+    itself for English — 40 units is 40 Chinese characters but ~80 letters of Latin, so every
+    English sentence over ~7 words got shredded at its commas. Measured on the site's demo
+    script before the change: 8 sentences became 14 beats, 6 of them closing mid-clause
+    (「When luciferin meets oxygen,」 alone on a screen, with 「 a photon is released.」 — leading
+    space included — on the next). Same ruler already used by `llm.planner._width` and
+    `compose.engine.hero_px`; this makes the segmenter agree with them. Pure CJK text is
+    unaffected: no ASCII letters, no ASCII spaces, so units == characters."""
+    return sum(0.5 if c.isascii() and (c.isalpha() or c.isspace()) else 1.0
+               for c in _WS.sub(" ", s).strip())
+
+
 def _bad_cut(cur: str, nxt: str) -> bool:
     """Is closing a beat right here the wrong call? See _split_long."""
     if _CONTINUATION.match(nxt):
@@ -62,8 +78,8 @@ def _bad_cut(cur: str, nxt: str) -> bool:
     parts = [c for c in _CLAUSE_SPLIT.split(cur) if c.strip()]
     if not parts:
         return True
-    last = _WS.sub("", re.sub(r"[，,、：:；;]$", "", parts[-1].strip()))
-    return len(last) <= 6 or bool(_STUB.match(last))
+    last = re.sub(r"[，,、：:；;]$", "", parts[-1].strip())
+    return _units(last) <= 6 or bool(_STUB.match(last))
 
 
 def _strip_md(s: str) -> str:
@@ -109,8 +125,8 @@ class SentenceSegmenter:
         self.max_chars = max_chars
         self.hard_cap = hard_cap
 
-    def _len(self, s: str) -> int:
-        return len(_WS.sub("", s))
+    def _len(self, s: str) -> float:
+        return _units(s)
 
     def _split_long(self, s: str) -> list[str]:
         """Recursively split an over-budget sentence on clause punctuation.
@@ -121,24 +137,28 @@ class SentenceSegmenter:
         beat, or the next beat opening on 「而是…」. Both are fixed by absorbing the clause
         forward instead of closing here, up to `ceil_chars`; past that the layout would get a
         paragraph it cannot fit, so the original cut wins.
+
+        Clause parts are stripped and re-joined through `_join`, because the zero-width split
+        hands back 「 a photon is released.」 — a beat that opens on a space reads as a
+        continuation of nothing and lands indented on the slide.
         """
         if self._len(s) <= self.max_chars:
             return [s]
-        parts = [p for p in _CLAUSE_SPLIT.split(s) if p and p.strip()]
+        parts = [p.strip() for p in _CLAUSE_SPLIT.split(s) if p and p.strip()]
         if len(parts) <= 1:
             return [s]  # no clause boundary; keep as-is (a long word/number)
         ceil_chars = int(self.max_chars * CEIL_FACTOR)
         out: list[str] = []
         cur = ""
-        for idx, p in enumerate(parts):
+        for p in parts:
             if cur and self._len(cur) + self._len(p) > self.max_chars:
                 if not _bad_cut(cur, p) or self._len(cur) + self._len(p) > ceil_chars:
                     out.append(cur)
                     cur = p
                 else:
-                    cur += p        # keep the stub / the continuation with what it belongs to
+                    cur = self._join(cur, p)  # keep the stub / the continuation with its clause
             else:
-                cur = (cur + p) if cur else p
+                cur = self._join(cur, p)
         if cur:
             out.append(cur)
         # any single clause still too long stays (rare)
